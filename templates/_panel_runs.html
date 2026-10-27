@@ -1,0 +1,87 @@
+{% from "_macros.html" import sel, pager %}
+{% set env_q = ('&env=' ~ active_env.id) if active_env else '' %}
+{% set k = run_f.state.kind %}
+<div class="card">
+  <form class="filter-bar" method="get" action="{{ url_for('project_detail', pid=project.id) }}">
+    <input type="hidden" name="tab" value="runs">
+    {% if active_env %}<input type="hidden" name="env" value="{{ active_env.id }}">{% endif %}
+    {# 类型下拉不能用 sel 宏：它的"全部"是空串，而空串现在等于默认的回归，
+       选"全部"会看到 7 轮而不是 16 轮。这里给 all 一个显式的值。 #}
+    <div class="fld">
+      <label>类型</label>
+      <select name="kind" onchange="this.form.submit()">
+        {% for v, t in [('regression','回归'),('selfcheck','自检'),('diagnostic','诊断'),('all','全部类型')] %}
+        <option value="{{ v }}" {{ 'selected' if k == v }}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {{ sel('status', '状态', [('running','运行中'),('stalled','卡住（心跳超时）'),('queued','排队'),('done','完成'),('failed','失败')], run_f.state.status) }}
+    <div class="fld"><label>&nbsp;</label><button type="submit">筛选</button></div>
+    <span class="muted" style="align-self:center">运行由 AI 发起、runner 执行，这里只看结果</span>
+  </form>
+  <p class="result-line">
+    共 <b>{{ run_pg.grand_total }}</b> 轮
+    {% if k == 'regression' %}
+      　回归 <b>{{ run_pg.total }}</b> 轮
+      {% if run_f.state.status %}<span class="muted">（已按 {{ status_label(run_f.state.status) }} 筛）</span>{% endif %}
+      <span class="muted">· 自检/诊断 {{ run_f.others }} 轮不计入质量结论</span>
+      <a href="?tab=runs{{ env_q }}&kind=all">查看全部</a>
+    {% elif k == 'all' %}
+      　全部类型 <b>{{ run_pg.total }}</b> 轮
+      {% if run_f.state.status %}<span class="muted">（已按 {{ status_label(run_f.state.status) }} 筛）</span>{% endif %}
+    {% else %}
+      　{{ kind_label(k) }} <b>{{ run_pg.total }}</b> 轮
+      {% if run_f.state.status %}<span class="muted">（已按 {{ status_label(run_f.state.status) }} 筛）</span>{% endif %}
+      <span class="muted">· 不作被测对象的质量结论</span>
+    {% endif %}
+    {% if k != 'regression' or run_f.state.status %}　<a href="?tab=runs{{ env_q }}&kind=regression">回到默认视图</a>{% endif %}
+  </p>
+  <table>
+    <tr>
+      <th>ID</th><th>名称</th><th>范围</th><th>状态</th>
+      <th>进度</th><th>结果</th><th>开始 → 结束</th><th>执行者</th>
+    </tr>
+    {% for r in run_rows %}
+    <tr>
+      <td>{{ r.id }}</td>
+      <td class="wrap">
+        <span class="badge kind-{{ r.kind or 'regression' }}" title="轮次类型">{{ kind_label(r.kind) }}</span>
+        <a href="{{ url_for('run_detail', rid=r.id, back=qs) }}">{{ r.name }}</a>
+        {% if r.reason %}<div class="muted">{{ r.reason }}</div>{% endif %}
+      </td>
+      <td class="muted">
+        {% if r.scope.case_ids %}用例 {{ r.scope.case_ids|length }} 条
+        {% elif r.scope.batch %}批次 {{ r.scope.batch }}
+        {% elif r.scope.group %}分组 {{ r.scope.group }}
+        {% elif r.scope.module %}模块 {{ r.scope.module|join('、') }}
+        {% else %}—{% endif %}
+      </td>
+      <td>
+        <span class="badge {{ r.status }}">{{ status_label(r.status) }}</span>
+        {% if r.stalled %}<span class="badge stalled">卡住</span>{% endif %}
+      </td>
+      <td>
+        <div class="prog">
+          <div class="pbar"><i class="{{ 'warn' if r.stalled }}"
+            style="width:{{ ((100 * r.progress.done / r.progress.total)|round|int) if r.progress.total else 0 }}%"></i></div>
+          <span class="muted">{{ r.progress.done }}/{{ r.progress.total }}</span>
+        </div>
+      </td>
+      <td{% if r.kind and r.kind != 'regression' %} class="muted" title="自检/诊断轮：不作被测对象的质量结论"{% endif %}>
+        {% if r.progress.pass %}<span class="badge pass" title="通过 {{ r.progress.pass }} 条">{{ r.progress.pass }}</span>{% endif %}
+        {% if r.progress.fail %}<span class="badge fail" title="未通过 {{ r.progress.fail }} 条">{{ r.progress.fail }}</span>{% endif %}
+        {% if r.progress.blocked %}<span class="badge blocked" title="阻塞 {{ r.progress.blocked }} 条">{{ r.progress.blocked }}</span>{% endif %}
+        {% if not r.progress.done %}<span class="muted">{{ '全部跳过' if r.status in ('done','failed') else '还没跑' }}</span>{% endif %}
+      </td>
+      <td class="muted">{{ r.started_at or r.created_at }}<br>{{ r.finished_at or '—' }}</td>
+      <td class="muted">{{ r.runner_id or '（未记录）' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="muted">
+      {% if run_f.active %}没有符合条件的运行，<a href="{{ reset_url }}">清除筛选</a>
+      {% else %}还没有运行。AI 用 <code>POST /api/runs</code> 发起一轮，runner 认领后自动执行。{% endif %}
+    </td></tr>
+    {% endfor %}
+  </table>
+  {{ pager(run_pg, base_qs) }}
+</div>

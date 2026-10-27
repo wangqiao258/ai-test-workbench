@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% set active = 'dashboard' %}
+{% block content %}
+{% if pending %}<div class="flash">有 <b>{{ pending }}</b> 条 AI 提交的 Bug 待审核，<a href="{{ url_for('review') }}">去审核</a></div>{% endif %}
+<div class="card">
+  <h3>新建项目</h3>
+  <form method="post" action="{{ url_for('project_new') }}" style="display:flex;gap:10px;align-items:flex-end">
+    <div style="flex:2"><label>项目名称</label><input type="text" name="name" required></div>
+    <div style="flex:3"><label>描述</label><input type="text" name="description"></div>
+    <div><button type="submit">创建</button></div>
+  </form>
+</div>
+<div class="grid">
+  {% for p in projects %}
+  {% set q = stats[p.id].quality %}
+  <div class="card">
+    <h3><a href="{{ url_for('project_detail', pid=p.id) }}">{{ p.name }}</a></h3>
+    <p class="muted">{{ p.description }}</p>
+    <span class="stat">文档 <b>{{ stats[p.id].docs }}</b></span>
+    <span class="stat">用例 <b>{{ stats[p.id].cases }}</b></span>
+    <span class="stat">未关闭 Bug <b>{{ stats[p.id].bugs }}</b></span>
+    <span class="stat">执行轮 <b>{{ q.runs }}</b></span>
+    {# 数据质量（修复项 13）：总量回答"有多少"，这四个比率回答"真的能用吗" #}
+    <div class="quality">
+      <span class="muted">数据质量：</span>
+      {% set vr = q.interfaces.rate %}
+      <span class="badge {{ 'fail' if vr is not none and vr < q.thresholds.verify_rate else 'pass' }}"
+            title="挂完整数据包的接口 ÷ 总接口。接口标 verified 只说明验过，有报文证据才算数。健康线 {{ '%d' % (q.thresholds.verify_rate * 100) }}%">
+        真实验证 {{ q.interfaces.full }}/{{ q.interfaces.total }}{% if vr is not none %}（{{ '%d' % (vr * 100) }}%）{% endif %}
+      </span>
+      {# 覆盖两条轴：接口有没有用例、模块有没有 UI 用例。
+         少了它们，161 个接口里 125 个零用例也会显示"全部健康"。 #}
+      {% set irate = q.coverage.rate %}
+      <span class="badge {{ 'fail' if irate is not none and irate < q.thresholds.interface_coverage else 'pass' }}"
+            title="有用例的接口（主锚点或关联表都算）÷ 总接口。健康线 {{ '%d' % (q.thresholds.interface_coverage * 100) }}%，低于线说明还有模块整块没测">
+        接口覆盖 {{ q.coverage.covered }}/{{ q.coverage.total }}{% if irate is not none %}（{{ '%d' % (irate * 100) }}%）{% endif %}
+      </span>
+      {% set urate = q.ui.rate %}
+      <span class="badge {{ 'fail' if urate is not none and urate < q.thresholds.ui_modules_coverage else 'pass' }}"
+            title="有 UI 用例（steps_json 含 ui 步骤）的模块 ÷ 有接口的模块。健康线 {{ '%d' % (q.thresholds.ui_modules_coverage * 100) }}%；只补接口维度不会让这个数变大">
+        UI 覆盖 {{ q.ui.covered }}/{{ q.ui.total }} 个模块{% if urate is not none %}（{{ '%d' % (urate * 100) }}%）{% endif %}
+      </span>
+      {% set cr = q.cases.rate %}
+      <span class="badge {{ 'fail' if cr is not none and cr < q.thresholds.runnable_rate else 'pass' }}"
+            title="带机读断言（steps_json.checks）的用例 ÷ 总用例。没有 checks 的用例 runner 一律跳过。健康线 {{ '%d' % (q.thresholds.runnable_rate * 100) }}%">
+        可执行用例 {{ q.cases.runnable }}/{{ q.cases.total }}{% if cr is not none %}（{{ '%d' % (cr * 100) }}%）{% endif %}
+      </span>
+      {% set br = q.bugs.rate %}
+      <span class="badge {{ 'fail' if br is not none and br < q.thresholds.bug_pass_rate else 'pass' }}"
+            title="审核通过 ÷（通过 + 驳回）。长期偏低 = 提交侧自检不足，先查重再提交。健康线 {{ '%d' % (q.thresholds.bug_pass_rate * 100) }}%">
+        Bug 通过率 {% if br is not none %}{{ '%d' % (br * 100) }}%（{{ q.bugs.approved }}/{{ q.bugs.decided }}）{% else %}暂无已审{% endif %}
+      </span>
+      <span class="badge {{ 'fail' if q.orphan_execs > q.thresholds.orphan_execs else 'pass' }}"
+            title="run_id 为空的执行记录：答不了哪一轮跑的，趋势图画不出来。可用治理脚本回填。">
+        孤儿执行 {{ q.orphan_execs }}
+      </span>
+    </div>
+  </div>
+  {% else %}
+  <div class="card muted">还没有项目，先创建一个吧。</div>
+  {% endfor %}
+</div>
+{% endblock %}

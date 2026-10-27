@@ -1,0 +1,5 @@
+requests>=2.31
+# UI 用例（P2）：浏览器驱动。没装也能跑 API 用例，只有 UI 用例会报缺依赖。
+# 版本必须与 deploy/Dockerfile.runner 的基础镜像 tag 一致——镜像里内置的浏览器
+# 是那个版本的，pip 装了更新的 playwright 会报"浏览器可执行文件版本不匹配"。
+playwright==1.64.1

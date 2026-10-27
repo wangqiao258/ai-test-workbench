@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_macros.html" import progress_badge %}
+{% from "_packets.html" import packet_list %}
+{% from "_detail_interface.html" import method_badge, verify_badge, url_line, contract %}
+{% set active = 'dashboard' %}
+{% block title %}{{ itf.name }} - AI 协同测试工作台{% endblock %}
+{% block content %}
+<p class="muted"><a href="{{ back }}">← {{ itf.project_name }} / 接口</a></p>
+<div class="card">
+  <h2>
+    {{ method_badge(itf.method) }}
+    <code>{{ itf.path }}</code>
+  </h2>
+  {{ url_line(itf, active_env) }}
+  <p>{{ itf.name }} {{ verify_badge(itf) }}</p>
+  <p class="muted">模块：{{ itf.module }} · {{ itf.created_by }} · 验证于 {{ itf.verified_at }}</p>
+
+  {{ contract(itf) }}
+
+  <h3>数据包证据{% if packets %}　<span class="muted">（{{ packets|length }} 条）</span>{% endif %}</h3>
+
+  {% if itf.verify_status == 'verified' and not packets %}
+  {# 存量数据：2026-10-22 之前的"已验证"只凭一段文字，没有报文，如实标出来 #}
+  <div class="pkt-legacy">
+    <b>这条标着「已验证」，但库里没有原始报文。</b>
+    它是在引入数据包之前录的，evidence 只有一句话，<b>无法复核</b>。
+    下次复测请提交完整数据包，状态会按报文重新判定。
+  </div>
+  {% endif %}
+
+  {{ packet_list(packets, empty_hint='还没有数据包。提交方式：POST /api/packets，带上完整请求与响应（详见 README）。') }}
+
+  {% if itf.evidence %}
+  <h4>文字摘要</h4>
+  <p class="muted" style="font-size:12px;margin:2px 0 6px">下面这段是当时记的一句话，不含报文，<b>不能作为复核依据</b>；真正的证据看上面的数据包。</p>
+  <pre class="evidence" style="max-height:none">{{ itf.evidence }}</pre>
+  {% endif %}
+</div>
+
+{% if cases or bugs or dims_missing %}
+<div class="card">
+  <h3>关联</h3>
+  {# 「正常」是基线不是风险覆盖：分开显示，否则一条正常流用例会让接口看起来"维度都有了" #}
+  <p><b>基线（正常流）：</b>
+    {% if baseline_done %}<span class="badge verify-verified">已覆盖</span>
+    {% else %}<span class="badge verify-unverified">未覆盖</span>{% endif %}
+  </p>
+  <p><b>风险维度：</b><span class="muted">{{ risk_covered|length }} / {{ risk_total }}　</span>
+    {% for d in risk_covered %}<span class="badge">{{ d }}</span>{% endfor %}
+    {% if not risk_covered %}<span class="muted">尚无</span>{% endif %}
+    {% if risk_missing %}<span class="muted">　缺口：{{ risk_missing|join('、') }}</span>{% endif %}
+  </p>
+  {% if cases %}<p><b>用例：</b>{% for c in cases %}<a href="{{ url_for('case_detail', cid=c.id, back=back) }}">#{{ c.id }} {{ c.title }}</a>{% if c.dims %}（{{ c.dims|join('/') }}）{% endif %} {% endfor %}</p>{% endif %}
+  {% if bugs %}<p><b>Bug：</b>{% for b in bugs %}<a href="{{ url_for('bug_detail', bid=b.id, back=back) }}">#{{ b.id }} {{ b.title }}</a>（{{ progress_badge(b.review_status, b.reported_at) }}） {% endfor %}</p>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,42 @@
+{# 数据包证据：原生报文展示（2026-10-26 按用户要求改）
+   此前是"徽章 + 左右双栏 + 头字段表格"的重排视图——花，但不是证据本身。
+   现在一段 <pre> 就是抓包那一刻的原文：请求行 + 请求头 + 请求体 + 状态行 +
+   响应头 + 响应体，头按入库顺序全给、body 一个字符不改
+   （core/packets.raw_text，与 /packets/<id>/raw 同一份文本）。
+   页面只保留三样：一行元信息、报文本体、截断时的下载入口。
+   完整性警告保留——它决定接口能不能算 verified，是证据语义不是装饰。 #}
+
+{% macro packet_list(packets, empty_hint=None) %}
+{% if packets %}
+<div class="pkt-list">
+  {% for p in packets %}
+  <div class="pkt">
+    <p class="pkt-meta">
+      {% if p.label %}<span class="pkt-label">{{ p.label }}</span>{% endif %}
+      <b class="pkt-status {% if p.resp_status and p.resp_status >= 400 %}pkt-status-err{% endif %}">{{ p.resp_status }}</b>
+      <span>{{ '{:,}'.format(p.resp_chars_total or p.resp_chars or 0) }} 字符</span>
+      {% if p.duration_ms %}<span>{{ p.duration_ms }}ms</span>{% endif %}
+      <span>抓包 {{ p.captured_at or p.created_at }}</span>
+      <span>{{ p.created_by }}</span>
+      <span class="pkt-sha" title="{{ p.sha256 }}">sha256 {{ p.sha256[:16] }}…</span>
+      {% if p.completeness == 'full' %}<span class="pkt-ok">完整</span>
+      {% else %}<span class="pkt-bad" title="{{ p.missing }}">不完整</span>{% endif %}
+      <a class="pkt-raw-link" href="{{ url_for('packet_raw', pkid=p.id) }}" target="_blank"
+         title="整段原文的独立页：可复制、可下载 .http">原始报文页</a>
+    </p>
+    {% if p.completeness != 'full' and p.missing %}
+    <p class="pkt-warn">此包不完整：{{ p.missing }}。它不会把接口置为「已验证」。</p>
+    {% endif %}
+    <pre class="pkt-raw">{{ p.raw }}</pre>
+    {% if p.view_truncated %}
+    <p class="pkt-trunc">预览只显示前 {{ '{:,}'.format(20000) }} 字符，本条响应共 <b>{{ '{:,}'.format(p.resp_chars_total) }}</b> 字符。
+      <a href="{{ url_for('packet_raw', pkid=p.id, download=1) }}">下载完整原文（.http）</a>
+      <span class="muted">（存储未截断，下载即全量）</span></p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% elif empty_hint %}
+<p class="pkt-empty">{{ empty_hint }}</p>
+{% endif %}
+{% endmacro %}

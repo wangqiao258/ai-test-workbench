@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>{% block title %}AI 协同测试工作台{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_v }}">
+</head>
+<body>
+<div class="topbar">
+  <span class="brand">AI 协同测试工作台</span>
+  <nav>
+    <a href="{{ url_for('dashboard') }}" class="{{ 'active' if active=='dashboard' }}">项目</a>
+    <a href="{{ url_for('review') }}" class="{{ 'active' if active=='review' }}">Bug 审核{% if review_count %} <span class="tab-n" title="待审核 {{ review_pending }} + 待上报 {{ review_toreport }}">{{ review_count }}</span>{% endif %}</a>
+    <a href="{{ url_for('settings') }}" class="{{ 'active' if active=='settings' }}">账号</a>
+  </nav>
+  <span class="right">{{ session.get('user') }} · <a href="{{ url_for('logout') }}">退出</a></span>
+</div>
+<div class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</div>
+<script>
+/* 通用复制：任何带 data-copy 属性的元素点击即复制其值 */
+function wbCopy(text, btn){
+  function done(){
+    if(!btn) return;
+    var old = btn.textContent;
+    btn.textContent = "已复制"; btn.disabled = true;
+    setTimeout(function(){ btn.textContent = old; btn.disabled = false; }, 1200);
+  }
+  function fallback(){
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.top = "-1000px";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); } catch(e) {}
+    document.body.removeChild(ta); done();
+  }
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(text).then(done).catch(fallback);
+  } else { fallback(); }
+}
+document.addEventListener("click", function(e){
+  var b = e.target.closest("[data-copy]");
+  if(!b) return;
+  e.preventDefault(); e.stopPropagation();
+  wbCopy(b.getAttribute("data-copy"), b);
+});
+
+/* 复制整段原始报文：内容动辄几万字符，不能预先塞进 DOM，点的时候现取。
+   链接本身 href 指向原文页，所以禁用 JS 时退化成"打开新窗口自己复制"。 */
+document.addEventListener("click", function(e){
+  var b = e.target.closest("[data-copy-url]");
+  if(!b) return;
+  e.preventDefault(); e.stopPropagation();
+  var url = b.getAttribute("data-copy-url"), old = b.textContent;
+  b.textContent = "读取中…";
+  fetch(url, {credentials: "same-origin"})
+    .then(function(r){ if(!r.ok) throw new Error(r.status); return r.text(); })
+    .then(function(t){ b.textContent = old; wbCopy(t, b); })
+    .catch(function(){
+      b.textContent = "读取失败";
+      setTimeout(function(){ b.textContent = old; }, 1500);
+    });
+});
+
+/* ---------- 模块多选面板（<details> + checkbox） ----------
+   勾选不自动提交：每勾一次都刷新的话，面板会被关掉、根本勾不满。
+   勾到什么程度由按钮文案和底部计数实时反馈，点「应用」才走表单提交。 */
+function wbMsSync(d){
+  var cs = d.querySelectorAll("input[type=checkbox]:checked");
+  var n = cs.length, cnt = 0;
+  for(var i=0;i<n;i++){ cnt += (parseInt(cs[i].getAttribute("data-n"), 10) || 0); }
+  var v = d.querySelector(".ms-val");
+  if(v){ v.textContent = !n ? "全部模块" : (n === 1 ? cs[0].value : "已选 " + n + " 个"); }
+  var h = d.querySelector(".ms-hint");
+  if(h){
+    h.textContent = n ? (n + " 个模块 · " + cnt + " 条接口")
+                      : ("全部 " + (h.getAttribute("data-total") || 0) + " 条");
+  }
+}
+document.addEventListener("change", function(e){
+  var d = e.target.closest ? e.target.closest("details.ms") : null;
+  if(d) wbMsSync(d);
+});
+/* 浏览器后退回来时表单会恢复勾选状态，但 summary 文案是服务端渲染的旧值，
+   这里补一次同步，免得"勾着 3 个、标题写着全部模块"。 */
+window.addEventListener("pageshow", function(){
+  document.querySelectorAll("details.ms").forEach(wbMsSync);
+});
+document.addEventListener("click", function(e){
+  if(!e.target.closest) return;
+  var b = e.target.closest(".ms-clear");
+  if(b){
+    var d = b.closest("details.ms");
+    d.querySelectorAll("input[type=checkbox]").forEach(function(c){ c.checked = false; });
+    wbMsSync(d);
+    return;
+  }
+  // 点面板外面收起（原生 details 不会自己关）
+  document.querySelectorAll("details.ms[open]").forEach(function(d){
+    if(!d.contains(e.target)) d.removeAttribute("open");
+  });
+});
+</script>
+</body>
+</html>

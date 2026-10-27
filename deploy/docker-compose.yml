@@ -1,0 +1,46 @@
+# AI 协同测试工作台（P0 单服务；runner 服务 P1 再加）
+# 内网纯 HTTP（决策见 docs/部署与执行引擎设计.md §3-4）：8501 直接内网开放。
+# 一旦要出内网/上域名，先加 HTTPS 反代再开放。
+services:
+  platform:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: ai-test-platform:latest
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai   # 容器默认 UTC，库里时间会差 8 小时
+    volumes:
+      - ../data:/app/data          # 数据库 + 上传证据，全部状态在这里
+      - ../backups:/app/backups    # update.sh 的容器内热备落点
+    ports:
+      - "8501:8501"
+  # 执行引擎（P1）。默认不启动：先建好 run 再显式拉起，避免以为"它自己在跑"。
+  #   ./deploy/update.sh 不碰它；要跑：
+  #   RUNNER_TOKEN=atk_xxx docker compose -f deploy/docker-compose.yml --profile runner up -d runner
+  runner:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.runner
+    image: ai-test-platform-runner:latest
+    profiles: ["runner"]
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+      - PLATFORM_URL=http://platform:8501
+      - API_TOKEN=${RUNNER_TOKEN:-}
+      - POLL_SECONDS=${POLL_SECONDS:-5}
+      - REQUEST_TIMEOUT=${REQUEST_TIMEOUT:-30}
+      # 内网测试环境多为自签证书；用内网 IP 直连时证书是签给域名的，必须关校验
+      - VERIFY_SSL=${VERIFY_SSL:-0}
+      # UI 用例（P2）：浏览器是否无头。排查选择器时设 0 需要配合 VNC/端口转发，一般保持 1
+      - HEADLESS=${HEADLESS:-1}
+      - UI_TIMEOUT_MS=${UI_TIMEOUT_MS:-15000}
+    # UI 页面所在域名 → 内网 IP。服务器出网 443 被静默丢包时（见 deploy/diag_443.sh），
+    # 靠这层映射让页面仍按域名加载：静态资源是绝对路径、Cookie 绑域名、证书签给域名。
+    # 只改 IP 就能换环境；不通时 UI 用例会在 goto 阶段 blocked，不会假 fail。
+    # 真实值由部署环境给，不进仓库：UI_HOST / UI_HOST_IP（不跑 UI 就删掉这段）
+    extra_hosts:
+      - "${UI_HOST:-test.example.com}:${UI_HOST_IP:-127.0.0.1}"
+    depends_on:
+      - platform

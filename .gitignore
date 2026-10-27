@@ -1,0 +1,20 @@
+data/
+backups/
+.venv/
+__pycache__/
+*.pyc
+*.bak
+.DS_Store
+
+# AI 一次性补丁、编辑器与测试工具缓存
+.patch_eval.py
+*.tmp
+*.orig
+*.rej
+*.swp
+*~
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/

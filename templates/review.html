@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% from "_macros.html" import progress_badge %}
+{% set active = 'review' %}
+{% block title %}Bug 待办 - AI 协同测试工作台{% endblock %}
+{% block content %}
+{# 队列 = 未结案：待审核 + 待上报，与导航栏角标同口径。
+   只收 pending 时，待上报的那条会把角标撑出数字却在页面上找不到。 #}
+<h2>Bug 待办（{{ bugs|length }}）</h2>
+<p class="muted">跨项目收件箱，与导航栏角标同口径：待审核 <b>{{ n_pending }}</b> 条、待上报
+  <b>{{ n_toreport }}</b> 条。左上筛选、左侧点条目在右栏看全文——待审核的点通过/驳回，
+  待上报（已通过、还没抄进公司表格）的点「标记已上报」，处理完自动离开这个列表。
+  要看已上报与已驳回，去该项目的 Bug tab。</p>
+
+{% if bugs %}
+{# 批量表单做成空壳，靠控件的 form 属性关联：卡片是链接，不能被 form 包住 #}
+<form method="post" action="{{ url_for('review_batch') }}" id="bulk-form">
+  <input type="hidden" name="kind" value="bug">
+  <input type="hidden" name="back" value="{{ back_qs }}">
+  <input type="hidden" name="comment" class="batch-comment" value="">
+  <input type="hidden" name="reject_category" class="batch-reject-category" value="">
+</form>
+
+<div class="split">
+
+  <aside class="split-left">
+    <div class="split-head">
+      <div class="filter-bar compact">
+        <div class="fld"><label>项目</label>
+          <select id="f-bug-project" onchange="applyFilter('bug')">
+            <option value="">全部项目</option>
+            {% for p in bugs|map(attribute='project_name')|unique %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="fld"><label>进度</label>
+          <select id="f-bug-state" onchange="applyFilter('bug')">
+            <option value="">全部</option>
+            <option value="pending">待审核</option>
+            <option value="toreport">待上报</option>
+          </select>
+        </div>
+        <div class="fld"><label>严重程度</label>
+          <select id="f-bug-extra" onchange="applyFilter('bug')">
+            <option value="">全部</option>
+            {% for v, t in sev_options %}<option value="{{ v }}">{{ t }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="fld"><label>证据</label>
+          <select id="f-bug-evi" onchange="applyFilter('bug')">
+            <option value="">全部</option>
+            <option value="1">有证据</option>
+            <option value="0">无证据</option>
+          </select>
+        </div>
+        <div class="fld grow"><label>关键字</label>
+          <input type="text" id="f-bug-kw" placeholder="标题 / ID" oninput="applyFilter('bug')">
+        </div>
+        <div class="fld"><label>&nbsp;</label><button type="button" class="secondary" onclick="clearFilter()">清除</button></div>
+      </div>
+      <p class="result-line" style="margin:6px 0 8px"><span class="muted" id="f-bug-count"></span></p>
+    </div>
+
+    <div class="split-body" id="list-bug">
+      {% for b in bugs %}
+      <div class="bug-card {{ 'active' if sel_bug and sel_bug.id == b.id }}"
+           data-project="{{ b.project_name }}" data-extra="{{ b.severity }}"
+           data-state="{{ 'toreport' if b.review_status == 'approved' else 'pending' }}"
+           data-id="{{ b.id }}" data-evi="{{ 1 if b.has_evidence else 0 }}"
+           data-text="{{ b.title|lower }}">
+        <a class="bc-link" href="?{{ sel_qs[b.id] }}">
+          <div class="bc-title" title="{{ b.title }}">{{ b.title }}</div>
+          <div class="bc-meta">
+            <span class="badge sev-{{ b.severity }}">{{ sev_label(b.severity) }}</span>
+            {{ progress_badge(b.review_status, b.reported_at) }}
+            <span class="bc-proj">{{ b.project_name }}</span>
+            {% if b.has_evidence %}<span class="bc-evi on">有证据</span>
+            {% else %}<span class="bc-evi off">无证据</span>{% endif %}
+            <span class="bc-time">{{ (b.created_at or '')[:10] }}</span>
+          </div>
+        </a>
+        <input type="checkbox" class="cb-bug" form="bulk-form" name="ids"
+               value="{{ b.id }}" data-evi="{{ 1 if b.has_evidence else 0 }}"
+               aria-label="选择 Bug {{ b.id }}">
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="split-foot">
+      {% include "_bug_bulk.html" %}
+    </div>
+  </aside>
+
+  <section class="split-right">
+    {% if sel_bug %}
+      {% with bug = sel_bug, atts = sel_atts, packets = sel_packets, detail_back = back_qs %}
+        {% include "_detail_bug.html" %}
+      {% endwith %}
+    {% else %}
+      <div class="card"><p class="muted" style="margin:0">左侧没有可显示的待办 Bug。</p></div>
+    {% endif %}
+  </section>
+
+</div>
+{% else %}
+<div class="card"><p class="muted" style="margin:0">没有待办的 Bug（待审核、待上报都清空了）。
+  AI 经 API 录入后会自动进这里。</p></div>
+{% endif %}
+
+{% include "_bug_actions.html" %}
+
+<script>
+/* 前端筛选：收件箱是一次性处理，数据已经在页面上，不必每改一次条件跑一次服务端。
+   筛选状态写回地址栏，刷新后由 restore() 还原。
+   进度（state）作为筛选键：队列混了待审核与待上报，处理完一类可以只看另一类。 */
+var FKEYS = {project: 'fp', state: 'fs', extra: 'fe', evi: 'fv', kw: 'fq'};
+
+function cardsOf(prefix) {
+  return document.querySelectorAll('#list-' + prefix + ' .bug-card');
+}
+
+function applyFilter(prefix, skipUrl) {
+  var el = function (k) { return document.getElementById('f-' + prefix + '-' + k); };
+  var p = (el('project') || {}).value || '';
+  var sEl = el('state'); var s = sEl ? sEl.value : '';
+  var eEl = el('extra'); var e = eEl ? eEl.value : '';
+  var vEl = el('evi'); var v = vEl ? vEl.value : '';
+  var kw = ((el('kw') || {}).value || '').trim().toLowerCase();
+  var cards = cardsOf(prefix);
+  var shown = 0;
+  cards.forEach(function (c) {
+    var ok = (!p || c.dataset.project === p)
+      && (!s || c.dataset.state === s)
+      && (!e || c.dataset.extra === e)
+      && (!v || c.dataset.evi === v)
+      && (!kw || c.dataset.text.indexOf(kw) !== -1 || c.dataset.id === kw);
+    c.style.display = ok ? '' : 'none';
+    if (ok) shown++;
+  });
+  var cnt = document.getElementById('f-' + prefix + '-count');
+  if (cnt) cnt.textContent = '显示 ' + shown + ' / ' + cards.length + ' 条';
+  if (!skipUrl) syncUrl(prefix, {project: p, state: s, extra: e, evi: v,
+                                 kw: (el('kw') || {}).value || ''});
+  updateBulk();
+  return shown;
+}
+
+function syncUrl(prefix, vals) {
+  var u = new URL(location.href);
+  Object.keys(FKEYS).forEach(function (k) {
+    var v = (vals[k] || '').trim();
+    if (v) u.searchParams.set(FKEYS[k], v); else u.searchParams.delete(FKEYS[k]);
+  });
+  history.replaceState(null, '', u);
+}
+
+function restore(prefix) {
+  var q = new URLSearchParams(location.search);
+  Object.keys(FKEYS).forEach(function (k) {
+    var v = q.get(FKEYS[k]);
+    var el = document.getElementById('f-' + prefix + '-' + k);
+    if (v && el) el.value = v;
+  });
+  applyFilter(prefix, true);
+}
+
+/* 清除筛选：控件置空 + 走一次 applyFilter，顺带把 URL 参数清掉 */
+function clearFilter() {
+  ['project', 'state', 'extra', 'evi', 'kw'].forEach(function (k) {
+    var el = document.getElementById('f-bug-' + k);
+    if (el) el.value = '';
+  });
+  applyFilter('bug');
+}
+
+if (document.getElementById('list-bug')) restore('bug');
+</script>
+{% endblock %}

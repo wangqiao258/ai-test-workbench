@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sel, search, result_line, pager %}
+{% set active = 'settings' %}
+{% block title %}账号 - AI 协同测试工作台 {% endblock %}
+{% block content %}
+<h2>账号</h2>
+<div class="card">
+  <h3>修改密码</h3>
+  <form method="post">
+    <label>原密码</label>
+    <input type="password" name="old_password" required autocomplete="current-password">
+    <label>新密码（{{ pwd_hint }}）</label>
+    <input type="password" name="new_password" required autocomplete="new-password">
+    <label>再输入一次新密码</label>
+    <input type="password" name="confirm_password" required autocomplete="new-password">
+    <label class="chk"><input type="checkbox" onchange="wbEye(this)"> 显示新密码（两个新密码框一起显示）</label>
+    <div style="margin-top:10px"><button type="submit">修改</button></div>
+  </form>
+</div>
+<script>
+/* 密码框默认遮蔽，看不清就没法发现自己打错了。这里同时切换两个新密码框，
+   点开一次就能肉眼比对两次输入是否一致。 */
+function wbEye(cb) {
+  var t = cb.checked ? "text" : "password";
+  var els = document.querySelectorAll('input[name="new_password"],input[name="confirm_password"]');
+  for (var i = 0; i < els.length; i++) els[i].type = t;
+}
+</script>
+<div class="card">
+  <h3>API Token（AI 凭证）</h3>
+  <p class="muted">AI 调用接口时必须在请求头携带 <code>X-API-Token</code>。泄露时可随时吊销并重新生成。</p>
+  <form method="post" action="{{ url_for('token_new') }}" style="display:flex;gap:10px;align-items:flex-end">
+    <div><label>名称</label><input type="text" name="name" placeholder="如：workbuddy"></div>
+    <div><button type="submit">生成新 Token</button></div>
+  </form>
+  <table style="margin-top:12px">
+    <tr><th>ID</th><th>名称</th><th>Token（点击复制）</th><th>创建时间</th><th>状态</th><th>操作</th></tr>
+    {% for t in tokens %}
+    <tr>
+      <td>{{ t.id }}</td><td>{{ t.name }}</td>
+      <td><code style="cursor:pointer;font-size:12px" title="点击复制" onclick="navigator.clipboard.writeText('{{ t.token }}').then(()=>{this.style.color='#1a7f37';this.textContent='已复制 ✓';setTimeout(()=>{this.style.color='';this.textContent='{{ t.token }}'},1200)})">{{ t.token }}</code></td>
+      <td class="muted">{{ t.created_at }}</td>
+      <td>{% if t.revoked %}<span class="badge rejected">已吊销</span>{% else %}<span class="badge approved">有效</span>{% endif %}</td>
+      <td>{% if not t.revoked %}
+        <form class="inline" method="post" action="{{ url_for('token_revoke', tid=t.id) }}">
+          <button type="submit" class="danger">吊销</button>
+        </form>
+      {% else %}
+        <form class="inline" method="post" action="{{ url_for('token_delete', tid=t.id) }}" onsubmit="return confirm('确定删除这条 Token 记录？')">
+          <button type="submit" class="secondary">删除</button>
+        </form>
+      {% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+<div class="card">
+  <h3>操作日志（{{ apg.total }} 条）</h3>
+  <form class="filter-bar" method="get" action="{{ url_for('settings') }}">
+    {{ sel('actor', '操作者', actors, af.state.actor) }}
+    {{ sel('action', '动作', actions, af.state.action) }}
+    {{ search('q', '关键字', af.state.q, '动作 / 对象 / 详情') }}
+    <div class="fld"><label>&nbsp;</label><button type="submit">筛选</button></div>
+  </form>
+  {{ result_line(apg.all_total, apg.total, af, url_for('settings')) }}
+  <table>
+    <tr><th>时间</th><th>操作者</th><th>动作</th><th>对象</th><th>详情</th></tr>
+    {% for a in audits %}
+    <tr><td class="muted">{{ a.created_at }}</td><td>{{ a.actor }}</td><td>{{ a.action }}</td><td>{{ a.target }}</td><td class="muted wrap">{{ a.detail }}</td></tr>
+    {% else %}
+    <tr><td colspan="5" class="muted">没有符合条件的日志</td></tr>
+    {% endfor %}
+  </table>
+  {{ pager(apg, audit_base, 'apage') }}
+</div>
+{% endblock %}

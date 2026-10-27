@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% set active = 'dashboard' %}
+{% block title %}{{ project.name }} - AI 协同测试工作台{% endblock %}
+{% block content %}
+<h2>{{ project.name }} <span class="muted">{{ project.description }}</span></h2>
+{% set e = ('&env=' ~ active_env.id) if active_env else '' %}
+<div class="tabs">
+  <a href="?tab=docs{{ e }}" class="{{ 'active' if tab=='docs' }}">项目文档 <span class="tab-n">{{ counts.docs }}</span></a>
+  <a href="?tab=interfaces{{ e }}" class="{{ 'active' if tab=='interfaces' }}"
+     title="一个入口两个视图：列表检索（筛选条件可直接给 AI 复用）/ 目录树浏览；标准文档在页头「导出 openapi.json」">接口 <span class="tab-n">{{ counts.interfaces }}</span></a>
+  <a href="?tab=cases{{ e }}" class="{{ 'active' if tab=='cases' }}">测试用例 <span class="tab-n">{{ counts.cases }}</span></a>
+  <a href="?tab=bugs{{ e }}" class="{{ 'active' if tab=='bugs' }}">Bug <span class="tab-n">{{ counts.bugs }}</span></a>
+  <a href="?tab=runs{{ e }}&kind=regression" class="{{ 'active' if tab=='runs' }}"
+     title="回归 {{ counts.runs_regression }} 轮 / 全部 {{ counts.runs }} 轮（自检·诊断 {{ counts.runs_other }} 轮不计入质量结论）">运行 <span class="tab-n">{{ counts.runs_regression }}/{{ counts.runs }}</span></a>
+  <a href="?tab=settings{{ e }}" class="{{ 'active' if tab=='settings' }}" title="环境 / 测试账号 / 运行通知（webhook）">项目设置</a>
+</div>
+{% include "_panel_" ~ tab ~ ".html" %}
+{% endblock %}

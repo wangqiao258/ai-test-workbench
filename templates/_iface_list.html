@@ -1,0 +1,40 @@
+{# 接口列表视图：只管"找到那一条"，契约正文在 /interfaces/<id> 或目录树右栏。
+   筛选条件全在 URL 里，与 /api/interfaces 同一套语义（分组 / 模块多选 / 方法 / 关键字）。 #}
+{% from "_macros.html" import sel, sel_group, ms_module, search, result_line, pager %}
+{% from "_detail_interface.html" import method_badge %}
+{% set env_qs = ('&env=' ~ active_env.id) if active_env else '' %}
+{% set reset_url = url_for('project_detail', pid=project.id, tab='interfaces') ~ env_qs %}
+{% set cur_group = itf_f.state.get('group', '') %}
+<div class="card">
+  <form class="filter-bar" method="get" action="{{ url_for('project_detail', pid=project.id) }}">
+    <input type="hidden" name="tab" value="interfaces">
+    {% if active_env %}<input type="hidden" name="env" value="{{ active_env.id }}">{% endif %}
+    {% if itf_group_opts %}{{ sel_group('group', '分组', itf_group_opts, cur_group) }}{% endif %}
+    {{ ms_module('module', '模块', itf_module_opts, itf_f.state.module, itf_pg.total) }}
+    {{ sel('method', '方法', [('GET','GET'),('POST','POST'),('PUT','PUT'),('DELETE','DELETE'),('PATCH','PATCH')], itf_f.state.method) }}
+    {{ search('q', '关键字', itf_f.state.q, '路径 / 名称 / 模块') }}
+    <div class="fld"><label>&nbsp;</label><button type="submit">筛选</button></div>
+  </form>
+  {{ result_line(itf_pg.all_total, itf_pg.total, itf_f, reset_url) }}
+  <table>
+    <tr><th>ID</th><th>模块</th><th>方法</th><th>路径</th><th>名称</th><th>验证</th></tr>
+    {% for i in itf_rows %}
+    <tr>
+      <td>{{ i.id }}</td>
+      {# 点模块名只看该模块：保留分组/方法/关键字，只覆盖 module，丢掉页码 #}
+      <td><a href="?{{ qs_with(request.args, module=i.module, page='') }}" title="只看 {{ i.module }}">{{ i.module }}</a></td>
+      <td>{{ method_badge(i.method) }}</td>
+      <td class="wrap">{% if i.host %}<span class="muted">{{ i.host }}</span><br>{% endif %}<code>{{ i.path }}</code></td>
+      <td class="wrap"><a href="{{ url_for('interface_detail', iid=i.id, back=qs) }}">{{ i.name }}</a></td>
+      <td>{% if i.verify_status == 'verified' %}<span class="muted">{{ (i.verified_at or '')[:10] }}</span>
+        {% else %}<span class="badge verify-{{ i.verify_status }}">{{ {'unverified':'未验证','changed':'有变更'}[i.verify_status] }}</span>{% endif %}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="muted">
+      {% if itf_f.active %}没有符合条件的接口，<a href="{{ reset_url }}">清除筛选</a>
+      {% else %}还没有接口记录。接口由 AI 实测后通过 API 提交（附数据包证据），提交即生效。{% endif %}
+    </td></tr>
+    {% endfor %}
+  </table>
+  {{ pager(itf_pg, base_qs) }}
+</div>

@@ -1,0 +1,58 @@
+{# 接口契约的唯一渲染处：/interfaces/<id> 全文页与「接口」tab 目录树右栏共用。
+   之前右栏用 JS 手拼 HTML，两套渲染已经漂移（notes 一边 Markdown 一边被转义，
+   请求参数表头一边「字段」一边「名称」）。加字段/改表头只改这里。 #}
+
+{% macro method_badge(method) -%}
+<span class="badge method-{{ (method or 'GET')|lower }}">{{ (method or 'GET')|upper }}</span>
+{%- endmacro %}
+
+{% macro verify_badge(itf) -%}
+<span class="badge verify-{{ itf.verify_status }}">{{ {'verified':'已验证','unverified':'未验证','changed':'有变更'}[itf.verify_status] }}</span>
+{%- endmacro %}
+
+{# 完整地址：host（该接口独立域名）优先，其次环境 base_url；来源写清楚。
+   active_env 显式传参——被 import 的宏默认拿不到调用方上下文。 #}
+{% macro url_line(itf, active_env=None) %}
+<p class="url-line">
+  <span class="muted">完整地址</span>
+  <code>{{ itf.full_url }}</code>
+  <button type="button" class="copy-btn" data-copy="{{ itf.full_url }}">复制</button>
+  {% if itf.host %}<span class="muted">该接口独立域名</span>
+  {% elif active_env %}<span class="muted">域名来自环境：{{ active_env.name }}</span>
+  {% else %}<span class="muted">项目未配置环境 base_url</span>{% endif %}
+</p>
+{% endmacro %}
+
+{% macro contract(itf, show_empty=False) %}
+{% if itf.req_headers_list %}
+<h3>请求头</h3>
+<table><tr><th>名称</th><th>必填</th><th>说明</th><th>示例</th></tr>
+  {% for h in itf.req_headers_list %}
+  <tr><td><code>{{ h.name }}</code></td><td>{{ '是' if h.required else '否' }}</td><td>{{ h.desc }}</td><td class="muted">{{ h.example }}</td></tr>
+  {% endfor %}
+</table>
+{% elif show_empty %}<h3>请求头</h3><p class="muted">无</p>{% endif %}
+
+{% if itf.req_params_list %}
+<h3>请求参数</h3>
+<table><tr><th>名称</th><th>类型</th><th>必填</th><th>说明</th><th>示例</th></tr>
+  {% for p in itf.req_params_list %}
+  <tr><td><code>{{ p.name }}</code></td><td>{{ p.type or 'string' }}</td><td>{{ '是' if p.required else '否' }}</td><td>{{ p.desc }}</td><td class="muted">{{ p.example }}</td></tr>
+  {% endfor %}
+</table>
+{% elif show_empty %}<h3>请求参数</h3><p class="muted">无</p>{% endif %}
+
+{% if itf.resp_example %}
+<h3>响应示例</h3>
+<pre class="evidence" style="max-height:none">{{ itf.resp_example }}</pre>
+{% elif show_empty %}<h3>响应示例</h3><p class="muted">无</p>{% endif %}
+
+{% if itf.error_codes_list %}
+<h3>错误码</h3>
+<table><tr><th>code</th><th>说明</th></tr>
+  {% for e in itf.error_codes_list %}<tr><td><code>{{ e.code }}</code></td><td>{{ e.desc }}</td></tr>{% endfor %}
+</table>
+{% endif %}
+
+{% if itf.notes %}<h3>备注</h3><div class="md-body">{{ itf.notes | md }}</div>{% endif %}
+{% endmacro %}

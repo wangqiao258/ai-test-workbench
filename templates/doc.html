@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% set active = 'dashboard' %}
+{% block title %}{{ doc.title }} - AI 协同测试工作台{% endblock %}
+{% block content %}
+<p class="muted"><a href="{{ back }}">← {{ doc.project_name }} / 项目文档</a></p>
+<div class="card">
+  <h2>
+    <span class="badge dtype-{{ doc.dtype }}">{{ doc_type_label(doc.dtype) }}</span>
+    {{ doc.title }}
+  </h2>
+  <p class="muted">{{ doc.created_by }} · 更新于 {{ doc.updated_at }}</p>
+  <div class="md-body">{{ doc.content | md }}</div>
+  {% set imgs = evidence_images(doc.evidence) %}
+  {% if doc.evidence %}
+  <h3>验证证据（真实数据包）</h3>
+  <pre class="evidence">{{ doc.evidence }}</pre>
+  {% endif %}
+  {% if imgs or atts %}
+  <h3>图片证据</h3>
+  {% for img in imgs %}
+  <a href="/files/{{ img }}" target="_blank"><img src="/files/{{ img }}" class="thumb" alt="证据截图"></a>
+  {% endfor %}
+  {% for a in atts %}
+  <a href="/files/{{ a.stored_name }}" target="_blank"><img src="/files/{{ a.stored_name }}" class="thumb" alt="{{ a.filename }}"></a>
+  {% endfor %}
+  {% endif %}
+</div>
+{% endblock %}

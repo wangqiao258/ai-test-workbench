@@ -1,0 +1,386 @@
+* { box-sizing: border-box; }
+body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; margin: 0; background: #f5f6f8; color: #222; }
+a { color: #2f6fed; text-decoration: none; }
+.topbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 12px 24px; display: flex; align-items: center; gap: 20px; }
+.topbar .brand { font-weight: 700; font-size: 17px; padding-right: 16px; border-right: 1px solid #e5e7eb; }
+.topbar nav a { margin-right: 14px; color: #444; }
+.topbar nav a.active { color: #2f6fed; font-weight: 600; }
+.topbar .right { margin-left: auto; color: #666; font-size: 13px; }
+/* 导航栏的待审数：橙色=有活要干，和项目页 tab 的灰色计数区分开 */
+.topbar nav .tab-n { background: #fff4e0; color: #b26a00; font-weight: 500; }
+.container { width: 96%; max-width: 1600px; margin: 24px auto; padding: 0 16px; }
+.card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; overflow-x: auto; }
+.card h3 { margin-top: 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; }
+.badge.pending { background: #fff4e0; color: #b26a00; }
+.badge.approved { background: #e6f6e6; color: #1a7f37; }
+.badge.rejected { background: #fde8e8; color: #c81e1e; }
+.badge.open { background: #fde8e8; color: #c81e1e; }
+.badge.fixed { background: #e0ecff; color: #2f6fed; }
+.badge.verified, .badge.closed { background: #e6f6e6; color: #1a7f37; }
+.badge.pass { background: #e6f6e6; color: #1a7f37; }
+.badge.fail { background: #fde8e8; color: #c81e1e; }
+.badge.blocked { background: #fff4e0; color: #b26a00; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+td { white-space: nowrap; }
+td.wrap { white-space: normal; min-width: 200px; }  /* 标题等内容列允许换行 */
+/* 严重程度徽标 */
+.badge.sev-critical { background: #fde8e8; color: #c81e1e; font-weight: 600; }
+.badge.sev-major { background: #fff4e0; color: #b26a00; }
+.badge.sev-normal { background: #e0ecff; color: #2f6fed; }
+.badge.sev-minor { background: #eef1f6; color: #666; }
+th { color: #666; font-weight: 600; white-space: nowrap; }
+input[type=text], input[type=password], select, textarea {
+  width: 100%; padding: 8px 10px; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 14px; margin-top: 4px;
+}
+textarea { min-height: 80px; font-family: inherit; }
+/* 筛选条内的控件横排自适应，覆盖上面的 width:100% */
+.filter-bar select, .filter-bar input[type=text] { width: auto; min-width: 140px; margin-top: 0; }
+label { font-size: 13px; color: #555; display: block; margin-top: 10px; }
+button, .btn { background: #2f6fed; color: #fff; border: none; border-radius: 6px; padding: 8px 16px; font-size: 14px; cursor: pointer; }
+button.secondary, .btn.secondary { background: #eef1f6; color: #333; }
+button.danger { background: #c81e1e; }
+form.inline { display: inline; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid #e5e7eb; margin-bottom: 16px; }
+.tabs a { padding: 8px 16px; color: #555; border-bottom: 2px solid transparent; }
+.tabs a.active { color: #2f6fed; border-bottom-color: #2f6fed; font-weight: 600; }
+.flash { background: #fff8e1; border: 1px solid #ffe082; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; word-break: break-all; }
+/* 改密码这类会静默改坏状态的操作，成功和失败必须一眼分得开；默认的黄条留给其它提示 */
+.flash.ok { background: #e6f6e6; border-color: #b7e0b7; color: #1a7f37; }
+.flash.error { background: #fdecec; border-color: #f3b7b7; color: #c81e1e; }
+label.chk { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+label.chk input[type=checkbox] { margin: 0; width: auto; }
+.muted { color: #888; font-size: 13px; }
+pre.evidence { background: #f6f8fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 220px; overflow: auto; }
+/* Markdown 渲染 */
+.md-body { font-size: 14px; line-height: 1.7; }
+.md-body h1, .md-body h2, .md-body h3 { margin: 14px 0 8px; }
+.md-body table { margin: 10px 0; }
+.md-body th { background: #f6f8fa; }
+.md-body code { background: #f6f8fa; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+.md-body pre { background: #f6f8fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; overflow: auto; }
+.md-body pre code { background: none; padding: 0; }
+.md-body blockquote { border-left: 3px solid #d0d5dd; margin: 8px 0; padding: 2px 12px; color: #555; }
+/* 文档类型徽标 */
+.badge.dtype-interface { background: #e0ecff; color: #2f6fed; }
+.badge.dtype-page { background: #f0e6ff; color: #7a3fc8; }
+.badge.dtype-flow { background: #e0f6f2; color: #0f766e; }
+.badge.dtype-general { background: #eef1f6; color: #555; }
+.badge.dtype-analysis { background: #fde8e8; color: #c81e1e; }
+.badge.dtype-record { background: #fff4e0; color: #b26a00; }
+.badge.dtype-test-report { background: #e6f6e6; color: #1a7f37; }
+.badge.dtype-test-plan { background: #e0ecff; color: #2f6fed; }
+.badge.dtype-test-scheme { background: #e0f6f2; color: #0f766e; }
+/* 状态徽标：执行结果 / 接口验证状态 */
+.badge.blocked { background: #fff4e0; color: #b26a00; }
+.badge.verify-verified { background: #e6f6e6; color: #1a7f37; }
+.badge.verify-unverified { background: #eef1f6; color: #666; }
+.badge.verify-changed { background: #fff4e0; color: #b26a00; }
+/* 证据图片缩略图 */
+img.thumb { max-width: 220px; max-height: 160px; border: 1px solid #e5e7eb; border-radius: 6px; margin: 6px 8px 0 0; vertical-align: top; cursor: zoom-in; }
+.login-box { max-width: 360px; margin: 120px auto; }
+.stat { display: inline-block; margin-right: 14px; color: #555; font-size: 13px; }
+.stat b { color: #222; }
+/* 数据质量看板（修复项 13）：一行徽标，低于健康线的变红，只提示不拦截 */
+.quality { margin-top: 10px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.quality .badge { cursor: help; }
+/* 服务地址条：域名是接口属性，放页面顶部而不是塞进目录树层级 */
+.svc { margin: 10px 0 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13px; }
+.svc code { background: #f6f8fa; border: 1px solid #e5e7eb; border-radius: 4px; padding: 2px 8px; font-size: 13px; }
+.copy-btn { background: #f6f8fa; color: #333; border: 1px solid #d0d5dd; border-radius: 4px; padding: 2px 10px; font-size: 12px; cursor: pointer; }
+.copy-btn:hover { background: #e0ecff; border-color: #85b7eb; color: #1a5fd4; }
+.copy-btn:disabled { opacity: .75; cursor: default; }
+.env-pill { font-size: 12px; padding: 2px 10px; border: 1px solid #d0d5dd; border-radius: 12px; color: #555; background: #fff; }
+.env-pill.on { background: #e0ecff; border-color: #85b7eb; color: #1a5fd4; }
+.host-note { font-size: 12px; color: #b26a00; background: #fff8e1; border: 1px solid #ffe0a3; border-radius: 4px; padding: 2px 8px; }
+.url-line { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.url-line code { background: #f6f8fa; border: 1px solid #e5e7eb; border-radius: 4px; padding: 2px 8px; word-break: break-all; }
+
+/* ---------- 列表页统一筛选条 / 分页 ---------- */
+.filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 6px; }
+.filter-bar .fld { display: flex; flex-direction: column; gap: 3px; }
+.filter-bar .fld label { margin: 0; font-size: 12px; color: #666; }
+.filter-bar .fld.grow { flex: 1 1 220px; min-width: 200px; }
+.filter-bar select, .filter-bar input[type=text] { margin-top: 0; min-width: 130px; }
+.filter-bar .fld.grow input[type=text] { width: 100%; }
+.filter-bar > a { align-self: center; font-size: 13px; }
+
+/* ---------- 模块多选面板：<details> + checkbox ----------
+   选它而不是 <select multiple>：勾选项都叫同一个 name，提交出来天然是
+   重复键（?module=A&module=B），不需要 JS 维护隐藏域。 */
+.ms { position: relative; }
+.ms > summary { list-style: none; cursor: pointer; min-width: 140px; max-width: 220px;
+  padding: 8px 26px 8px 10px; border: 1px solid #d0d5dd; border-radius: 6px;
+  font-size: 14px; background: #fff; position: relative;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ms > summary::-webkit-details-marker { display: none; }
+.ms > summary::after { content: "▾"; position: absolute; right: 9px; top: 50%;
+  transform: translateY(-50%); color: #888; font-size: 12px; }
+.ms[open] > summary { border-color: #2f6fed; box-shadow: 0 0 0 2px rgba(47,111,237,.12); }
+.ms-panel { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; width: 320px;
+  max-height: 340px; display: flex; flex-direction: column; overflow: hidden;
+  background: #fff; border: 1px solid #d0d5dd; border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(16,24,40,.14); }
+/* 列表自己滚，页脚固定在外层：用 sticky 的话滚到底时最后一项会被页脚压住 */
+.ms-list { overflow-y: auto; }
+.ms-head { font-size: 11px; font-weight: 600; color: #8a94a6; padding: 8px 12px 3px; }
+.ms-item { display: flex; align-items: center; gap: 7px; margin: 0; padding: 5px 12px;
+  font-size: 13px; color: #333; cursor: pointer; }
+.ms-item:hover { background: #f0f4ff; }
+.ms-item input { margin: 0; flex: none; }
+.ms-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-foot { flex: none; display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px 9px; border-top: 1px solid #eef1f6; background: #fff; }
+.ms-hint { margin-right: auto; font-size: 11px; color: #8a94a6; white-space: nowrap; }
+.ms-foot button { padding: 4px 9px; font-size: 12px; white-space: nowrap; }
+.result-line { margin: 6px 0 10px; color: #555; font-size: 13px; }
+.result-line b { color: #222; }
+.pager { display: flex; align-items: center; gap: 14px; margin-top: 12px; font-size: 13px; color: #555; }
+.tab-n { display: inline-block; margin-left: 2px; padding: 0 6px; border-radius: 9px; background: #eef1f6; color: #666; font-size: 12px; }
+/* 列表里的驳回意见：只显示一行，全文在详情页 */
+.review-note { margin-top: 4px; font-size: 12px; color: #b26a00; background: #fff8e1; border-left: 2px solid #ffe0a3; padding: 2px 8px; }
+/* Bug 审核输入区（替代原来的两个 prompt 弹框）：分类 + 原因常驻在卡底 */
+.review-box { margin-top: 18px; padding: 10px 12px; border: 1px dashed #d0d5dd; border-radius: 8px;
+  background: #fafbfc; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.review-box .rb-head { flex: 0 0 100%; font-weight: 600; font-size: 13px; }
+.review-box .rb-head .muted { font-weight: 400; margin-left: 8px; font-size: 12px; }
+.review-box label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: #666; }
+.review-box .rb-grow { flex: 1 1 260px; min-width: 220px; }
+.review-box select, .review-box textarea { margin-top: 0; font-size: 13px; }
+.review-box textarea { resize: vertical; min-height: 54px; }
+.review-box textarea.need { border-color: #c81e1e; box-shadow: 0 0 0 2px rgba(200,30,30,.12); }
+/* 用例详情：结构化步骤 */
+ol.steps { margin: 8px 0; padding-left: 22px; }
+ol.steps > li { margin-bottom: 14px; }
+ol.steps p { margin: 4px 0; }
+.step-req code { background: #f6f8fa; border: 1px solid #e5e7eb; border-radius: 4px; padding: 2px 8px; font-size: 13px; }
+.step-expect { color: #1a7f37; }
+.run { border-top: 1px solid #eee; padding: 10px 0; }
+.run:first-of-type { border-top: none; }
+.run p { margin: 4px 0; }
+.run-steps { margin: 6px 0; padding-left: 20px; font-size: 13px; }
+
+/* ---------- Bug 页：审核动作 ---------- */
+/* 筛选条上方的一句话说明：状态与审核是两件事 */
+.hint { font-size: 13px; color: #555; background: #f6f8fa; border-left: 3px solid #d0d5dd;
+        padding: 6px 10px; margin: 0 0 12px; line-height: 1.6; }
+/* 审核列：徽标 + 通过/驳回小按钮 */
+.review-cell { white-space: normal; min-width: 148px; }
+button.mini { padding: 2px 8px; font-size: 12px; border-radius: 4px; margin: 2px 0 0 2px; }
+/* 关闭前给结论的弹窗 */
+dialog { border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px 20px; max-width: 440px; }
+dialog::backdrop { background: rgba(0, 0, 0, .28); }
+dialog h3 { margin: 0 0 8px; font-size: 15px; }
+dialog p { font-size: 13px; line-height: 1.6; }
+.dlg-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+/* ---------- Bug 分栏（左索引 + 右详情） ---------- */
+/* 左栏 560px：实测接口 path 折行率 0%、用例标题 3%、Bug 标题 49%（卡片本就按两行设计）。
+   1920 屏下右栏仍有 952px，接口详情的五列表格放得下。 */
+.split { display: flex; gap: 16px; align-items: stretch; }
+/* 190px = topbar + 页面标题 + tabs + 口径说明；留 200 避免出现多余的整页滚动条 */
+.split-left, .split-right { height: calc(100vh - 200px); min-height: 420px; }
+.split-left { flex: 0 0 560px; display: flex; flex-direction: column;
+              background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }
+.split-right { flex: 1; min-width: 0; overflow-y: auto; scrollbar-gutter: stable; }
+
+.split-head { padding: 10px 12px 0; border-bottom: 1px solid #eee; }
+.split-body { flex: 1; overflow-y: auto; padding: 8px; }
+.split-foot { border-top: 1px solid #eee; padding: 0 12px; }
+/* 项目页底栏是「批量条 + 分页」两行，审核页只有批量条 */
+.split-foot .bulk-bar { padding: 8px 0 6px; }
+.split-foot .pager { margin-top: 0; padding: 6px 0 8px; border-top: 1px solid #f0f0f0; font-size: 12px; }
+.split-head .result-line { margin: 6px 0 8px; font-size: 12px; }
+
+/* 左栏筛选条：控件按 3 列网格排；关键字跨 2 列，按钮占最后一格 */
+.filter-bar.compact { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 8px; }
+.filter-bar.compact .fld { min-width: 0; }
+.filter-bar.compact .fld.grow { min-width: 0; grid-column: span 2; }
+.filter-bar.compact .fld label { font-size: 11px; }
+.filter-bar.compact select, .filter-bar.compact input[type=text] {
+  min-width: 0; width: 100%; font-size: 12px; padding: 5px 6px;
+}
+.filter-bar.compact button { padding: 6px 10px; font-size: 12px; }
+
+/* 索引卡片：纯链接，标题最多两行；按钮一律放右栏，列表里不出现交互元素嵌套 */
+.bug-card { display: block; position: relative; padding: 8px 10px; margin-bottom: 6px; color: inherit;
+            border: 1px solid #eee; border-radius: 6px; }
+.bug-card:last-child { margin-bottom: 0; }
+.bug-card:hover { border-color: #85b7eb; background: #f7faff; }
+.bug-card.active { border-color: #2f6fed; background: #e0ecff; }
+.bc-title { font-size: 13px; line-height: 1.5; color: #222; word-break: break-all;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bug-card.active .bc-title { color: #0c447c; font-weight: 500; }
+.bc-meta { display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+           margin-top: 5px; font-size: 11px; color: #888; }
+.bc-meta .badge { font-size: 11px; padding: 0 6px; }
+.bc-mod { color: #666; }
+.bc-time { margin-left: auto; color: #aaa; }
+
+/* 右栏顶部操作条：sticky 在滚动容器内，证据再长也够得到按钮 */
+.detail-actions { position: sticky; top: 0; z-index: 5; display: flex; align-items: center;
+                  gap: 10px; flex-wrap: wrap; background: #fff; padding: 8px 14px;
+                  border: 1px solid #e5e7eb; border-bottom: 1px solid #eee;
+                  border-radius: 10px 10px 0 0; }
+.da-info { display: flex; align-items: center; gap: 6px; }
+.da-ops { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.da-ops form.inline { display: inline-flex; align-items: center; gap: 4px; }
+.da-ops select.mini-select { width: auto; margin: 0; padding: 4px 6px; font-size: 12px; }
+.da-ops button { padding: 5px 10px; font-size: 12px; }
+.detail-actions + .detail-card { border-radius: 0 0 10px 10px; margin-top: 0; border-top: none; }
+
+/* ---------- 审核队列：卡片 + 批量 ---------- */
+/* 卡片右侧留 22px 给勾选框：点标题区切右栏详情，点勾选框选批量，互不干扰 */
+.bug-card > .bc-link { display: block; color: inherit; padding-right: 22px; }
+.bug-card .cb-bug { position: absolute; top: 10px; right: 8px; margin: 0;
+                    width: auto; cursor: pointer; }
+.bc-proj { color: #555; }
+.bc-evi.on { color: #1a7f37; }
+.bc-evi.off { color: #b26a00; }
+
+.bulk-bar { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 12px; }
+.bulk-all { display: inline-flex; align-items: center; gap: 4px; margin: 0;
+            font-size: 12px; color: #555; cursor: pointer; }
+.bulk-all input { margin: 0; width: auto; cursor: pointer; }
+.bulk-ops { margin-left: auto; display: flex; gap: 6px; }
+.bulk-ops button { padding: 5px 10px; font-size: 12px; }
+.bulk-ops button:disabled { opacity: .45; cursor: not-allowed; }
+
+/* 审核队列的筛选条：4 个控件排 2×2（比 3 列更整齐，也不会把关键字挤窄） */
+.filter-bar.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 8px; }
+.filter-bar.pair .fld { min-width: 0; }
+.filter-bar.pair .fld label { font-size: 11px; }
+.filter-bar.pair select, .filter-bar.pair input[type=text] {
+  min-width: 0; width: 100%; font-size: 12px; padding: 5px 6px;
+}
+
+/* 窄屏降级：1400 以下左栏压到 420px（仍是 Bug 标题两行的宽度），1120 以下改为上下堆叠 */@media (max-width: 1400px) {
+  .split-left { flex: 0 0 420px; }
+}
+@media (max-width: 1120px) {
+  .split { flex-direction: column; }
+  .split-left, .split-right { flex: none; width: 100%; height: auto; max-height: none; }
+  .split-body { overflow: visible; max-height: 60vh; }
+  .split-right { overflow: visible; }
+  .detail-actions { position: static; }
+}
+
+/* ===== 数据包证据（2026-10-26 改为原生报文展示）=====
+   一段 <pre> 就是抓包那一刻的原文（请求行+头+体 / 状态行+头+体），
+   头按入库顺序、body 不改一个字符。去掉了此前的双栏、头表格与徽章堆叠：
+   证据的呈现形式就是原文本身，页面只留元信息行 + 报文本体 + 截断提示。 */
+.pkt-list { display: flex; flex-direction: column; gap: 12px; margin: 8px 0 4px; }
+.pkt { border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
+.pkt-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px;
+            margin: 0; padding: 7px 12px; font-size: 12px; color: #666;
+            border-bottom: 1px solid #eef1f6; background: #fcfcfd;
+            border-radius: 8px 8px 0 0; }
+.pkt-meta b { font-size: 13px; }
+.pkt-label { color: #444; background: #eef1f6; border-radius: 4px; padding: 1px 6px; }
+.pkt-status { color: #1a7f37; font-family: Consolas, Monaco, monospace; }
+.pkt-status-err { color: #c81e1e; }
+.pkt-ok { color: #1a7f37; }
+.pkt-bad { color: #b26a00; cursor: help; }
+.pkt-sha { font-family: Consolas, Monaco, monospace; }
+.pkt-raw-link { margin-left: auto; }
+.pkt-raw { background: #f6f8fa; border: 1px solid #e5e7eb; border-radius: 0 0 6px 6px;
+           padding: 10px 12px; font-size: 12px; line-height: 1.55;
+           white-space: pre-wrap; word-break: break-all;
+           max-height: 560px; overflow: auto; margin: 0; }
+.pkt-trunc { background: #fff4e0; border: 1px solid #ffd79a; border-radius: 6px;
+             padding: 6px 9px; font-size: 12px; color: #8a5300; margin: 8px 12px 10px; }
+.pkt-trunc a { font-weight: 600; }
+.pkt-warn { background: #fff4e0; border-left: 3px solid #d98a00; padding: 6px 10px;
+            font-size: 12px; color: #8a5300; margin: 8px 12px 0; border-radius: 0 4px 4px 0; }
+.pkt-legacy { background: #fde8e8; border-left: 3px solid #c81e1e; padding: 8px 12px;
+              font-size: 13px; color: #7d1414; margin: 8px 0; border-radius: 0 4px 4px 0; }
+.pkt-empty { color: #666; font-size: 13px; background: #f6f8fa; border: 1px dashed #d0d5dd;
+             border-radius: 6px; padding: 10px 12px; }
+
+/* ---------- 账号表格：就地编辑 + 密码遮蔽（2026-10-23） ---------- */
+/* 密码默认只见圆点，点开才见明文：防截图/录屏带出凭据，不改变 API 行为 */
+.pw > summary { list-style: none; cursor: pointer; color: #2f6fed;
+                letter-spacing: 1px; display: inline-block; }
+.pw > summary::-webkit-details-marker { display: none; }
+.pw[open] > summary { color: #888; letter-spacing: 0; }
+.pw code { font-size: 12px; word-break: break-all; }
+.acct-ops { white-space: nowrap; }
+.acct-ops .btn.mini, .acct-ops button.mini { padding: 3px 9px; font-size: 12px; }
+/* 编辑行整行展开：表格单元格默认 nowrap，这里放开并铺满一行 */
+.acct-edit-row > td { background: #f8fafc; white-space: normal; padding: 12px; }
+.acct-edit-form { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.acct-edit-form .fld { display: flex; flex-direction: column; gap: 3px; min-width: 130px; }
+.acct-edit-form .fld.grow { flex: 1; min-width: 180px; }
+.acct-edit-form label { margin: 0; font-size: 12px; color: #666; }
+.acct-edit-form input[type=text], .acct-edit-form select { margin-top: 0; min-width: 120px; }
+
+/* ---------- 执行观测（runs）：状态徽标 / 进度条 / 收尾 ---------- */
+.badge.queued { background: #eef1f6; color: #666; }
+.badge.running { background: #e0ecff; color: #2f6fed; }
+.badge.done { background: #e6f6e6; color: #1a7f37; }
+.badge.failed { background: #fde8e8; color: #c81e1e; }
+.badge.stalled { background: #fff4e0; color: #b26a00; }
+/* 进度条只表达"跑到第几条"，红绿由右侧计数徽标表达，避免一个条四种颜色 */
+.prog { display: flex; align-items: center; gap: 8px; min-width: 150px; }
+.pbar { flex: 1; height: 8px; min-width: 70px; background: #eef1f6; border-radius: 4px; overflow: hidden; }
+.pbar > i { display: block; height: 100%; background: #2f6fed; }
+.pbar > i.warn { background: #e0a030; }
+.prog-big { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 14px 0 4px; font-size: 14px; }
+.prog-big .pbar { flex: 1 1 220px; height: 10px; }
+.warn-box { background: #fff8ec; border: 1px solid #f0d9b5; color: #8a5a00;
+  padding: 10px 12px; border-radius: 8px; margin: 12px 0; font-size: 13px; }
+.cancel-form { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.cancel-form input[type=text] { flex: 1 1 320px; margin-top: 0; }
+table.kv th { width: 110px; color: #666; font-weight: 500; }
+table.kv td, table.kv th { border-bottom: 1px solid #f1f2f5; }
+/* 轮次类型：回归=蓝（正经轮次），自检=灰，诊断=粉（排查用，别当回归结论读） */
+.badge.kind-regression { background: #e0ecff; color: #2f6fed; }
+.badge.kind-selfcheck { background: #eef1f6; color: #666; }
+.badge.kind-diagnostic { background: #fbeaf0; color: #993556; }
+
+/* ---------- 接口 tab：方法徽标 + 目录树视图 ----------
+   方法徽标全站一套（列表 / 详情 / 目录树）。2026-10-27 之前目录树另有一套 .m-badge，
+   而列表页的 .method-* 根本没有配色，同一个 GET 会出现两种外观。 */
+.badge.method-get { background: #e6f6e6; color: #1a7f37; }
+.badge.method-post { background: #e0ecff; color: #2f6fed; }
+.badge.method-put { background: #fff4e0; color: #b26a00; }
+.badge.method-delete { background: #fde8e8; color: #c81e1e; }
+.badge.method-patch,
+.badge.method-head,
+.badge.method-options { background: #f0e6ff; color: #7a3fc8; }
+
+/* 目录树：左树右栏，右栏由 /projects/<pid>/interfaces/<iid>/panel.html 服务端渲染 */
+.itf-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.itf-toolbar input { max-width: 420px; }
+.itf-wrap { display: flex; gap: 16px; align-items: flex-start; }
+.itf-tree { flex: 0 0 340px; max-height: 70vh; overflow: auto;
+  border: 1px solid #ddd; border-radius: 6px; padding: 8px; background: #fff; }
+.itf-detail { flex: 1; min-width: 0; border: 1px solid #ddd; border-radius: 6px;
+  padding: 16px; background: #fff; max-height: 70vh; overflow: auto; }
+.itf-tree ul { list-style: none; margin: 0; padding-left: 16px; }
+.itf-tree > ul { padding-left: 4px; }
+.tree-folder { cursor: pointer; user-select: none; padding: 3px 4px; border-radius: 4px; display: block; }
+.tree-folder:hover { background: #f0f4ff; }
+.tree-folder.active { background: #e3ecff; }
+.tree-folder .arrow { display: inline-block; width: 14px; transition: transform .15s; }
+.tree-folder.open .arrow { transform: rotate(90deg); }
+.tree-folder.host-folder { color: #0c447c; font-weight: 600; }
+/* 目录汇总里的"未验证/有变更"清单：只列路径，不做链接（点树里的条目才是入口） */
+.itf-todo { margin: 6px 0; padding-left: 18px; font-size: 13px; }
+.itf-todo li { margin: 3px 0; }
+.tree-children { display: none; }
+.tree-children.open { display: block; }
+.tree-file { padding: 3px 4px; border-radius: 4px; cursor: pointer; display: block; }
+.tree-file:hover { background: #f0f4ff; }
+.tree-file.active { background: #e3ecff; }
+.tree-file .badge { font-size: 11px; padding: 0 6px; margin-right: 6px; }
+.itf-dim { color: #999; font-size: 12px; }
+.mark-changed { color: #b26a00; font-weight: 400; }
+.mark-unverified { color: #888; font-weight: 400; }
+@media (max-width: 1120px) {
+  .itf-wrap { display: block; }
+  .itf-tree { margin-bottom: 10px; }
+  .itf-tree, .itf-detail { max-height: none; }
+}

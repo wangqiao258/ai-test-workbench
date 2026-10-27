@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% from "_packets.html" import packet_list %}
+{% set active = 'dashboard' %}
+{% block title %}{{ case.title }} - AI 协同测试工作台{% endblock %}
+{% block content %}
+<p class="muted"><a href="{{ back }}">← 返回用例列表</a></p>
+
+<div class="card">
+  <h2>#{{ case.id }} {{ case.title }}</h2>
+  <p class="muted">
+    {{ case.project_name }}　模块：{{ case.module or '未分组' }}　优先级：{{ case.priority }}
+    　{{ case.created_by }}　更新于 {{ case.updated_at }}
+  </p>
+  <p>
+    {% for d in case.dims %}<span class="badge">{{ d }}</span>{% endfor %}
+    {% if linked %}<span class="muted">　关联接口：</span>
+      {% for l in linked %}<a href="{{ url_for('interface_detail', iid=l.id, back=back) }}">{{ l.method }} {{ l.path }}</a>{% if not loop.last %} · {% endif %}{% endfor %}
+    {% elif case.doc_id %}<span class="muted">　文档 #{{ case.doc_id }}</span>
+    {% else %}<span class="muted">　仅模块（跨接口场景）</span>{% endif %}
+  </p>
+
+  {% if case.preconditions %}
+  <h3>前置条件</h3>
+  <p>{{ case.preconditions }}</p>
+  {% endif %}
+
+  <h3>步骤</h3>
+  {% if case.steps_doc and case.steps_doc.steps %}
+  <ol class="steps">
+    {% for s in case.steps_doc.steps %}
+    <li>
+      <p>{{ s.action }}</p>
+      {% if s.request %}
+      <p class="step-req"><code>{{ s.request.method }} {{ s.request.path }}</code></p>
+      {% if s.request.query %}<pre class="evidence">query: {{ s.request.query|tojson }}</pre>{% endif %}
+      {% if s.request.body %}<pre class="evidence">body: {{ s.request.body|tojson }}</pre>{% endif %}
+      {% if s.request.headers %}<pre class="evidence">headers: {{ s.request.headers|tojson }}</pre>{% endif %}
+      {% endif %}
+      {% if s.ui %}<p class="step-req"><code>{{ ui_text(s.ui) }}</code></p>{% endif %}
+      <p class="step-expect">预期：{{ s.expect }}</p>
+    </li>
+    {% endfor %}
+  </ol>
+  {% elif case.steps %}
+  <pre class="evidence" style="max-height:none">{{ case.steps }}</pre>
+  {% else %}<p class="muted">没有记录步骤</p>{% endif %}
+
+  <h3>预期结果</h3>
+  <p>{{ case.expected or '未填写' }}</p>
+</div>
+
+<div class="card">
+  <h3>执行历史（{{ runs|length }}）</h3>
+  {% for r in runs %}
+  <div class="run">
+    <p>
+      <span class="badge {{ r.result }}">{{ status_label(r.result) }}</span>
+      <span class="muted">　{{ r.created_at }} · {{ r.executed_by }}</span>
+    </p>
+    {% if r.step_results_list %}
+    <ul class="run-steps">
+      {% for sr in r.step_results_list %}
+      <li><span class="badge {{ sr.result }}">{{ status_label(sr.result) }}</span> 步骤 {{ sr.no }}{% if sr.actual %} · {{ sr.actual }}{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if r.actual_result %}<p>{{ r.actual_result }}</p>{% endif %}
+    {% if r.packets %}{{ packet_list(r.packets) }}{% endif %}
+    {% if r.evidence %}<pre class="evidence" style="max-height:none">{{ r.evidence }}</pre>{% endif %}
+  </div>
+  {% else %}
+  <p class="muted">还没有执行记录。AI 通过 API 回填分步结果后，这里会保留每一次的历史。</p>
+  {% endfor %}
+</div>
+{% endblock %}

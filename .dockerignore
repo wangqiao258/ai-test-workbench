@@ -1,0 +1,27 @@
+data/
+backups/
+deploy/
+.git/
+.gitignore
+.gitattributes
+.venv/
+__pycache__/
+*.pyc
+*.bak
+.patch_eval.py
+*.tmp
+*.orig
+*.rej
+*.swp
+*~
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.md
+# 设计文档不进镜像；只有 AI 手册是运行时需要的（/api/guide 读它们）
+# 注意顺序：docker 以最后一条命中的规则为准，! 必须放在 *.md 与 docs/* 之后
+docs/*
+!docs/ai_guide.md
+!docs/ai_guide_reference.md

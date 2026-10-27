@@ -1,0 +1,12 @@
+{# 目录树右栏的片段（由 /projects/<pid>/interfaces/<iid>/panel.html 渲染，前端直接 innerHTML）。
+   契约正文来自 _detail_interface.html，和 /interfaces/<id> 全文页同一份，不另写一套。 #}
+{% from "_detail_interface.html" import method_badge, verify_badge, url_line, contract %}
+<h3>{{ method_badge(itf.method) }} {{ itf.name }}</h3>
+<p class="muted" style="font-size:12px;margin:4px 0">
+  模块：{{ itf.module }}
+  {% if itf.host %}· 域名：<code>{{ itf.host }}</code>{% endif %}
+  · {{ verify_badge(itf) }} · 验证于 {{ itf.verified_at or '—' }}
+</p>
+{{ url_line(itf, active_env) }}
+{{ contract(itf, show_empty=True) }}
+<p><a href="{{ url_for('interface_detail', iid=itf.id, back=back_qs) }}" target="_blank">打开完整详情（含报文证据、关联用例/Bug）→</a></p>

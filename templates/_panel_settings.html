@@ -1,0 +1,123 @@
+{% from "_macros.html" import sel, search, result_line, pager %}
+{# 本文件里的循环变量用 ev/en，避开 project.html 传进来的 e（= "&env=<id>"），
+   Jinja 的 for 变量会泄漏到循环外，重名会把 tab 链接里的环境参数冲掉。 #}
+{% set envqs = ('&env=' ~ active_env.id) if active_env else '' %}
+<div class="card">
+  <h3>环境</h3>
+  <form method="post" action="{{ url_for('env_add', pid=project.id) }}" style="display:flex;gap:10px;align-items:flex-end">
+    <div><label>环境名</label><input type="text" name="name" required placeholder="测试环境"></div>
+    <div style="flex:2"><label>Base URL</label><input type="text" name="base_url" placeholder="https://..."></div>
+    <div style="flex:2"><label>备注</label><input type="text" name="notes"></div>
+    <div><button type="submit">添加</button></div>
+  </form>
+  <table style="margin-top:12px">
+    <tr><th>ID</th><th>名称</th><th>Base URL</th><th>备注</th></tr>
+    {% for ev in envs %}<tr><td>{{ ev.id }}</td><td>{{ ev.name }}</td><td>{{ ev.base_url }}</td><td>{{ ev.notes }}</td></tr>{% endfor %}
+  </table>
+</div>
+<div class="card">
+  <h3>账号（AI 执行测试时直接使用，不再每次询问）</h3>
+  <p class="muted">密码默认只显示圆点，点一下圆点才展开明文（截图/录屏不会带出密码）；
+    改密码时留空表示不修改。AI 通过 API 取到的仍是明文，否则它登录不了。</p>
+  <form method="post" action="{{ url_for('account_add', pid=project.id) }}">
+    <div style="display:flex;gap:10px">
+      <div><label>所属环境</label>
+        <select name="env_id">{% for ev in envs %}<option value="{{ ev.id }}">{{ ev.name }}</option>{% endfor %}</select></div>
+      <div><label>标签</label><input type="text" name="label" placeholder="管理员"></div>
+      <div><label>角色</label><input type="text" name="role" placeholder="admin"></div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <div style="flex:1"><label>用户名</label><input type="text" name="username" required></div>
+      <div style="flex:1"><label>密码</label><input type="text" name="password"></div>
+      <div style="flex:2"><label>备注</label><input type="text" name="notes"></div>
+    </div>
+    <div style="margin-top:10px"><button type="submit">添加账号</button></div>
+  </form>
+  <table style="margin-top:12px">
+    <tr><th>ID</th><th>环境</th><th>标签</th><th>用户名</th><th>密码</th><th>角色</th><th>备注</th><th>操作</th></tr>
+    {% for a in accounts %}
+    <tr>
+      <td class="muted">{{ a.id }}</td>
+      <td>{{ a.env_name or '（未指定）' }}</td>
+      <td>{{ a.label }}</td>
+      <td>{{ a.username }}</td>
+      <td>{% if a.password %}<details class="pw"><summary title="点击显示明文">••••••</summary><code>{{ a.password }}</code></details>{% else %}<span class="muted">未设置</span>{% endif %}</td>
+      <td>{{ a.role }}</td>
+      <td class="wrap">{{ a.notes }}</td>
+      <td class="acct-ops">
+        <a class="btn mini secondary" href="?tab=settings&amp;edit={{ a.id }}{{ envqs }}">编辑</a>
+        <form class="inline" method="post" action="{{ url_for('account_delete', pid=project.id, aid=a.id) }}"
+              onsubmit='return confirm({{ ("确定删除账号 " ~ a.username ~ "？删除后 AI 不会再读到它，此操作不能撤销。") | tojson }})'>
+          <button type="submit" class="mini danger">删除</button>
+        </form>
+      </td>
+    </tr>
+    {% if edit_acc and edit_acc.id == a.id %}
+    <tr class="acct-edit-row">
+      <td colspan="8">
+        <form method="post" action="{{ url_for('account_update', pid=project.id, aid=a.id) }}" class="acct-edit-form">
+          <div class="fld"><label>所属环境</label>
+            <select name="env_id">
+              <option value="">（不指定环境）</option>
+              {% for en in envs %}<option value="{{ en.id }}"{% if en.id == a.env_id %} selected{% endif %}>{{ en.name }}</option>{% endfor %}
+            </select></div>
+          <div class="fld"><label>标签</label><input type="text" name="label" value="{{ a.label }}"></div>
+          <div class="fld"><label>用户名</label><input type="text" name="username" value="{{ a.username }}" required></div>
+          <div class="fld"><label>密码</label><input type="text" name="password" placeholder="留空表示不修改" autocomplete="off"></div>
+          <div class="fld"><label>角色</label><input type="text" name="role" value="{{ a.role }}"></div>
+          <div class="fld grow"><label>备注</label><input type="text" name="notes" value="{{ a.notes }}"></div>
+          <div class="fld"><label>&nbsp;</label>
+            <button type="submit" class="mini">保存</button>
+            <a class="btn mini secondary" href="?tab=settings{{ envqs }}">取消</a></div>
+        </form>
+      </td>
+    </tr>
+    {% endif %}
+  {% else %}
+  <tr><td colspan="8" class="muted">还没有账号</td></tr>
+  {% endfor %}
+  </table>
+</div>
+<div class="card">
+  <h3>运行通知（webhook）</h3>
+  <p class="muted">每一轮测试收尾（跑完 / 失败 / 被收掉）时，往这里 POST 一条汇总。
+    支持企业微信机器人（format 选 wecom）与通用 JSON。通知发送失败不影响收尾本身，
+    也不做定时巡检——僵死轮请看运行列表里的「卡住」标记。</p>
+  {% if notify_cfg and notify_cfg.webhook_url %}
+  <p>当前：<code>{{ notify_cfg.format or 'wecom' }}</code> ·
+     终态 {{ (notify_cfg.on or ['done','failed']) | join('、') }} ·
+     <span class="muted">{{ notify_cfg.webhook_url }}</span></p>
+  {% else %}
+  <p class="muted">未配置（当前不会发送任何通知）。</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('notify_save', pid=project.id) }}" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+    <div style="flex:3"><label>Webhook 地址</label>
+      <input type="text" name="webhook_url" required placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."
+             value="{{ notify_cfg.webhook_url if notify_cfg else '' }}"></div>
+    <div><label>格式</label>
+      <select name="format">
+        <option value="wecom"{% if notify_cfg and notify_cfg.format == 'wecom' %} selected{% endif %}>企业微信</option>
+        <option value="generic"{% if notify_cfg and notify_cfg.format == 'generic' %} selected{% endif %}>通用 JSON</option>
+      </select></div>
+    <div><label>哪些终态要发</label>
+      <span style="display:inline-flex;gap:8px;align-items:center">
+        <label style="font-weight:normal"><input type="checkbox" name="on" value="done"
+          {% if not notify_cfg or 'done' in (notify_cfg.on or ['done','failed']) %} checked{% endif %}> 跑完</label>
+        <label style="font-weight:normal"><input type="checkbox" name="on" value="failed"
+          {% if not notify_cfg or 'failed' in (notify_cfg.on or ['done','failed']) %} checked{% endif %}> 失败/收尾</label>
+      </span></div>
+    <div><button type="submit">保存</button></div>
+  </form>
+  <div style="margin-top:10px;display:flex;gap:10px">
+    <form class="inline" method="post" action="{{ url_for('notify_test', pid=project.id) }}">
+      <button type="submit" class="secondary">发送测试</button>
+    </form>
+    {% if notify_cfg and notify_cfg.webhook_url %}
+    <form class="inline" method="post" action="{{ url_for('notify_save', pid=project.id) }}"
+          onsubmit='return confirm("确定停用运行通知？停用后不再发送任何消息。")'>
+      <input type="hidden" name="action" value="disable">
+      <button type="submit" class="danger">停用</button>
+    </form>
+    {% endif %}
+  </div>
+</div>

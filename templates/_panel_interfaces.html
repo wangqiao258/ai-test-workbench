@@ -1,0 +1,54 @@
+{# 「接口」tab 的唯一入口：两个视图（列表检索 / 目录树浏览）+ 页头导出（openapi.json）。
+   2026-10-27 合并自原「接口」+「接口文档」两个 tab——两者是同一张 interfaces 表的只读视图，
+   搜索、契约展示、验证状态全部重叠，只是呈现形态不同。
+   同日删掉 Swagger 页面：AI 从不渲染页面（走 /api/interfaces 切片），平台内也没有
+   "只想读文档"的读者；标准文档的出口只留 openapi.json，导入 Apifox/Postman 即可。 #}
+{% set n_total = itf_stats.verified + itf_stats.changed + itf_stats.unverified %}
+{% set e = ('&env=' ~ active_env.id) if active_env else '' %}
+{% set pbase = url_for('project_detail', pid=project.id) %}
+<div class="card">
+  <h3>接口
+    <span class="muted" style="font-weight:400;font-size:13px">
+      共 {{ n_total }} 条 · 已实测 {{ itf_stats.verified }} · 有变更 {{ itf_stats.changed }} · 未验证 {{ itf_stats.unverified }}
+    </span>
+  </h3>
+  <p class="muted">
+    视图：
+    {% for key, label, hint in [('list', '列表', '按模块/分组/方法筛选，筛选条件可直接换成 /api/interfaces 给 AI'),
+                                ('tree', '目录树', '按 URL 路径分段浏览，顶部搜索框边输边过滤')] %}
+      {% if itf_view == key %}<b title="{{ hint }}">{{ label }}</b>
+      {% else %}<a href="{{ pbase }}?tab=interfaces&view={{ key }}{{ e }}" title="{{ hint }}">{{ label }}</a>{% endif %}
+      {% if not loop.last %} · {% endif %}
+    {% endfor %}
+    <span class="muted">　·　导出：</span>
+    <a href="{{ url_for('project_openapi_json', pid=project.id) }}" target="_blank"
+       title="OpenAPI 3.0 标准文档，可导入 Apifox / Postman / IDE；可信度看每条 operation 的 description 首行">openapi.json</a>
+  </p>
+  <p class="svc">
+    <span class="muted">服务地址</span>
+    {% if default_base %}
+      <code>{{ default_base }}</code>
+      <button type="button" class="copy-btn" data-copy="{{ default_base }}">复制</button>
+    {% else %}
+      <span class="muted">未配置，请到「项目设置」添加 base_url</span>
+    {% endif %}
+    {% if envs|length > 1 %}
+      <span class="muted" style="margin-left:8px">切换环境</span>
+      {% for en in envs %}
+      <a class="env-pill {{ 'on' if active_env and en.id==active_env.id }}"
+         href="{{ pbase }}?tab=interfaces&view={{ itf_view }}&env={{ en.id }}">{{ en.name }}</a>
+      {% endfor %}
+    {% elif active_env %}
+      <span class="muted">· {{ active_env.name }}</span>
+    {% endif %}
+    {% if multi_host %}
+      <span class="host-note">本项目有 {{ hosts_seen|length }} 个域名，目录树已按域名分层</span>
+    {% endif %}
+  </p>
+  {% if not n_total %}
+  <p class="muted">项目目前还没有接口记录。AI 通过 JS 提取 / 抓包 / 爬虫实测接口后提交（POST /api/interfaces），提交即写入本页与 OpenAPI。</p>
+  {% endif %}
+</div>
+
+{% if itf_view == 'list' %}{% include "_iface_list.html" %}
+{% else %}{% include "_iface_tree.html" %}{% endif %}

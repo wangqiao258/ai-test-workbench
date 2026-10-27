@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% set active = 'dashboard' %}
+{% block title %}run #{{ run.id }} {{ run.name }} - AI 协同测试工作台{% endblock %}
+{% block content %}
+<p class="muted"><a href="{{ back }}">← 返回运行列表</a></p>
+
+<div class="card">
+  <h2>run #{{ run.id }} · {{ run.name }}</h2>
+  <p class="muted">
+    {{ run.project_name }}　
+    <span class="badge kind-{{ run.kind or 'regression' }}">{{ kind_label(run.kind) }}</span>
+    <span class="badge {{ run.status }}">{{ status_label(run.status) }}</span>
+    {% if run.stalled %}<span class="badge stalled">卡住</span>{% endif %}
+    　发起人 {{ run.created_by or '—' }}　reason：{{ run.reason or '—' }}
+  </p>
+
+  {% if run.kind and run.kind != 'regression' %}
+  <div class="warn-box">
+    这是 <b>{{ kind_label(run.kind) }}轮</b>，结果不作为被测对象的质量结论：
+    {% if run.kind == 'selfcheck' %}自检只验证平台与执行管道（回填、心跳、启动脚本），跑绿不代表被测系统没问题。
+    {% else %}诊断用于排查网络与部署位置，可能一条都没打到被测系统，红不等于缺陷。{% endif %}
+    这一轮的通过/失败不计入回归口径。
+    <a href="{{ url_for('project_detail', pid=run.pid, tab='runs', kind='regression') }}">看回归轮</a>
+  </div>
+  {% endif %}
+
+  {% if run.stalled %}
+  <div class="warn-box">
+    最后一次心跳是 {{ run.heartbeat_at }}，已超过 3 分钟没有动静——runner 可能已经退出
+    （窗口被关、Ctrl+C、容器重启）。这一轮不会再自己收尾，确认不需要了就点下面的「收尾」。
+  </div>
+  {% elif run.status == 'running' %}
+  <p class="muted">runner {{ run.runner_id or '（未记录）' }} 正在执行，心跳 {{ run.heartbeat_at or '—' }}。</p>
+  {% endif %}
+
+  <table class="kv">
+    <tr><th style="width:110px">范围</th>
+      <td>
+        {% if run.scope.case_ids %}用例 {{ run.scope.case_ids|length }} 条：{{ run.scope.case_ids|join('、') }}
+        {% elif run.scope.batch %}批次 {{ run.scope.batch }}
+        {% elif run.scope.group %}分组 {{ run.scope.group }}
+        {% elif run.scope.module %}模块 {{ run.scope.module|join('、') }}
+        {% else %}—{% endif %}
+      </td></tr>
+    <tr><th>执行者</th><td>{{ run.runner_id or '（未记录，可能是手工回填）' }}</td></tr>
+    <tr><th>开始 / 结束</th><td>{{ run.started_at or '—' }} → {{ run.finished_at or '—' }}</td></tr>
+    {% if run.cancel_note %}<tr><th>收尾原因</th><td>{{ run.cancel_note }}</td></tr>{% endif %}
+    {% if run.summary.note %}<tr><th>runner 说明</th><td>{{ run.summary.note }}</td></tr>{% endif %}
+  </table>
+
+  <div class="prog-big">
+    <div class="pbar"><i class="{{ 'warn' if run.stalled }}"
+      style="width:{{ ((100 * run.progress.done / run.progress.total)|round|int) if run.progress.total else 0 }}%"></i></div>
+    <span><b>{{ run.progress.done }}</b> / {{ run.progress.total }} 条</span>
+    <span class="badge pass">通过 {{ run.progress.pass }}</span>
+    <span class="badge fail">未通过 {{ run.progress.fail }}</span>
+    <span class="badge blocked">阻塞 {{ run.progress.blocked }}</span>
+    {% if run.progress.left %}<span class="muted">未跑 {{ run.progress.left }}</span>{% endif %}
+  </div>
+
+  {% if run.status in ('running', 'queued') %}
+  <form class="cancel-form" method="post" action="{{ url_for('run_cancel', rid=run.id) }}"
+        onsubmit="return confirm('把这一轮标记为 failed 并收尾？已回填的结果不会丢。')">
+    <input type="text" name="note" value="runner 已退出，人工收尾" maxlength="200">
+    <button class="secondary" type="submit">收尾为 failed</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>已回填 {{ execs|length }} 条</h3>
+  {% if execs %}
+  <table>
+    <tr><th>执行</th><th>用例</th><th>结果</th><th>步骤</th><th>说明</th><th>时间</th><th>报文</th></tr>
+    {% for e in execs %}
+    <tr>
+      <td class="muted">{{ e.id }}</td>
+      <td class="wrap">
+        <a href="{{ url_for('case_detail', cid=e.case_id) }}">#{{ e.case_id }} {{ e.case_title or '（用例已删除）' }}</a>
+        <div class="muted">{{ e.case_module or '' }}</div>
+      </td>
+      <td><span class="badge {{ e.result }}">{{ status_label(e.result) }}</span></td>
+      <td class="muted">{{ e.step_results|length }} 步</td>
+      <td class="wrap muted">{{ e.actual_result or '—' }}</td>
+      <td class="muted">{{ e.created_at }}</td>
+      <td>{% if e.packet_count %}{{ e.packet_count }} 个{% else %}<span class="muted">—</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="muted">
+    {% if run.status == 'running' %}还没回填任何一条——如果它已经卡住，先看上面那条心跳提示。
+    {% else %}这一轮没有任何执行结果。{% endif %}
+  </p>
+  {% endif %}
+</div>
+
+{% if run.diff %}
+<div class="card">
+  <h3>与基准轮 #{{ run.baseline.id }}「{{ run.baseline.name }}」对比</h3>
+  <p class="muted">基准轮：{{ kind_label(run.baseline.kind) }} · {{ status_label(run.baseline.status) }}
+    　口径：只比两轮都出现过的用例；本轮范围内没跑到的红不算"修好了"。</p>
+  <table>
+    <tr><th style="width:110px">分类</th><th style="width:60px">条数</th><th>用例</th></tr>
+    {% for key, label, cls in (
+        ('new_fail', '新失败', 'fail'),
+        ('still_fail', '一直红', 'fail'),
+        ('fixed', '已修复', 'pass'),
+        ('new_pass', '新通过', 'pass'),
+        ('not_rerun', '未复跑', 'blocked')) %}
+    {% set ids = run.diff[key] %}
+    <tr>
+      <td><span class="badge {{ cls }}">{{ label }}</span></td>
+      <td>{{ ids|length }}</td>
+      <td class="wrap">
+        {% for cid in ids %}
+        <a href="{{ url_for('case_detail', cid=cid) }}">#{{ cid }}</a>
+        {{ run.diff_cases.get(cid, '（用例已删除）') }}{% if not loop.last %}；{% endif %}
+        {% else %}<span class="muted">—</span>{% endfor %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+{% if pending %}
+<div class="card">
+  <h3>范围内还没跑到（{{ pending|length }} 条）</h3>
+  <table>
+    <tr><th>ID</th><th>模块</th><th>用例</th></tr>
+    {% for c in pending %}
+    <tr>
+      <td>{{ c.id }}</td><td class="muted">{{ c.module }}</td>
+      <td class="wrap"><a href="{{ url_for('case_detail', cid=c.id) }}">{{ c.title }}</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+{% if unrunnable %}
+<div class="card">
+  <h3>无法自动执行（{{ unrunnable|length }} 条）</h3>
+  <p class="muted">没有 checks 的用例 runner 一律跳过——不拿自然语言 expect 猜判定。</p>
+  <table>
+    <tr><th>ID</th><th>用例</th><th>原因</th></tr>
+    {% for c in unrunnable %}
+    <tr>
+      <td>{{ c.id }}</td>
+      <td class="wrap"><a href="{{ url_for('case_detail', cid=c.id) }}">{{ c.title }}</a></td>
+      <td class="muted">{{ c.reason }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+{% endblock %}

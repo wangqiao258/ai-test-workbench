@@ -1,0 +1,92 @@
+{% from "_macros.html" import sel, search, result_line, pager, progress_badge %}
+{% set reset_url = url_for('project_detail', pid=project.id, tab='bugs') %}
+{% set all_url = url_for('project_detail', pid=project.id, tab='bugs', progress='all') %}
+{# 左右分栏：左栏只放索引卡片 + 勾选框，右栏是详情 + 常驻操作条。
+   结构与审核队列完全一致（同一套 _bug_bulk、同一个 .bug-card 结构），
+   区别只在数据源（单项目 vs 跨项目）和分页（20 条/页 vs 全量）。 #}
+<p class="hint">审核通过 = 这条值得上报；抄进公司在线表格后点「标记已上报」，它才离开这个列表。
+  驳回 = 不报，原因会反馈给 AI 修改。开发在表格里跟进修复，平台不记「修没修」。</p>
+
+{# 批量表单做成空壳，靠控件的 form 属性关联：卡片是链接，不能被 form 包住 #}
+<form method="post" action="{{ url_for('review_batch') }}" id="bulk-form">
+  <input type="hidden" name="kind" value="bug">
+  <input type="hidden" name="back" value="{{ qs }}">
+  <input type="hidden" name="comment" class="batch-comment" value="">
+  <input type="hidden" name="reject_category" class="batch-reject-category" value="">
+</form>
+
+<div class="split">
+
+  <aside class="split-left">
+    <div class="split-head">
+      <form class="filter-bar compact" method="get" action="{{ url_for('project_detail', pid=project.id) }}">
+        <input type="hidden" name="tab" value="bugs">
+        {% if active_env %}<input type="hidden" name="env" value="{{ active_env.id }}">{% endif %}
+        <div class="fld"><label>进度</label>
+          <select name="progress" onchange="this.form.submit()">
+            {% for v, t in [('todo','未结案'),('pending','待审核'),('toreport','待上报'),('reported','已上报'),('rejected','已驳回'),('all','全部')] %}
+            <option value="{{ v }}" {{ 'selected' if bug_f.state.progress==v }}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fld"><label>严重</label>
+          <select name="b_severity" onchange="this.form.submit()">
+            {% for v, t in [('all','全部'),('critical','严重'),('major','较严重'),('normal','一般'),('minor','轻微')] %}
+            <option value="{{ v }}" {{ 'selected' if bug_f.state.b_severity==v }}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fld"><label>模块</label>
+          <select name="module" onchange="this.form.submit()">
+            <option value="">全部</option>
+            {% for v, t in bug_modules %}<option value="{{ v }}" {{ 'selected' if bug_f.state.module==v }}>{{ t }}</option>{% endfor %}
+          </select>
+        </div>
+        {{ search('q', '关键字', bug_f.state.q, '标题 / 模块 / 步骤') }}
+        <div class="fld"><label>&nbsp;</label><button type="submit">筛选</button></div>
+      </form>
+      {{ result_line(bug_pg.all_total, bug_pg.total, bug_f, reset_url) }}
+    </div>
+
+    <div class="split-body" id="list-bug">
+      {% for b in bug_rows %}
+      <div class="bug-card {{ 'active' if sel_bug and sel_bug.id == b.id }}">
+        <a class="bc-link" href="?{{ sel_qs[b.id] }}">
+          <div class="bc-title" title="{{ b.title }}">{{ b.title }}</div>
+          <div class="bc-meta">
+            <span class="badge sev-{{ b.severity }}">{{ sev_label(b.severity) }}</span>
+            {{ progress_badge(b.review_status, b.reported_at) }}
+            {% if b.module %}<span class="bc-mod">{{ b.module }}</span>{% endif %}
+            <span class="bc-time">{{ (b.updated_at or '')[:10] }}</span>
+          </div>
+        </a>
+        <input type="checkbox" class="cb-bug" form="bulk-form" name="ids"
+               value="{{ b.id }}" data-evi="{{ 1 if b.has_evi else 0 }}"
+               aria-label="选择 Bug {{ b.id }}">
+      </div>
+      {% else %}
+      <p class="muted" style="padding:8px 4px">
+        {% if bug_f.active %}没有符合条件的 Bug，<a href="{{ reset_url }}">清除筛选</a>
+        {% else %}还没有 Bug。Bug 由 AI 经 API 录入后在这里审核。{% endif %}
+      </p>
+      {% endfor %}
+    </div>
+
+    <div class="split-foot">
+      {% include "_bug_bulk.html" %}
+      {{ pager(bug_pg, base_qs) }}
+    </div>
+  </aside>
+
+  <section class="split-right">
+    {% if sel_bug %}
+      {% with bug = sel_bug, atts = sel_atts, packets = sel_packets, detail_back = qs %}
+        {% include "_detail_bug.html" %}
+      {% endwith %}
+    {% else %}
+      <div class="card"><p class="muted" style="margin:0">左栏还没有可显示的 Bug。</p></div>
+    {% endif %}
+  </section>
+
+</div>
+{% include "_bug_actions.html" %}

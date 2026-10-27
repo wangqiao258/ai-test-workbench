@@ -1,0 +1,27 @@
+{% from "_macros.html" import sel, search, result_line %}
+<div class="card">
+  <form class="filter-bar" method="get" action="{{ url_for('project_detail', pid=project.id) }}">
+    <input type="hidden" name="tab" value="docs">
+    {% if active_env %}<input type="hidden" name="env" value="{{ active_env.id }}">{% endif %}
+    {{ sel('dtype', '类型', doc_types.items()|list, doc_f.state.dtype) }}
+    {{ search('q', '关键字', doc_f.state.q, '标题 / 提交人') }}
+    <div class="fld"><label>&nbsp;</label><button type="submit">筛选</button></div>
+  </form>
+  {{ result_line(doc_all_total, doc_total, doc_f, url_for('project_detail', pid=project.id, tab='docs')) }}
+  <table>
+    <tr><th>ID</th><th>类型</th><th>标题</th><th>来源</th><th>更新时间</th></tr>
+    {% for d in docs %}
+    <tr>
+      <td>{{ d.id }}</td>
+      <td><span class="badge dtype-{{ d.dtype }}">{{ doc_type_label(d.dtype) }}</span></td>
+      <td class="wrap"><a href="{{ url_for('doc_detail', did=d.id, back=qs) }}">{{ d.title }}</a></td>
+      <td class="muted">{{ d.created_by }}</td><td class="muted">{{ d.updated_at }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="muted">
+      {% if doc_f.active %}没有符合条件的文档，<a href="?tab=docs">清除筛选</a>
+      {% else %}还没有文档。文档由 AI 实测后通过 API 提交，提交即生效。{% endif %}
+    </td></tr>
+    {% endfor %}
+  </table>
+</div>

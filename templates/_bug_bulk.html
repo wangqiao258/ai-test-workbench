@@ -1,0 +1,65 @@
+{# Bug 批量操作条：项目页右栏底部与审核队列底部共用。
+   批量表单是空壳（id=bulk-form），这里靠 form="bulk-form" 关联控件——
+   卡片本身是链接，不能被 form 包住，嵌套交互元素也不合法。
+   需要页面里已经放了那个空壳表单，且每张卡片上有 input.cb-bug。 #}
+<div class="bulk-bar">
+  <label class="bulk-all"><input type="checkbox" onclick="toggleVisible(this, 'cb-bug'); updateBulk()"> 全选</label>
+  <span class="muted" id="bulk-count">勾选左侧条目可批量处理</span>
+  <span class="bulk-ops">
+    <button type="submit" form="bulk-form" name="action" value="approve"
+            onclick="return batchApprove(this, 'cb-bug')" disabled>批量通过</button>
+    <button type="submit" form="bulk-form" name="action" value="reject" class="danger"
+            onclick="return batchReject(this, 'cb-bug')" disabled>批量驳回</button>
+  </span>
+</div>
+<script>
+/* 勾选可能被筛掉（审核页前端筛选），所以只统计"当前可见"的 */
+function visibleBoxes(cls) {
+  return Array.from(document.querySelectorAll('input.' + cls + ':checked'))
+    .filter(function (b) { return b.closest('.bug-card').style.display !== 'none'; });
+}
+
+function updateBulk() {
+  var n = visibleBoxes('cb-bug').length;
+  var el = document.getElementById('bulk-count');
+  if (el) el.textContent = n ? '已选 ' + n + ' 条' : '勾选左侧条目可批量处理';
+  document.querySelectorAll('.bulk-ops button').forEach(function (b) { b.disabled = !n; });
+}
+
+function toggleVisible(src, cls) {
+  document.querySelectorAll('.bug-card').forEach(function (c) {
+    if (c.style.display === 'none') return;
+    var cb = c.querySelector('input.' + cls);
+    if (cb) cb.checked = src.checked;
+  });
+}
+
+function batchApprove(btn, cls) {
+  var boxes = visibleBoxes(cls);
+  if (!boxes.length) { alert('请先勾选要处理的条目'); return false; }
+  var noEvi = boxes.filter(function (b) { return b.dataset.evi === '0'; }).length;
+  var msg = '将批量通过 ' + boxes.length + ' 条（当前列表里的）。';
+  if (noEvi > 0) msg += '\n警告：其中 ' + noEvi + ' 条无证据（无 evidence 且无附件）。';
+  return confirm(msg + '\n确认通过？');
+}
+
+function batchReject(btn, cls) {
+  var boxes = visibleBoxes(cls);
+  if (!boxes.length) { alert('请先勾选要处理的条目'); return false; }
+  // 批量只能统一给一个原因，所以保留这一个输入框；分类弹框已删
+  // （64 次驳回里 0 次填过，且取消后会误提交）
+  var c = prompt('将批量打回 ' + boxes.length + ' 条。\n统一打回原因（必填，将反馈给 AI 修改）：');
+  if (!c || !c.trim()) return false;
+  document.querySelector('.batch-comment').value = c;
+  return true;
+}
+
+/* 单个勾选也要刷新按钮状态。
+   卡片上的 checkbox 是 serve 端渲染的，逐个挂 onchange 太散，用事件委托；
+   全选框的 onclick 里也调了 updateBulk，重复调用是幂等的（数量一样）。 */
+document.addEventListener('change', function (e) {
+  if (e.target && e.target.classList && e.target.classList.contains('cb-bug')) {
+    updateBulk();
+  }
+});
+</script>

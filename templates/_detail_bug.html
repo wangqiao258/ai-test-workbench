@@ -1,0 +1,109 @@
+{# Bug 详情卡身：项目页右栏、审核队列右栏、独立详情页 /bugs/<id> 三处共用。
+   顶部操作条按「分诊进度」四态给不同按钮：
+     pending            → 通过 / 驳回
+     approved 未上报     → 标记已上报 / 改判驳回
+     approved 已上报     → 撤销上报 / 改判驳回
+     rejected           → 改判通过
+   status 轴已废弃（开发在在线表格跟进修复），平台只记录"我抄过去了没有"。
+   依赖上下文：bug、atts、packets（数据包，可空）、detail_back（回跳用的查询串）。 #}
+
+{% from "_macros.html" import progress_badge %}
+{% from "_packets.html" import packet_list %}
+
+<div class="detail-actions">
+  <div class="da-info">
+    {{ progress_badge(bug.review_status, bug.reported_at) }}
+    {% if bug.reported_at %}<span class="muted">上报于 {{ bug.reported_at[:16] }}</span>{% endif %}
+    <span class="muted">#{{ bug.id }}{% if bug.module %} · {{ bug.module }}{% endif %}</span>
+  </div>
+  <div class="da-ops">
+    {% if bug.review_status == 'approved' %}
+    <form class="inline" method="post" action="{{ url_for('bug_reported', bid=bug.id) }}">
+      <input type="hidden" name="back" value="{{ detail_back }}">
+      {% if bug.reported_at %}
+      <input type="hidden" name="value" value="0">
+      <button type="submit" class="secondary">撤销上报</button>
+      {% else %}
+      <input type="hidden" name="value" value="1">
+      <button type="submit">标记已上报</button>
+      {% endif %}
+    </form>
+    {% endif %}
+    <form class="inline" id="rv-{{ bug.id }}" method="post"
+          action="{{ url_for('review_action', kind='bug', item_id=bug.id) }}">
+      <input type="hidden" name="back" value="{{ detail_back }}">
+      {% if bug.review_status == 'pending' %}
+      <button type="submit" name="action" value="approve" class="secondary">通过</button>
+      <button type="submit" name="action" value="reject" class="danger"
+              onclick="return wbReject(this)">驳回</button>
+      {% elif bug.review_status == 'approved' %}
+      <button type="submit" name="action" value="reject" class="secondary"
+              onclick="return wbReject(this)">改判驳回</button>
+      {% else %}
+      <button type="submit" name="action" value="approve" class="secondary">改判通过</button>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="card detail-card">
+  <h2>[{{ bug.project_name }}] {{ bug.title }}</h2>
+  <p class="muted">
+    #{{ bug.id }}　模块：{{ bug.module or '未分组' }}
+    　<span class="badge sev-{{ bug.severity }}">{{ sev_label(bug.severity) }}</span>
+    {% if bug.repro_rate %}　<span class="badge" title="提交方自报的复现频率">复现：{{ repro_label(bug.repro_rate) }}</span>{% endif %}
+    　{{ bug.created_by }} · {{ bug.created_at }}
+  </p>
+  {% if bug.reject_category %}
+  <p class="review-note">驳回分类：<b>{{ reject_cat_label(bug.reject_category) }}</b></p>
+  {% endif %}
+  {% if bug.review_comment %}
+  <p class="review-note">审核意见：{{ bug.review_comment }}</p>
+  {% endif %}
+  {% if bug.impact %}
+  <h3>影响范围（提交方自报）</h3>
+  <pre class="evidence" style="max-height:none">{{ bug.impact }}</pre>
+  {% endif %}
+
+  <h3>复现步骤</h3>
+  <pre class="evidence" style="max-height:none">{{ bug.steps }}</pre>
+
+  {% if packets %}
+  <h3>数据包证据</h3>
+  {{ packet_list(packets) }}
+  {% endif %}
+
+  {% if bug.evidence %}
+  <h3>{% if packets %}证据说明{% else %}证据{% endif %}</h3>
+  <pre class="evidence" style="max-height:none">{{ bug.evidence }}</pre>
+  {% endif %}
+
+  {% set imgs = evidence_images(bug.evidence, bug.steps) %}
+  {% if imgs or atts %}
+  <h3>图片证据</h3>
+  {% for img in imgs %}
+  <a href="/files/{{ img }}" target="_blank"><img src="/files/{{ img }}" class="thumb" alt="证据截图"></a>
+  {% endfor %}
+  {% for a in atts %}
+  <a href="/files/{{ a.stored_name }}" target="_blank"><img src="/files/{{ a.stored_name }}" class="thumb" alt="{{ a.filename }}"></a>
+  {% endfor %}
+  {% endif %}
+
+  {# 审核输入不再用 prompt：单行弹框放不下原因（历史平均 10.6 字），也看不到 Bug 正文。
+     字段用 form 属性挂到顶部那个表单上，点通过/驳回时一起提交。 #}
+  {% if bug.review_status != 'rejected' %}
+  <div class="review-box">
+    <div class="rb-head">审核<span class="muted">驳回必须写原因，会原样反馈给 AI 修改</span></div>
+    <label>驳回分类
+      <select name="reject_category" form="rv-{{ bug.id }}">
+        <option value="">未分类（可选）</option>
+        {% for v, t in reject_cat_options.items() %}<option value="{{ v }}">{{ t }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="rb-grow">审核意见
+      <textarea name="comment" form="rv-{{ bug.id }}" rows="2"
+                placeholder="例如：证据只有响应体，没有请求头，无法证明 403 是由越权触发的"></textarea>
+    </label>
+  </div>
+  {% endif %}
+</div>

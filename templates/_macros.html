@@ -1,0 +1,109 @@
+{# 列表页共用的筛选控件与分页。所有筛选都走 URL，刷新/分享/返回都能复原。 #}
+
+{# Bug 分诊进度徽标：review_status × reported_at 组合成四态，全站唯一口径。
+   status 轴已废弃（开发在在线表格跟进修复），平台只分诊 + 记录是否已上报。 #}
+{% macro progress_badge(review_status, reported_at) %}
+{% set label, cls = ('已驳回', 'rejected') if review_status == 'rejected'
+    else ('已上报', 'approved') if reported_at
+    else ('待上报', 'fixed') if review_status == 'approved'
+    else ('待审核', 'pending') %}
+<span class="badge {{ cls }}">{{ label }}</span>
+{% endmacro %}
+
+{% macro sel(name, label, options, cur) %}
+<div class="fld">
+  <label>{{ label }}</label>
+  <select name="{{ name }}" onchange="this.form.submit()">
+    <option value="">全部</option>
+    {% for v, t in options %}<option value="{{ v }}" {{ 'selected' if cur==v }}>{{ t }}</option>{% endfor %}
+  </select>
+</div>
+{% endmacro %}
+
+{% macro sel_flat(name, label, values, cur) %}
+<div class="fld">
+  <label>{{ label }}</label>
+  <select name="{{ name }}" onchange="this.form.submit()">
+    <option value="">全部</option>
+    {% for v in values %}<option value="{{ v }}" {{ 'selected' if cur==v }}>{{ v }}</option>{% endfor %}
+  </select>
+</div>
+{% endmacro %}
+
+{# 分组下拉：改分组时先把已勾的模块全部取消，否则会带着上一组的模块提交，
+   拼出"分组=家长端 + 模块=侧边栏-客户"这种必然为空的组合。 #}
+{% macro sel_group(name, label, options, cur, clear='module') %}
+<div class="fld">
+  <label>{{ label }}</label>
+  <select name="{{ name }}"
+          onchange="var fs=this.form.querySelectorAll('[name={{ clear }}]'); for(var i=0;i<fs.length;i++){ if(fs[i].type==='checkbox'){fs[i].checked=false;} else {fs[i].value='';} } this.form.submit()">
+    <option value="">全部</option>
+    {% for v, t in options %}<option value="{{ v }}" {{ 'selected' if cur==v }}>{{ t }}</option>{% endfor %}
+  </select>
+</div>
+{% endmacro %}
+
+{# 模块多选：<details> + checkbox。
+   勾选项都叫同一个 name，浏览器提交出来就是重复键（?module=A&module=B），
+   不需要 JS 维护隐藏域——提交语义天然和 API 的 getlist 对齐。
+   面板里带条数，底部实时算"已选 N 个模块 / M 条接口"，
+   因为多选一个模块就多一份契约要进 AI 的上下文（3 个模块 ≈ 48 KB）。 #}
+{% macro ms_module(name, label, groups, selected, total=0) %}
+{% set sel = selected or () %}
+{# 已选模块的接口条数：让"我这次要读多少"有个数字，契约体积是随模块数线性涨的 #}
+{% set ns = namespace(n=0) %}
+{% for _h, _opts in groups %}{% for _v, _t, _n in _opts %}{% if _v in sel %}{% set ns.n = ns.n + _n %}{% endif %}{% endfor %}{% endfor %}
+<div class="fld">
+  <label>{{ label }}</label>
+  <details class="ms">
+    <summary title="可多选">
+      <span class="ms-val">{% if not sel %}全部模块{% elif sel|length == 1 %}{{ sel[0] }}{% else %}已选 {{ sel|length }} 个{% endif %}</span>
+    </summary>
+    <div class="ms-panel">
+      <div class="ms-list">
+      {% for head, opts in groups %}
+        {% if head %}<div class="ms-head">{{ head }}</div>{% endif %}
+        {% for v, t, n in opts %}
+        <label class="ms-item"><input type="checkbox" name="{{ name }}" value="{{ v }}"
+               data-n="{{ n }}" {{ 'checked' if v in sel }}><span>{{ t }}</span></label>
+        {% endfor %}
+      {% endfor %}
+      </div>
+      <div class="ms-foot">
+        <span class="ms-hint" data-total="{{ total }}">{% if sel %}{{ sel|length }} 个模块 · {{ ns.n }} 条接口{% else %}全部 {{ total }} 条{% endif %}</span>
+        <button type="button" class="ms-clear secondary">清空</button>
+        <button type="submit">应用</button>
+      </div>
+    </div>
+  </details>
+</div>
+{% endmacro %}
+
+{% macro search(name, label, cur, ph='标题 / 路径 / 关键字') %}
+<div class="fld grow">
+  <label>{{ label }}</label>
+  <input type="text" name="{{ name }}" value="{{ cur }}" placeholder="{{ ph }}">
+</div>
+{% endmacro %}
+
+{% macro result_line(total_all, shown, f, reset_url, unit='条') %}
+<p class="result-line">
+  {% if f.active %}共 <b>{{ total_all }}</b> {{ unit }}，按 {{ f.active|join(' · ') }} 筛出 <b>{{ shown }}</b> {{ unit }}
+    　<a href="{{ reset_url }}">清除筛选</a>
+  {% else %}共 <b>{{ total_all }}</b> {{ unit }}{% endif %}
+</p>
+{% endmacro %}
+
+{% macro page_link(base_qs, key, n) %}{{ '?' }}{{ base_qs }}{{ '&' if base_qs else '' }}{{ key }}={{ n }}{% endmacro %}
+
+{% macro pager(pg, base_qs, key='page') %}
+{% if pg.pages > 1 %}
+<div class="pager">
+  {% if pg.has_prev %}<a href="{{ page_link(base_qs, key, pg.page-1) }}">← 上一页</a>
+  {% else %}<span class="muted">← 上一页</span>{% endif %}
+  <span>第 {{ pg.page }} / {{ pg.pages }} 页<span class="muted">　{{ pg.start }}–{{ pg.end }} 条</span></span>
+  {% if pg.has_next %}<a href="{{ page_link(base_qs, key, pg.page+1) }}">下一页 →</a>
+  {% else %}<span class="muted">下一页 →</span>{% endif %}
+</div>
+{% endif %}
+{% endmacro %}

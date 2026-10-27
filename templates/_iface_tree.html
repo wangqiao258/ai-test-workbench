@@ -1,0 +1,195 @@
+{# 接口目录树视图：左树按 URL 路径分段，右栏契约由 panel.html 服务端渲染。
+   树里只放节点字段（ITF_TREE_COLS），契约点开才拉——161 条接口曾因 evidence 让首屏到 686 KB。
+   右栏不再用 JS 拼 HTML：契约渲染只有 _detail_interface.html 一份，和 /interfaces/<id> 完全一致。
+   文件夹也占右栏：停在目录上时给该目录的汇总（条数/方法/可信度/未验证清单），
+   否则右栏会一直挂着上一条接口的契约，让人以为点目录没反应。 #}
+<div class="card">
+  <div class="itf-toolbar">
+    <input type="text" id="itf-search" placeholder="搜索路径 / 名称 / 模块，如 auth、素材、login" autocomplete="off">
+    <span class="muted" id="itf-count"></span>
+  </div>
+  <div class="itf-wrap">
+    <div class="itf-tree" id="itf-tree"><span class="muted">加载中…</span></div>
+    <div class="itf-detail" id="itf-detail"><span class="muted">点文件夹看该目录的汇总（接口数 / 方法分布 / 可信度 / 未验证清单），点接口看契约。目录按 URL 路径段逐级展开；服务地址在页头，出现第二个域名时才会长出域名层。</span></div>
+  </div>
+</div>
+<script>
+const ITFS = {{ itf_tree|tojson }};
+const PROJECT_ID = {{ project.id }};
+const ENV_ID = {{ active_env.id if active_env else 'null' }};
+const MULTI_HOST = {{ 'true' if multi_host else 'false' }};
+const panelCache = new Map();
+
+function esc(s){ const d=document.createElement("div"); d.textContent=s==null?"":String(s); return d.innerHTML; }
+
+function buildTree(items, withHost){
+  const root = {folders:{}, files:[]};
+  for(const itf of items){
+    const segs = (itf.path||"/").split("/").filter(Boolean);
+    let node = root;
+    if(withHost){
+      const h = itf.host_used || "(未配置服务地址)";
+      node = node.folders[h] || (node.folders[h] = {folders:{}, files:[]});
+    }
+    const parents = segs.slice(0, -1);
+    for(const name of parents){
+      node = node.folders[name] || (node.folders[name] = {folders:{}, files:[]});
+    }
+    node.files.push(itf);
+  }
+  return root;
+}
+
+/* 一个目录下的全部接口（含子目录）：文件夹汇总用，数据都在前端，不再请求后端 */
+function collectFiles(node, out){
+  out = out || [];
+  for(const k of Object.keys(node.folders)) collectFiles(node.folders[k], out);
+  for(const f of node.files) out.push(f);
+  return out;
+}
+
+/* forceOpen 在搜索时为真：命中结果是过滤后的，全部展开才看得见 */
+function renderTree(node, container, depth, forceOpen, prefix){
+  depth = depth || 0;
+  const ul = document.createElement("ul");
+  for(const name of Object.keys(node.folders).sort()){
+    const li = document.createElement("li");
+    const head = document.createElement("span");
+    const isHost = MULTI_HOST && depth === 0;
+    const open = forceOpen || isHost || depth === 0;
+    const childPrefix = isHost ? name : (prefix || "") + "/" + name;
+    head.className = "tree-folder" + (isHost ? " host-folder" : "") + (open ? " open" : "");
+    head.innerHTML = '<span class="arrow">▸</span>' + (isHost ? "🌐 " : "📁 ") + esc(name);
+    const child = document.createElement("div");
+    child.className = "tree-children" + (open ? " open" : "");
+    head.onclick = (ev)=>{
+      ev.stopPropagation();
+      head.classList.toggle("open"); child.classList.toggle("open");
+      markFolder(head);
+      showFolder(name, childPrefix, collectFiles(node.folders[name]), isHost);
+    };
+    li.appendChild(head); li.appendChild(child);
+    renderTree(node.folders[name], child, depth + 1, forceOpen, childPrefix);
+    ul.appendChild(li);
+  }
+  const files = node.files.slice().sort((a,b)=>(a.path||"").localeCompare(b.path||""));
+  for(const itf of files){
+    const li = document.createElement("li");
+    const el = document.createElement("span");
+    el.className = "tree-file";
+    const m = (itf.method||"GET").toLowerCase();
+    const leaf = (itf.path||"").split("/").filter(Boolean).pop() || "/";
+    el.innerHTML = '<span class="badge method-'+esc(m)+'">'+esc((itf.method||"GET").toUpperCase())+'</span>'
+      + esc(leaf) + ' <span class="itf-dim">' + esc(itf.name)
+      + (itf.verify_status==="changed" ? ' <b class="mark-changed">有变更</b>'
+         : itf.verify_status==="unverified" ? ' <b class="mark-unverified">未验证</b>' : '')
+      + '</span>';
+    el.title = (itf.host_used || "") + itf.path;
+    el.onclick = (ev)=>{ ev.stopPropagation(); showDetail(itf, el); };
+    li.appendChild(el);
+    ul.appendChild(li);
+  }
+  container.appendChild(ul);
+}
+
+/* 停在文件夹上时右栏的汇总：目录里有多少接口、都是什么方法、多少条还没实测。
+   这些字段树数据里都有，纯前端算，不发请求。 */
+function folderHtml(name, prefix, items, isHost){
+  const st = {verified: 0, changed: 0, unverified: 0};
+  const methods = {}, modules = {};
+  for(const itf of items){
+    const s = itf.verify_status || "unverified";
+    st[s] = (st[s] || 0) + 1;
+    const m = (itf.method || "GET").toUpperCase();
+    methods[m] = (methods[m] || 0) + 1;
+    const mod = itf.module || "未分组";
+    modules[mod] = (modules[mod] || 0) + 1;
+  }
+  const todo = items.filter(x => (x.verify_status || "unverified") !== "verified");
+  const mods = Object.keys(modules).sort();
+
+  let h = '<h3>' + (isHost ? "🌐 " : "📁 ") + esc(name) + '</h3>'
+    + '<p class="muted" style="font-size:12px;margin:4px 0">'
+    + (isHost ? '域名：' : '路径：') + '<code>' + esc(prefix) + '</code>'
+    + '　·　本目录共 <b>' + items.length + '</b> 条接口</p>'
+    + '<p><span class="badge verify-verified">已验证 ' + st.verified + '</span>　'
+    + '<span class="badge verify-changed">有变更 ' + st.changed + '</span>　'
+    + '<span class="badge verify-unverified">未验证 ' + st.unverified + '</span></p>';
+
+  h += '<h4>方法</h4><p>' + Object.keys(methods).sort().map(m =>
+    '<span class="badge method-' + m.toLowerCase() + '">' + esc(m) + '</span> ' + methods[m]
+  ).join('　') + '</p>';
+
+  if(mods.length > 1){
+    h += '<h4>模块</h4><p>' + mods.map(k => esc(k) + '（' + modules[k] + '）').join('、') + '</p>';
+  }
+
+  if(todo.length){
+    h += '<h4>未验证 / 有变更（' + todo.length + '）</h4><ul class="itf-todo">';
+    for(const itf of todo.slice(0, 12)){
+      h += '<li><span class="badge method-' + (itf.method || "GET").toLowerCase() + '">'
+        + esc((itf.method || "GET").toUpperCase()) + '</span> <code>' + esc(itf.path) + '</code> '
+        + '<span class="itf-dim">' + esc(itf.name) + '</span></li>';
+    }
+    h += '</ul>';
+    if(todo.length > 12){
+      h += '<p class="muted">…另有 ' + (todo.length - 12) + ' 条，用顶部搜索缩小范围</p>';
+    }
+  } else {
+    h += '<p class="muted">这个目录下的接口全部已验证。</p>';
+  }
+  return h;
+}
+
+function markFolder(head){
+  document.querySelectorAll(".tree-file.active, .tree-folder.active")
+    .forEach(e => e.classList.remove("active"));
+  if(head) head.classList.add("active");
+}
+
+function showFolder(name, prefix, items, isHost){
+  document.getElementById("itf-detail").innerHTML = folderHtml(name, prefix, items, isHost);
+}
+
+/* 右栏是服务端渲染好的 HTML 片段：契约字段/表头/notes 的 Markdown 与详情页同源，
+   前端只负责塞进去。之前这里手拼字符串，两边已经漂移（notes 被转义、表头不一致）。 */
+async function showDetail(itf, el){
+  document.querySelectorAll(".tree-file.active, .tree-folder.active")
+    .forEach(e => e.classList.remove("active"));
+  if(el) el.classList.add("active");
+  const box = document.getElementById("itf-detail");
+  const cached = panelCache.get(itf.id);
+  if(cached){ box.innerHTML = cached; return; }
+  box.innerHTML = '<span class="muted">加载中…</span>';
+  try{
+    const url = '/projects/'+PROJECT_ID+'/interfaces/'+itf.id+'/panel.html'
+      + (ENV_ID ? '?env='+ENV_ID : '');
+    const r = await fetch(url);
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const html = await r.text();
+    panelCache.set(itf.id, html);
+    box.innerHTML = html;
+  }catch(e){
+    box.innerHTML = '<p class="muted">详情加载失败（'+esc(e.message)+'）。<a href="/interfaces/'+itf.id+'">打开完整详情</a></p>';
+  }
+}
+
+function redraw(){
+  const kw = (document.getElementById("itf-search").value || "").trim().toLowerCase();
+  const list = kw
+    ? ITFS.filter(x => ((x.path||"") + " " + (x.name||"") + " " + (x.module||"")).toLowerCase().includes(kw))
+    : ITFS;
+  const root = document.getElementById("itf-tree");
+  root.innerHTML = "";
+  if(kw && !list.length){
+    root.innerHTML = '<span class="muted">没有匹配的接口</span>';
+  } else {
+    renderTree(buildTree(list, MULTI_HOST), root, 0, !!kw);
+  }
+  document.getElementById("itf-count").textContent =
+    kw ? `命中 ${list.length} / ${ITFS.length} 条` : `共 ${ITFS.length} 条`;
+}
+
+document.getElementById("itf-search").addEventListener("input", redraw);
+redraw();
+</script>

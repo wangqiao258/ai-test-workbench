@@ -1,0 +1,25 @@
+# 执行引擎镜像（P2）：API 步骤走 requests，UI 步骤走 Playwright。
+# 只跑 runner，不碰平台数据库——所有读写都走 platform 的公开 API。
+#
+# 基础镜像用官方 playwright 镜像：它自带 chromium 和那堆系统库
+# （libnss3 / libatk / libgbm…）。自己往 slim 里装浏览器，光找库就能耗一下午。
+# 代价是镜像从 ~200MB 涨到 ~1.5GB；只跑纯 API 用例的项目可以换回 python:3.13-slim。
+# 内网拉不到 mcr.microsoft.com 时用 docker save/load 离线导入。
+FROM mcr.microsoft.com/playwright/python:v1.64.1-noble
+WORKDIR /app
+
+COPY runner/requirements.txt runner/requirements.txt
+RUN pip install --no-cache-dir -r runner/requirements.txt
+
+COPY runner/ runner/
+# 断言引擎与平台共用同一份（core/asserts.py 是纯函数、无 IO），
+# 复制一份出来迟早会和平台判定漂移，这个项目已经吃过一次两份规则的亏。
+COPY core/ core/
+
+ENV PLATFORM_URL=http://platform:8501 \
+    POLL_SECONDS=5 \
+    REQUEST_TIMEOUT=30 \
+    HEADLESS=1 \
+    TZ=Asia/Shanghai
+
+CMD ["python", "-m", "runner"]

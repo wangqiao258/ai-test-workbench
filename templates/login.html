@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>登录 - AI 协同测试工作台</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="login-box">
+  <div class="card">
+    <h3>AI 协同测试工作台</h3>
+    {% with messages = get_flashed_messages() %}
+      {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+    {% endwith %}
+    <form method="post">
+      <label>用户名</label>
+      <input type="text" name="username" required autofocus>
+      <label>密码</label>
+      <input type="password" name="password" required>
+      <div style="margin-top:16px"><button type="submit" style="width:100%">登录</button></div>
+    </form>
+    <p class="muted">默认账号 admin / admin123，首次登录后请在"设置"中修改。</p>
+  </div>
+</div>
+</body>
+</html>

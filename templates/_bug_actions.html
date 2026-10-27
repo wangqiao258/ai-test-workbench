@@ -1,0 +1,24 @@
+{# Bug 审核共用脚本：驳回必须填原因，分类可选（2026-10-26 加，用于统计哪类误报最多）。
+   2026-10-27：输入从"两个 prompt 弹框"改成右栏常驻表单（_detail_bug.html 的 .review-box）。
+   原因：分类弹框 64 次驳回里一次都没填（0/64），且点"取消"仍会提交驳回；
+   原因弹框是单行，导致审核意见平均只有 10.6 字，反馈不了 AI。
+   现在点驳回只做就地校验：空 → 滚到输入框并聚焦；非空 → 直接提交，不再弹任何框。 #}
+<script>
+function wbReject(btn) {
+  var form = btn.form;
+  var el = form ? form.elements.comment : null;
+  if (!el) return true;                       // 没有输入框的旧页面不拦
+  if (el.value.trim()) return true;
+
+  el.classList.add('need');
+  el.placeholder = '驳回必须写原因（会原样反馈给 AI 修改）';
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  el.focus();
+  return false;
+}
+
+/* 一开始输入就把红框去掉，不用等提交 */
+document.addEventListener('input', function (e) {
+  if (e.target && e.target.name === 'comment') e.target.classList.remove('need');
+});
+</script>

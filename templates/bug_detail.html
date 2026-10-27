@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% set active = 'dashboard' %}
+{% block title %}{{ bug.title }} - AI 协同测试工作台{% endblock %}
+{% block content %}
+<p class="muted"><a href="{{ back }}">← 返回 Bug 列表</a></p>
+{# 独立详情页保留全宽阅读（长证据更舒服），卡身与分栏右栏共用同一份 partial #}
+{% set detail_back = back_qs %}
+{% include "_detail_bug.html" %}
+{% include "_bug_actions.html" %}
+{% endblock %}
