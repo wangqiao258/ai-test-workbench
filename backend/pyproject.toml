@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-test-workbench-backend"
+version = "0.1.0"
+description = "AI 协同测试工作台后端"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "SQLAlchemy>=2.0.30",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.13",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+    "PyJWT>=2.9",
+    "argon2-cffi>=23.1",
+    "python-multipart>=0.0.9",
+    "PyYAML>=6",
+    "pytest>=8.2,<9",
+    "pytest-json-report>=1.5",
+    "pytest-traffic-capture>=0.4",
+    "requests>=2.31",
+    "tavern>=3.7,<4",
+]
+
+[project.entry-points.pytest11]
+pytest_workbench = "pytest_workbench.plugin"
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.27",
+    "ruff>=0.6",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*", "scripts*", "pytest_workbench*", "workbench_runner*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["alembic/versions", ".venv*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# FastAPI 的依赖注入惯用写法就是参数默认值里调用 Depends；timezone.utc 写法保持不动
+ignore = ["B008", "UP017"]
+
+[tool.ruff.lint.isort]
+known-third-party = ["alembic"]

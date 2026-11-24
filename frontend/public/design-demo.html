@@ -1,0 +1,1546 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>运行与审判 · 三种视觉方向</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #e8e5dc;
+        color: #161511;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+          'Microsoft YaHei', sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      button { font: inherit; color: inherit; cursor: pointer; }
+      code, pre { font-family: var(--mono, 'Cascadia Code', Consolas, monospace); }
+      .mono { font-family: 'Cascadia Code', Consolas, monospace; }
+
+      /* ---------- neutral concept switcher ---------- */
+      .switcher {
+        height: 54px;
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        padding: 0 18px;
+        background: #f7f6f1;
+        border-bottom: 1px solid #d3cfc4;
+        position: relative;
+        z-index: 20;
+      }
+      .switch-brand { display: flex; align-items: center; gap: 10px; min-width: 218px; }
+      .switch-mark {
+        width: 24px; height: 24px;
+        display: grid; place-items: center;
+        background: #151410; color: #f7f6f1;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 9px; letter-spacing: -0.04em;
+      }
+      .switch-brand strong { display: block; font-size: 11px; letter-spacing: 0.02em; }
+      .switch-brand em {
+        display: block; margin-top: 2px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-style: normal; font-size: 8px; letter-spacing: 0.08em; color: #7b7466;
+      }
+      .switch-tabs { display: flex; gap: 2px; padding: 3px; background: #e9e6dc; }
+      .switch-tab {
+        display: flex; align-items: center; gap: 7px;
+        border: 0; background: transparent;
+        padding: 7px 13px;
+        color: #4d483e; font-size: 11.5px;
+      }
+      .switch-tab span {
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 8.5px; opacity: 0.55;
+      }
+      .switch-tab:hover { background: rgba(255,255,255,0.55); }
+      .switch-tab.is-active { background: #151410; color: #f7f6f1; }
+      .switch-tab.is-active span { opacity: 0.65; }
+      .switch-meta {
+        margin-left: auto;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 9px; letter-spacing: 0.04em; color: #7b7466;
+        white-space: nowrap;
+      }
+
+      /* ---------- shared stage ---------- */
+      .concept { display: none; height: calc(100vh - 54px); overflow: hidden; }
+      .concept.is-active { display: flex; flex-direction: column; }
+      .c-body {
+        flex: 1; min-height: 0;
+        display: grid;
+        grid-template-columns: 224px minmax(0, 1fr) 328px;
+      }
+      .c-rail, .c-evidence, .c-verdict { min-height: 0; overflow-y: auto; }
+      .c-rail::-webkit-scrollbar, .c-evidence::-webkit-scrollbar,
+      .c-verdict::-webkit-scrollbar { width: 6px; height: 6px; }
+      .c-rail::-webkit-scrollbar-thumb, .c-evidence::-webkit-scrollbar-thumb,
+      .c-verdict::-webkit-scrollbar-thumb { background: rgba(120,112,98,0.35); }
+
+      /* =========================================================
+         A — EDITORIAL DOCKET / 审计卷宗
+         ========================================================= */
+      .concept-docket {
+        --paper: #f1ede3;
+        --paper-2: #e9e3d5;
+        --ink: #171511;
+        --muted: #6f685a;
+        --rule: #c9c0ae;
+        --red: #bf3b24;
+        --serif: 'Songti SC', 'Noto Serif SC', 'STSong', 'SimSun', Georgia, serif;
+        --mono: 'Cascadia Code', Consolas, monospace;
+        background:
+          radial-gradient(rgba(23,21,17,0.035) 1px, transparent 1px) 0 0 / 16px 16px,
+          var(--paper);
+        color: var(--ink);
+      }
+      .d-head {
+        flex: 0 0 auto;
+        padding: 16px 24px 13px;
+        border-bottom: 3px double var(--ink);
+        background: var(--paper);
+      }
+      .d-kicker {
+        font: 9px/1 var(--mono);
+        letter-spacing: 0.18em;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      .d-head-row {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 18px;
+        margin-top: 5px;
+      }
+      .d-head h1 {
+        margin: 0;
+        font-family: var(--serif);
+        font-size: 34px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        line-height: 1.05;
+      }
+      .d-sub {
+        margin-top: 5px;
+        font: 9px/1.6 var(--mono);
+        color: var(--muted);
+      }
+      .d-head-right { display: flex; align-items: flex-end; gap: 18px; }
+      .d-stats { display: flex; gap: 16px; }
+      .d-stat { text-align: right; }
+      .d-stat b {
+        display: block;
+        font-family: var(--serif);
+        font-size: 20px;
+        line-height: 1;
+        font-weight: 600;
+      }
+      .d-stat span {
+        display: block;
+        margin-top: 3px;
+        font: 8px var(--mono);
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      .d-stamp {
+        padding: 6px 8px;
+        border: 1px solid var(--red);
+        color: var(--red);
+        font: 9px/1.25 var(--mono);
+        letter-spacing: 0.12em;
+        text-align: center;
+        text-transform: uppercase;
+        transform: rotate(-1.5deg);
+      }
+
+      .d-rail { padding: 14px 16px 26px; border-right: 1px solid var(--rule); background: var(--paper); }
+      .d-evidence { padding: 16px 22px 38px; background: #f5f1e8; }
+      .d-verdict { padding: 16px 16px 28px; border-left: 1px solid var(--rule); background: var(--paper-2); }
+
+      .d-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 5px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid var(--rule);
+        font: 8px var(--mono);
+        letter-spacing: 0.15em;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      .d-run-meta {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 8px;
+        margin-bottom: 16px;
+        font: 9px/1.5 var(--mono);
+        color: var(--muted);
+      }
+      .d-run-meta b { color: var(--ink); font-weight: 400; text-align: right; }
+      .d-case {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 18px 1fr 12px;
+        gap: 6px;
+        align-items: start;
+        padding: 7px 3px;
+        border: 0;
+        border-bottom: 1px solid var(--rule);
+        background: transparent;
+        text-align: left;
+      }
+      .d-case:hover { background: rgba(255,255,255,0.35); }
+      .d-case.is-active {
+        border-left: 2px solid var(--red);
+        padding-left: 7px;
+        background: rgba(191,59,36,0.05);
+      }
+      .d-case-no { font: 8.5px/1.6 var(--mono); color: var(--muted); }
+      .d-case-name {
+        display: -webkit-box;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        font-family: var(--serif);
+        font-size: 11.5px;
+        line-height: 1.35;
+        color: var(--ink);
+      }
+      .d-case-meta {
+        display: block;
+        margin-top: 2px;
+        font: 7.5px var(--mono);
+        color: var(--muted);
+      }
+      .d-case-mark { font: 11px/1.4 var(--mono); color: var(--muted); text-align: right; }
+      .d-case-mark.is-fail { color: var(--red); font-weight: 700; }
+      .d-case-mark.is-skip { color: #9b9486; }
+
+      .d-ex-head {
+        display: block;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--ink);
+      }
+      .d-ex-head h2 {
+        margin: 0;
+        font-family: var(--serif);
+        font-size: 19px;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+      .d-ex-kicker { font: 8px var(--mono); letter-spacing: 0.13em; color: var(--muted); }
+      .d-nodeid {
+        margin-top: 4px;
+        font: 8px/1.5 var(--mono);
+        color: var(--muted);
+        word-break: break-all;
+      }
+      .d-error {
+        margin: 14px 0 16px;
+        padding: 8px 0 8px 12px;
+        border-left: 3px solid var(--red);
+        font-family: var(--serif);
+        font-size: 16px;
+        line-height: 1.55;
+      }
+      .d-error span {
+        display: block;
+        margin-bottom: 3px;
+        font: 8px var(--mono);
+        letter-spacing: 0.12em;
+        color: var(--red);
+        text-transform: uppercase;
+      }
+      .d-exchanges { margin-top: 4px; }
+      .d-exchange-head,
+      .d-exchange {
+        display: grid;
+        grid-template-columns: 22px 46px minmax(0, 1fr) 38px 48px;
+        gap: 8px;
+        align-items: center;
+      }
+      .d-exchange-head {
+        padding: 4px 0;
+        border-bottom: 1px solid var(--rule);
+        font: 7.5px var(--mono);
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      .d-exchange {
+        padding: 6px 0;
+        border-bottom: 1px solid var(--rule);
+        font: 9px var(--mono);
+        color: var(--muted);
+      }
+      .d-exchange.is-active { border-bottom-color: var(--red); color: var(--ink); }
+      .d-method { color: var(--ink); font-weight: 700; }
+      .d-exchange.is-active .d-method { color: var(--red); }
+      .d-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .d-code { color: var(--ink); }
+      .d-time { text-align: right; }
+      .d-codeblock {
+        margin: 10px 0 0;
+        padding: 10px 12px;
+        border: 1px solid var(--rule);
+        background: #eae4d6;
+        font: 10px/1.7 var(--mono);
+        color: #3c382f;
+        overflow: auto;
+        white-space: pre;
+      }
+      .d-codeblock .k { color: #2f4a38; }
+      .d-codeblock .s { color: #5c5a2a; }
+      .d-codeblock .n { color: var(--red); }
+      .d-footnote {
+        margin-top: 8px;
+        font: 9px/1.55 var(--mono);
+        color: var(--red);
+      }
+
+      .d-verdict h2 {
+        margin: 0;
+        font-family: var(--serif);
+        font-size: 24px;
+        font-weight: 600;
+      }
+      .d-verdict-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+      .d-verdict-head span {
+        font: 8px var(--mono);
+        letter-spacing: 0.14em;
+        color: var(--muted);
+      }
+      .d-ai-note {
+        margin: 12px 0;
+        padding: 9px 0;
+        border-top: 1px solid var(--ink);
+        border-bottom: 1px solid var(--rule);
+        font: 9px/1.6 var(--mono);
+        color: var(--muted);
+      }
+      .d-ai-note b { color: var(--ink); font-weight: 400; }
+      .d-findings { display: flex; flex-direction: column; }
+      .d-finding {
+        display: grid;
+        grid-template-columns: 17px 1fr;
+        gap: 6px;
+        padding: 8px 3px;
+        border-bottom: 1px solid var(--rule);
+      }
+      .d-finding.is-active {
+        border-left: 2px solid var(--red);
+        padding-left: 7px;
+        background: rgba(255,255,255,0.36);
+      }
+      .d-f-no { font: 8.5px/1.5 var(--mono); color: var(--muted); }
+      .d-f-type {
+        font: 7.5px var(--mono);
+        letter-spacing: 0.04em;
+        color: var(--muted);
+      }
+      .d-finding h4 {
+        margin: 2px 0 0;
+        font-family: var(--serif);
+        font-size: 11.5px;
+        font-weight: 600;
+        line-height: 1.45;
+      }
+      .d-detail {
+        margin-top: 10px;
+        padding-top: 9px;
+        border-top: 1px solid var(--ink);
+      }
+      .d-detail-label {
+        margin-top: 7px;
+        font: 7.5px var(--mono);
+        letter-spacing: 0.11em;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      .d-detail p {
+        margin: 2px 0 0;
+        font-size: 10px;
+        line-height: 1.6;
+        color: #353127;
+      }
+      .d-ref { margin-top: 8px; font: 8px/1.5 var(--mono); color: var(--red); }
+      .d-verdict-options { display: grid; gap: 5px; margin-top: 10px; }
+      .d-verdict-options button {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 7px 8px;
+        border: 1px solid var(--ink);
+        background: transparent;
+        color: var(--ink);
+        font: 8.5px var(--mono);
+        letter-spacing: 0.05em;
+        text-align: left;
+      }
+      .d-verdict-options button::after { content: '□'; font-size: 11px; }
+      .d-verdict-options button:hover { background: rgba(255,255,255,0.4); }
+      .d-verdict-options button.is-active {
+        border-color: var(--red);
+        background: var(--red);
+        color: #f7f2e6;
+      }
+      .d-verdict-options button.is-active::after { content: '■'; }
+      .d-note {
+        width: 100%;
+        margin-top: 8px;
+        padding: 7px 0;
+        border: 0;
+        border-bottom: 1px solid var(--ink);
+        background: transparent;
+        color: var(--ink);
+        font: 9px var(--mono);
+        outline: none;
+        resize: vertical;
+      }
+      .d-note::placeholder { color: #9a9283; }
+      .d-submit {
+        width: 100%;
+        margin-top: 9px;
+        padding: 10px;
+        border: 0;
+        background: var(--ink);
+        color: #f7f2e6;
+        font: 9px var(--mono);
+        letter-spacing: 0.14em;
+      }
+      .d-submit:hover { background: var(--red); }
+      .d-stamp-result {
+        display: none;
+        margin-top: 10px;
+        padding: 8px;
+        border: 2px solid var(--red);
+        color: var(--red);
+        font: 9px var(--mono);
+        letter-spacing: 0.14em;
+        text-align: center;
+        transform: rotate(-2deg);
+      }
+      .d-stamp-result.is-visible { display: block; animation: stamp 0.25s ease-out; }
+      @keyframes stamp {
+        from { transform: rotate(-2deg) scale(1.15); opacity: 0; }
+        to { transform: rotate(-2deg) scale(1); opacity: 1; }
+      }
+
+      /* =========================================================
+         B — INDUSTRIAL TERMINAL / 工业终端
+         ========================================================= */
+      .concept-terminal {
+        --bg: #090b08;
+        --panel: #0d110c;
+        --line: #263020;
+        --text: #c9d6b8;
+        --dim: #6f7d62;
+        --lime: #c9f25c;
+        --red: #ff5f56;
+        --amber: #e8b45a;
+        --mono: 'Cascadia Code', Consolas, monospace;
+        position: relative;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--mono);
+      }
+      .concept-terminal::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        pointer-events: none;
+        background: repeating-linear-gradient(
+          0deg,
+          rgba(255,255,255,0.018) 0 1px,
+          transparent 1px 3px
+        );
+      }
+      .t-head {
+        flex: 0 0 46px;
+        height: 46px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--line);
+        background: #070906;
+        font-size: 9px;
+        color: var(--dim);
+      }
+      .t-brand { color: var(--lime); letter-spacing: 0.08em; white-space: nowrap; }
+      .t-brand span { color: var(--text); }
+      .t-bar { color: var(--lime); letter-spacing: 0.05em; white-space: nowrap; }
+      .t-head-stats { display: flex; gap: 12px; margin-left: auto; white-space: nowrap; }
+      .t-head-stats .ok { color: var(--lime); }
+      .t-head-stats .fail { color: var(--red); }
+      .t-head-stats .skip { color: var(--dim); }
+      .t-rail { padding: 12px; border-right: 1px solid var(--line); background: var(--panel); }
+      .t-evidence { padding: 14px 18px 34px; background: var(--bg); }
+      .t-verdict { padding: 12px 14px 26px; border-left: 1px solid var(--line); background: var(--panel); }
+      .t-label {
+        display: flex;
+        justify-content: space-between;
+        padding-bottom: 4px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid var(--line);
+        color: var(--dim);
+        font-size: 8px;
+        letter-spacing: 0.12em;
+      }
+      .t-label b { color: var(--lime); font-weight: 400; }
+      .t-run-meta {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 3px 8px;
+        margin-bottom: 12px;
+        font-size: 8.5px;
+        line-height: 1.6;
+        color: var(--dim);
+      }
+      .t-run-meta b { color: var(--text); font-weight: 400; text-align: right; }
+      .t-case {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 18px 34px minmax(0, 1fr) 38px;
+        gap: 5px;
+        align-items: center;
+        padding: 4px 2px;
+        border: 0;
+        background: transparent;
+        color: var(--dim);
+        font-size: 9px;
+        line-height: 1.4;
+        text-align: left;
+      }
+      .t-case:hover { background: #121811; color: var(--text); }
+      .t-case.is-active { background: var(--lime); color: #080a07; }
+      .t-case-status { font-weight: 700; font-size: 8px; }
+      .t-case-status.is-pass { color: #86a86a; }
+      .t-case-status.is-fail { color: var(--red); }
+      .t-case-status.is-skip { color: #5b6752; }
+      .t-case.is-active .t-case-status { color: #080a07; }
+      .t-case-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .t-case-dur { text-align: right; font-size: 8px; }
+
+      .t-exhead {
+        display: block;
+        padding-bottom: 6px;
+        border-bottom: 1px solid var(--line);
+        font-size: 8.5px;
+        color: var(--dim);
+      }
+      .t-exhead b { display: block; color: var(--text); font-weight: 400; font-size: 11px; }
+      .t-exhead .t-nodeid { margin-top: 3px; color: var(--dim); word-break: break-all; }
+      .t-error {
+        margin: 12px 0;
+        padding: 9px 10px;
+        border: 1px solid #53231f;
+        background: #160c0a;
+        color: #ffb3ac;
+        font-size: 9.5px;
+        line-height: 1.65;
+      }
+      .t-error strong {
+        display: block;
+        margin-bottom: 3px;
+        color: var(--red);
+        font-size: 8px;
+        letter-spacing: 0.1em;
+      }
+      .t-exchange {
+        display: grid;
+        grid-template-columns: 28px 40px minmax(0, 1fr) 34px 42px;
+        gap: 7px;
+        align-items: center;
+        padding: 4px 0;
+        border-bottom: 1px solid #1a2317;
+        color: var(--dim);
+        font-size: 9px;
+      }
+      .t-exchange.is-active {
+        padding-left: 4px;
+        background: var(--lime);
+        color: #080a07;
+      }
+      .t-method { color: var(--lime); font-weight: 700; }
+      .t-exchange.is-active .t-method { color: #080a07; }
+      .t-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .t-code { color: var(--lime); }
+      .t-exchange.is-active .t-code { color: #080a07; }
+      .t-time { text-align: right; font-size: 8px; }
+      .t-codeblock {
+        margin: 10px 0 0;
+        padding: 9px 10px;
+        border: 1px solid var(--line);
+        background: #060805;
+        color: var(--text);
+        font-size: 9px;
+        line-height: 1.7;
+        overflow: auto;
+        white-space: pre;
+      }
+      .t-codeblock .k { color: var(--lime); }
+      .t-codeblock .s { color: #9fc46a; }
+      .t-codeblock .n { color: var(--amber); }
+      .t-codeblock .err { color: var(--red); }
+      .t-cursor {
+        display: inline-block;
+        width: 6px;
+        height: 10px;
+        background: var(--lime);
+        vertical-align: -1px;
+        animation: blink 1s steps(2) infinite;
+      }
+      @keyframes blink { 50% { opacity: 0; } }
+      .t-footnote { margin-top: 8px; font-size: 8.5px; color: var(--red); }
+
+      .t-verdict h2 {
+        margin: 0 0 8px;
+        color: var(--lime);
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        font-weight: 400;
+      }
+      .t-ai {
+        margin-bottom: 10px;
+        padding: 8px 9px;
+        border: 1px solid var(--line);
+        background: #0a0e09;
+        color: var(--dim);
+        font-size: 8.5px;
+        line-height: 1.65;
+      }
+      .t-ai .t-ai-tag { display: block; color: var(--lime); margin-bottom: 3px; letter-spacing: 0.08em; }
+      .t-ai b { color: var(--text); font-weight: 400; }
+      .t-conf { color: var(--lime); }
+      .t-finding {
+        display: grid;
+        grid-template-columns: 16px 1fr;
+        gap: 5px;
+        padding: 6px 2px;
+        border-bottom: 1px solid #1a2317;
+        color: var(--dim);
+        font-size: 8.5px;
+        line-height: 1.5;
+      }
+      .t-finding.is-active {
+        padding-left: 5px;
+        border-left: 2px solid var(--lime);
+        background: #111810;
+        color: var(--text);
+      }
+      .t-f-idx { color: var(--lime); }
+      .t-f-type { color: var(--amber); font-size: 7.5px; }
+      .t-finding h4 { margin: 2px 0 0; font-size: 8.5px; font-weight: 400; }
+      .t-detail { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+      .t-detail-label {
+        margin-top: 7px;
+        color: var(--dim);
+        font-size: 7.5px;
+        letter-spacing: 0.1em;
+      }
+      .t-detail p { margin: 3px 0 0; color: var(--text); font-size: 8.5px; line-height: 1.6; }
+      .t-ref { margin-top: 8px; color: var(--red); font-size: 8px; }
+      .t-verdict-options { display: grid; gap: 4px; margin-top: 10px; }
+      .t-verdict-options button {
+        padding: 6px 8px;
+        border: 1px solid var(--line);
+        background: transparent;
+        color: var(--dim);
+        font-size: 8.5px;
+        letter-spacing: 0.04em;
+        text-align: left;
+      }
+      .t-verdict-options button::before { content: '[ '; color: var(--dim); }
+      .t-verdict-options button::after { content: ' ]'; color: var(--dim); }
+      .t-verdict-options button:hover { border-color: var(--dim); color: var(--text); }
+      .t-verdict-options button.is-active { border-color: var(--lime); background: var(--lime); color: #080a07; }
+      .t-verdict-options button.is-active::before,
+      .t-verdict-options button.is-active::after { color: #080a07; }
+      .t-note {
+        width: 100%;
+        margin-top: 8px;
+        padding: 7px;
+        border: 1px solid var(--line);
+        background: #060805;
+        color: var(--text);
+        font-size: 8.5px;
+        outline: none;
+        resize: vertical;
+      }
+      .t-note:focus { border-color: var(--lime); }
+      .t-note::placeholder { color: #6f7d62; }
+      .t-submit {
+        width: 100%;
+        margin-top: 8px;
+        padding: 8px;
+        border: 1px solid var(--lime);
+        background: transparent;
+        color: var(--lime);
+        font-size: 8.5px;
+        letter-spacing: 0.1em;
+      }
+      .t-submit:hover { background: var(--lime); color: #080a07; }
+      .t-stamp-result {
+        display: none;
+        margin-top: 8px;
+        padding: 6px;
+        border: 1px dashed var(--lime);
+        color: var(--lime);
+        font-size: 8.5px;
+        letter-spacing: 0.08em;
+        text-align: center;
+      }
+      .t-stamp-result.is-visible { display: block; }
+
+      /* =========================================================
+         C — SWISS ARCHIVE / 瑞士档案
+         ========================================================= */
+      .concept-swiss {
+        --paper: #f3f3ee;
+        --paper-2: #e9e9e2;
+        --black: #111110;
+        --gray: #6e6e67;
+        --line: #c9c9c1;
+        --red: #e03a1e;
+        --sans: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Microsoft YaHei',
+          sans-serif;
+        --mono: 'Cascadia Code', Consolas, monospace;
+        background: var(--paper);
+        color: var(--black);
+        font-family: var(--sans);
+      }
+      .s-head {
+        flex: 0 0 auto;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: end;
+        gap: 20px;
+        padding: 14px 22px 13px;
+        border-bottom: 2px solid var(--black);
+        background: var(--paper);
+      }
+      .s-eyebrow {
+        display: block;
+        margin-bottom: 3px;
+        font: 8px var(--mono);
+        letter-spacing: 0.2em;
+        color: var(--gray);
+      }
+      .s-head h1 {
+        margin: 0;
+        font-family: var(--sans);
+        font-size: 54px;
+        font-weight: 800;
+        line-height: 0.92;
+        letter-spacing: -0.045em;
+      }
+      .s-head-right { text-align: right; }
+      .s-big {
+        display: block;
+        font-size: 54px;
+        font-weight: 800;
+        line-height: 0.85;
+        letter-spacing: -0.05em;
+      }
+      .s-big span { font-size: 20px; letter-spacing: -0.02em; color: var(--gray); }
+      .s-caption {
+        display: block;
+        margin-top: 4px;
+        font: 8px var(--mono);
+        letter-spacing: 0.14em;
+        color: var(--gray);
+      }
+      .s-meta { display: flex; gap: 16px; margin-top: 5px; font: 8.5px var(--mono); color: var(--gray); }
+      .s-rail { padding: 14px 16px 26px; border-right: 1px solid var(--black); background: var(--paper); }
+      .s-evidence { padding: 16px 22px 38px; background: var(--paper); }
+      .s-verdict { padding: 14px 16px 28px; border-left: 1px solid var(--black); background: var(--paper-2); }
+      .s-label {
+        display: flex;
+        justify-content: space-between;
+        padding-bottom: 4px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid var(--black);
+        font: 8px var(--mono);
+        letter-spacing: 0.16em;
+        color: var(--black);
+        text-transform: uppercase;
+      }
+      .s-run-meta {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 3px 8px;
+        margin-bottom: 14px;
+        font: 8.5px/1.5 var(--mono);
+        color: var(--gray);
+      }
+      .s-run-meta b { color: var(--black); font-weight: 400; text-align: right; }
+      .s-case {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 24px 1fr 16px;
+        gap: 7px;
+        align-items: start;
+        padding: 6px 2px;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        background: transparent;
+        color: var(--black);
+        text-align: left;
+      }
+      .s-case:hover { background: #e7e7e0; }
+      .s-case.is-active { background: var(--black); color: var(--paper); }
+      .s-case-no { font: 8px/1.6 var(--mono); color: var(--gray); }
+      .s-case.is-active .s-case-no { color: #bdbdb5; }
+      .s-case-name {
+        display: -webkit-box;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        font-size: 11px;
+        font-weight: 500;
+        line-height: 1.35;
+      }
+      .s-case-meta {
+        display: block;
+        margin-top: 1px;
+        font: 7.5px var(--mono);
+        color: var(--gray);
+      }
+      .s-case.is-active .s-case-meta { color: #bdbdb5; }
+      .s-case-status {
+        font: 700 9px var(--mono);
+        text-align: right;
+      }
+      .s-case-status.is-pass { color: #5f6f5a; }
+      .s-case-status.is-fail { color: var(--red); }
+      .s-case-status.is-skip { color: #9a9a92; }
+      .s-case.is-active .s-case-status { color: #fff; }
+
+      .s-exhead {
+        display: block;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--black);
+      }
+      .s-exhead h2 {
+        margin: 0;
+        font-family: var(--sans);
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1.05;
+        letter-spacing: -0.03em;
+      }
+      .s-nodeid {
+        margin-top: 4px;
+        font: 8px/1.5 var(--mono);
+        color: var(--gray);
+        word-break: break-all;
+      }
+      .s-error {
+        display: flex;
+        gap: 10px;
+        margin: 15px 0;
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1.4;
+        letter-spacing: -0.02em;
+      }
+      .s-error::before {
+        content: '';
+        flex: 0 0 6px;
+        width: 6px;
+        background: var(--red);
+      }
+      .s-error span {
+        display: block;
+        margin-bottom: 2px;
+        font: 8px var(--mono);
+        letter-spacing: 0.12em;
+        color: var(--red);
+        font-weight: 400;
+      }
+      .s-exchange-head,
+      .s-exchange {
+        display: grid;
+        grid-template-columns: 24px 48px minmax(0, 1fr) 34px 40px;
+        gap: 8px;
+        align-items: center;
+      }
+      .s-exchange-head {
+        padding: 4px 0;
+        border-bottom: 1px solid var(--black);
+        font: 7.5px var(--mono);
+        letter-spacing: 0.08em;
+        color: var(--gray);
+        text-transform: uppercase;
+      }
+      .s-exchange {
+        padding: 6px 0;
+        border-bottom: 1px solid var(--line);
+        font: 9px var(--mono);
+        color: var(--gray);
+      }
+      .s-exchange.is-active { border-bottom: 2px solid var(--red); color: var(--black); }
+      .s-method { color: var(--black); font-weight: 700; }
+      .s-exchange.is-active .s-method { color: var(--red); }
+      .s-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .s-code { color: var(--black); }
+      .s-time { text-align: right; }
+      .s-codeblock {
+        margin: 10px 0 0;
+        padding: 10px 12px;
+        background: #e6e6df;
+        color: #151511;
+        font: 9.5px/1.7 var(--mono);
+        overflow: auto;
+        white-space: pre;
+      }
+      .s-codeblock .k { font-weight: 700; }
+      .s-codeblock .red { color: var(--red); font-weight: 700; }
+      .s-footnote { margin-top: 8px; font: 8.5px var(--mono); color: var(--red); }
+
+      .s-verdict h2 {
+        margin: 0;
+        font-family: var(--sans);
+        font-size: 34px;
+        font-weight: 800;
+        line-height: 0.95;
+        letter-spacing: -0.045em;
+        text-transform: uppercase;
+      }
+      .s-ai {
+        margin: 10px 0;
+        padding: 10px;
+        background: var(--black);
+        color: #f3f3ee;
+        font-size: 9.5px;
+        line-height: 1.65;
+      }
+      .s-ai .s-ai-tag {
+        display: block;
+        margin-bottom: 4px;
+        font: 7.5px var(--mono);
+        letter-spacing: 0.12em;
+        color: #bdbdb5;
+      }
+      .s-ai b { font-weight: 700; }
+      .s-finding {
+        display: grid;
+        grid-template-columns: 22px 1fr;
+        gap: 6px;
+        padding: 7px 2px;
+        border-bottom: 1px solid var(--line);
+      }
+      .s-finding.is-active { border-left: 4px solid var(--black); padding-left: 8px; }
+      .s-f-no { font: 700 14px/1.2 var(--sans); color: var(--red); }
+      .s-f-type { font: 7.5px var(--mono); color: var(--gray); }
+      .s-finding h4 {
+        margin: 2px 0 0;
+        font-family: var(--sans);
+        font-size: 10.5px;
+        font-weight: 600;
+        line-height: 1.4;
+      }
+      .s-detail { margin-top: 10px; padding-top: 9px; border-top: 2px solid var(--black); }
+      .s-detail-label {
+        margin-top: 7px;
+        font: 7.5px var(--mono);
+        letter-spacing: 0.1em;
+        color: var(--gray);
+        text-transform: uppercase;
+      }
+      .s-detail p { margin: 2px 0 0; font-size: 9.5px; line-height: 1.6; color: #222; }
+      .s-ref { margin-top: 8px; font: 8px var(--mono); color: var(--red); }
+      .s-verdict-options { display: grid; margin-top: 10px; border-top: 1px solid var(--black); }
+      .s-verdict-options button {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 4px;
+        border: 0;
+        border-bottom: 1px solid var(--black);
+        background: transparent;
+        color: var(--black);
+        font: 700 9px var(--sans);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        text-align: left;
+      }
+      .s-verdict-options button::after { content: '□'; font: 11px var(--mono); }
+      .s-verdict-options button:hover { background: #dcdcd4; }
+      .s-verdict-options button.is-active { padding-left: 8px; background: var(--black); color: var(--paper); }
+      .s-verdict-options button.is-active::after { content: '■'; }
+      .s-note {
+        width: 100%;
+        margin-top: 8px;
+        padding: 7px 0;
+        border: 0;
+        border-bottom: 1px solid var(--black);
+        background: transparent;
+        color: var(--black);
+        font: 9px var(--sans);
+        outline: none;
+        resize: vertical;
+      }
+      .s-note::placeholder { color: #96968e; }
+      .s-submit {
+        width: 100%;
+        margin-top: 8px;
+        padding: 10px;
+        border: 0;
+        background: var(--black);
+        color: var(--paper);
+        font: 800 9px var(--sans);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      .s-submit:hover { background: var(--red); }
+      .s-stamp-result {
+        display: none;
+        margin-top: 10px;
+        padding: 9px;
+        background: var(--black);
+        color: var(--paper);
+        font: 800 9px var(--sans);
+        letter-spacing: 0.1em;
+        text-align: center;
+      }
+      .s-stamp-result.is-visible { display: block; }
+
+      @media (max-width: 1080px) {
+        .c-body { grid-template-columns: 200px minmax(0, 1fr) 300px; }
+        .s-head h1 { font-size: 44px; }
+        .s-big { font-size: 44px; }
+      }
+      @media (max-width: 880px) {
+        body { overflow: auto; }
+        .switch-meta { display: none; }
+        .switch-brand { min-width: 0; }
+        .concept { height: auto; min-height: calc(100vh - 54px); overflow: visible; }
+        .c-body { grid-template-columns: 1fr; }
+        .c-rail { display: none; }
+        .c-evidence, .c-verdict { overflow: visible; }
+        .d-head h1, .s-head h1 { font-size: 34px; }
+        .d-head-right, .s-head-right { display: none; }
+        .concept-docket .c-verdict, .concept-terminal .c-verdict, .concept-swiss .c-verdict {
+          border-left: 0;
+          border-top: 1px solid currentColor;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="switcher">
+      <div class="switch-brand">
+        <span class="switch-mark">R/T</span>
+        <div>
+          <strong>运行与审判 · 视觉方向</strong>
+          <em>ONE DATASET / THREE LANGUAGES</em>
+        </div>
+      </div>
+      <nav class="switch-tabs" role="tablist" aria-label="视觉方向">
+        <button class="switch-tab is-active" data-target="docket" role="tab" aria-selected="true">
+          <span>01</span>审计卷宗
+        </button>
+        <button class="switch-tab" data-target="terminal" role="tab" aria-selected="false">
+          <span>02</span>工业终端
+        </button>
+        <button class="switch-tab" data-target="swiss" role="tab" aria-selected="false">
+          <span>03</span>瑞士档案
+        </button>
+      </nav>
+      <div class="switch-meta">RUN-1124-0912 · 预发 · 42.6s</div>
+    </header>
+
+    <!-- ================= A / 审计卷宗 ================= -->
+    <section class="concept concept-docket is-active" id="docket">
+      <header class="d-head">
+        <div class="d-kicker">Case File / Run No. 03</div>
+        <div class="d-head-row">
+          <div>
+            <h1>运行与审判</h1>
+            <div class="d-sub">
+              RUN-1124-0912 · 预发 staging-cn-east · 2026-11-24 09:12 · 42.6s
+              · main @ a7f3c21
+            </div>
+          </div>
+          <div class="d-head-right">
+            <div class="d-stats">
+              <div class="d-stat"><b>10</b><span>Cases</span></div>
+              <div class="d-stat"><b>7</b><span>Passed</span></div>
+              <div class="d-stat"><b>2</b><span>Failed</span></div>
+              <div class="d-stat"><b>1</b><span>Skipped</span></div>
+            </div>
+            <div class="d-stamp">4<br />Pending<br />Verdict</div>
+          </div>
+        </div>
+      </header>
+
+      <div class="c-body">
+        <aside class="c-rail d-rail">
+          <div class="d-label"><span>Run Record</span><span>03 / 10</span></div>
+          <div class="d-run-meta">
+            <span>Environment</span><b>staging-cn-east</b>
+            <span>Branch</span><b>main</b>
+            <span>Commit</span><b>a7f3c21</b>
+            <span>Captured</span><b>3 HAR exchanges</b>
+          </div>
+          <div class="d-label"><span>Test Index</span><span>10</span></div>
+          <div class="d-case-list" data-cases="docket"></div>
+        </aside>
+
+        <main class="c-evidence d-evidence">
+          <div class="d-ex-head">
+            <div>
+              <div class="d-ex-kicker">Exhibit B / Selected Case</div>
+              <h2>test_lock_inventory_concurrent</h2>
+            </div>
+            <div class="d-nodeid">tests/test_inventory.py::test_lock_inventory_concurrent</div>
+          </div>
+
+          <div class="d-error">
+            <span>Assertion Failed</span>
+            AssertionError: locked=2 exceeds stock=1 (available=-1)
+          </div>
+
+          <div class="d-label"><span>Captured Exchanges</span><span>HAR 1.2</span></div>
+          <div class="d-exchange-head">
+            <span>No.</span><span>Method</span><span>Path</span><span>Status</span><span>Time</span>
+          </div>
+          <div class="d-exchanges" data-exchanges="docket"></div>
+
+          <div class="d-label" style="margin-top:14px"><span>Response Body</span><span>#02</span></div>
+          <pre class="d-codeblock">{
+  <span class="k">"lock_id"</span>: <span class="s">"LCK-9002"</span>,
+  <span class="k">"sku"</span>: <span class="s">"SKU-1001"</span>,
+  <span class="k">"remaining"</span>: <span class="n">1</span>
+}</pre>
+          <div class="d-footnote">
+            但第 03 次 GET /v1/inventory/SKU-1001 返回 stock=1, locked=2,
+            available=-1。两次锁定都成功，库存账本被击穿。
+          </div>
+        </main>
+
+        <aside class="c-verdict d-verdict">
+          <div class="d-verdict-head">
+            <h2>裁决</h2>
+            <span>VERDICT / HUMAN</span>
+          </div>
+          <div class="d-ai-note">
+            AI 读取了本次运行、HAR 交换与需求 REQ-ORDER-01，提出一条
+            <b>回归缺陷</b>。AI 只提供判断依据，结论由人落下。
+          </div>
+
+          <div class="d-label"><span>AI Findings</span><span>3 pending</span></div>
+          <div class="d-findings">
+            <div class="d-finding is-active">
+              <span class="d-f-no">01</span>
+              <div>
+                <span class="d-f-type">回归缺陷 · 严重 · 92%</span>
+                <h4>并发库存锁定未做原子校验，存在超卖风险</h4>
+              </div>
+            </div>
+            <div class="d-finding">
+              <span class="d-f-no">02</span>
+              <div>
+                <span class="d-f-type">需求偏差 · 阻塞 · 88%</span>
+                <h4>缺货场景未按验收标准返回 409</h4>
+              </div>
+            </div>
+            <div class="d-finding">
+              <span class="d-f-no">03</span>
+              <div>
+                <span class="d-f-type">契约异常 · 一般 · 76%</span>
+                <h4>支付回调响应未回显幂等键</h4>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-detail">
+            <div class="d-detail-label">Root Cause</div>
+            <p>库存服务在读取、校验、写入之间没有加行锁或乐观版本校验，两个请求同时通过 remaining &gt;= quantity 判断。</p>
+            <div class="d-detail-label">Impact</div>
+            <p>预发环境可稳定复现超卖，影响下单链路与库存一致性，属于发布阻塞问题。</p>
+            <div class="d-ref">EVIDENCE / RUN-1124-0912 / 第 02 次交换</div>
+
+            <div class="d-verdict-options">
+              <button class="is-active">确认缺陷 <span>CONFIRM</span></button>
+              <button>驳回 <span>REJECT</span></button>
+              <button>误报 <span>FALSE POSITIVE</span></button>
+            </div>
+            <textarea class="d-note" rows="2" placeholder="补充判断依据（可选）"></textarea>
+            <button class="d-submit" data-submit>落章确认 / COMMIT VERDICT</button>
+            <div class="d-stamp-result">已确认 · CONFIRMED<br />DEF-1008</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================= B / 工业终端 ================= -->
+    <section class="concept concept-terminal" id="terminal">
+      <header class="t-head">
+        <div class="t-brand">AI//TESTBENCH <span>/ RUN 1124-0912</span></div>
+        <div class="t-bar">[███████░░░] 7/10</div>
+        <div class="t-head-stats">
+          <span class="ok">PASS 7</span>
+          <span class="fail">FAIL 2</span>
+          <span class="skip">SKIP 1</span>
+        </div>
+      </header>
+
+      <div class="c-body">
+        <aside class="c-rail t-rail">
+          <div class="t-label"><span>RUN CONTEXT</span><b>ACTIVE</b></div>
+          <div class="t-run-meta">
+            <span>env</span><b>staging-cn-east</b>
+            <span>branch</span><b>main</b>
+            <span>commit</span><b>a7f3c21</b>
+            <span>duration</span><b>42.6s</b>
+            <span>har</span><b>3 exchanges</b>
+          </div>
+          <div class="t-label"><span>TEST INDEX</span><b>10</b></div>
+          <div data-cases="terminal"></div>
+        </aside>
+
+        <main class="c-evidence t-evidence">
+          <div class="t-exhead">
+            <div>
+              <span>EVIDENCE / CASE 04</span>
+              <b>test_lock_inventory_concurrent</b>
+            </div>
+            <div class="t-nodeid">tests/test_inventory.py::test_lock_inventory_concurrent</div>
+          </div>
+
+          <div class="t-error">
+            <strong>!! ASSERTION FAILED</strong>
+            AssertionError: locked=2 exceeds stock=1 (available=-1)
+          </div>
+
+          <div class="t-label"><span>CAPTURED EXCHANGES</span><b>HAR 1.2</b></div>
+          <div data-exchanges="terminal"></div>
+
+          <div class="t-label" style="margin-top:12px"><span>RESPONSE / #02</span><b>JSON</b></div>
+          <pre class="t-codeblock"><span style="color:#6f7d62">$</span> cat response.json
+{
+  <span class="k">"lock_id"</span>: <span class="s">"LCK-9002"</span>,
+  <span class="k">"sku"</span>: <span class="s">"SKU-1001"</span>,
+  <span class="k">"remaining"</span>: <span class="n">1</span>
+}
+<span class="t-cursor"></span></pre>
+          <div class="t-footnote">
+            GET /v1/inventory/SKU-1001 → stock=1, locked=2,
+            <span style="color:#ff5f56">available=-1</span>
+          </div>
+        </main>
+
+        <aside class="c-verdict t-verdict">
+          <h2>VERDICT CONSOLE</h2>
+          <div class="t-ai">
+            <span class="t-ai-tag">[AI] PROPOSAL / UNJUDGED</span>
+            Read run data, HAR exchanges and REQ-ORDER-01.
+            <b>Regression detected.</b><br />
+            confidence <span class="t-conf">[█████████░] 92%</span>
+          </div>
+
+          <div class="t-label"><span>AI FINDINGS</span><b>3 PENDING</b></div>
+          <div class="t-findings">
+            <div class="t-finding is-active">
+              <span class="t-f-idx">&gt;&gt;</span>
+              <div>
+                <span class="t-f-type">[REGRESSION / CRITICAL / 0.92]</span>
+                <h4>并发库存锁定未做原子校验，存在超卖风险</h4>
+              </div>
+            </div>
+            <div class="t-finding">
+              <span class="t-f-idx">&gt;</span>
+              <div>
+                <span class="t-f-type">[SPEC-MISMATCH / BLOCKER / 0.88]</span>
+                <h4>缺货场景未按验收标准返回 409</h4>
+              </div>
+            </div>
+            <div class="t-finding">
+              <span class="t-f-idx">&gt;</span>
+              <div>
+                <span class="t-f-type">[CONTRACT / MAJOR / 0.76]</span>
+                <h4>支付回调响应未回显幂等键</h4>
+              </div>
+            </div>
+          </div>
+
+          <div class="t-detail">
+            <div class="t-detail-label">ROOT CAUSE</div>
+            <p>库存服务在读取、校验、写入之间没有加行锁或乐观版本校验，两个请求同时通过 remaining &gt;= quantity 判断。</p>
+            <div class="t-detail-label">IMPACT</div>
+            <p>预发环境可稳定复现超卖，影响下单链路与库存一致性，属于发布阻塞问题。</p>
+            <div class="t-ref">EVIDENCE: RUN-1124-0912 / EXCHANGE #02</div>
+
+            <div class="t-verdict-options">
+              <button class="is-active">CONFIRM DEFECT</button>
+              <button>REJECT</button>
+              <button>FALSE POSITIVE</button>
+            </div>
+            <textarea class="t-note" rows="2" placeholder="judge@workbench:~$ reason (optional)"></textarea>
+            <button class="t-submit" data-submit>[ EXECUTE VERDICT ]</button>
+            <div class="t-stamp-result">[ VERDICT COMMITTED ] DEF-1008</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================= C / 瑞士档案 ================= -->
+    <section class="concept concept-swiss" id="swiss">
+      <header class="s-head">
+        <div>
+          <span class="s-eyebrow">RUN / TRIAL — 03</span>
+          <h1>运行与审判</h1>
+          <div class="s-meta">
+            <span>RUN-1124-0912</span>
+            <span>2026.11.24 / 09:12</span>
+            <span>STAGING-CN-EAST</span>
+            <span>42.6S</span>
+          </div>
+        </div>
+        <div class="s-head-right">
+          <span class="s-big">7<span>/10</span></span>
+          <span class="s-caption">PASSED / TOTAL</span>
+        </div>
+      </header>
+
+      <div class="c-body">
+        <aside class="c-rail s-rail">
+          <div class="s-label"><span>INDEX</span><span>10 CASES</span></div>
+          <div class="s-run-meta">
+            <span>BRANCH</span><b>MAIN</b>
+            <span>COMMIT</span><b>A7F3C21</b>
+            <span>FAILED</span><b>2</b>
+            <span>SKIPPED</span><b>1</b>
+          </div>
+          <div data-cases="swiss"></div>
+        </aside>
+
+        <main class="c-evidence s-evidence">
+          <div class="s-exhead">
+            <div>
+              <div class="s-label" style="border:0;padding:0;margin:0 0 5px"><span>EVIDENCE</span><span>HAR 1.2</span></div>
+              <h2>test_lock_inventory_concurrent</h2>
+            </div>
+            <div class="s-nodeid">tests/test_inventory.py::test_lock_inventory_concurrent</div>
+          </div>
+
+          <div class="s-error">
+            <div>
+              <span>ASSERTION FAILED</span>
+              locked=2 exceeds stock=1 (available=-1)
+            </div>
+          </div>
+
+          <div class="s-exchange-head">
+            <span>NO.</span><span>METHOD</span><span>PATH</span><span>STATUS</span><span>TIME</span>
+          </div>
+          <div data-exchanges="swiss"></div>
+
+          <div class="s-label" style="margin-top:14px"><span>RESPONSE / 02</span><span>JSON</span></div>
+          <pre class="s-codeblock">{
+  <span class="k">"lock_id"</span>: "LCK-9002",
+  <span class="k">"sku"</span>: "SKU-1001",
+  <span class="k">"remaining"</span>: 1
+}</pre>
+          <div class="s-footnote">
+            GET /v1/inventory/SKU-1001 → stock=1, locked=2,
+            <span style="color:#e03a1e">available=-1</span>
+          </div>
+        </main>
+
+        <aside class="c-verdict s-verdict">
+          <div class="s-label"><span>HUMAN DECISION</span><span>03 / 03</span></div>
+          <h2>JUDGEMENT</h2>
+          <div class="s-ai">
+            <span class="s-ai-tag">AI / PROPOSAL / UNJUDGED / 92%</span>
+            AI 读取运行数据、HAR 交换与 REQ-ORDER-01，判定这是
+            <b>回归缺陷</b>。AI 只提供判断依据，结论由人落下。
+          </div>
+
+          <div class="s-label"><span>FINDINGS</span><span>3 PENDING</span></div>
+          <div class="s-findings">
+            <div class="s-finding is-active">
+              <span class="s-f-no">01</span>
+              <div>
+                <span class="s-f-type">REGRESSION / CRITICAL / 92</span>
+                <h4>并发库存锁定未做原子校验，存在超卖风险</h4>
+              </div>
+            </div>
+            <div class="s-finding">
+              <span class="s-f-no">02</span>
+              <div>
+                <span class="s-f-type">SPEC-MISMATCH / BLOCKER / 88</span>
+                <h4>缺货场景未按验收标准返回 409</h4>
+              </div>
+            </div>
+            <div class="s-finding">
+              <span class="s-f-no">03</span>
+              <div>
+                <span class="s-f-type">CONTRACT / MAJOR / 76</span>
+                <h4>支付回调响应未回显幂等键</h4>
+              </div>
+            </div>
+          </div>
+
+          <div class="s-detail">
+            <div class="s-detail-label">ROOT CAUSE</div>
+            <p>库存服务在读取、校验、写入之间没有加行锁或乐观版本校验，两个请求同时通过 remaining &gt;= quantity 判断。</p>
+            <div class="s-detail-label">IMPACT</div>
+            <p>预发环境可稳定复现超卖，影响下单链路与库存一致性，属于发布阻塞问题。</p>
+            <div class="s-ref">EVIDENCE / RUN-1124-0912 / EXCHANGE 02</div>
+
+            <div class="s-verdict-options">
+              <button class="is-active">Confirm defect</button>
+              <button>Reject</button>
+              <button>False positive</button>
+            </div>
+            <textarea class="s-note" rows="2" placeholder="REASON (OPTIONAL)"></textarea>
+            <button class="s-submit" data-submit>Commit judgement</button>
+            <div class="s-stamp-result">CONFIRMED / DEF-1008</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <script>
+      const CASES = [
+        { name: 'test_create_order_success', file: 'test_order.py', status: 'pass', dur: '142 ms' },
+        { name: 'test_create_order_out_of_stock', file: 'test_order.py', status: 'fail', dur: '221 ms' },
+        { name: 'test_order_idempotent_retry', file: 'test_order.py', status: 'pass', dur: '187 ms' },
+        { name: 'test_lock_inventory_concurrent', file: 'test_inventory.py', status: 'fail', dur: '305 ms' },
+        { name: 'test_payment_callback_idempotent', file: 'test_payment.py', status: 'pass', dur: '512 ms' },
+        { name: 'test_payment_amount_mismatch', file: 'test_payment.py', status: 'pass', dur: '198 ms' },
+        { name: 'test_refund_full', file: 'test_payment.py', status: 'pass', dur: '233 ms' },
+        { name: 'test_login_risk_control', file: 'test_user.py', status: 'pass', dur: '156 ms' },
+        { name: 'test_session_expired', file: 'test_user.py', status: 'pass', dur: '118 ms' },
+        { name: 'test_daily_report_aggregation', file: 'test_report.py', status: 'skip', dur: '—' },
+      ];
+      const EXCHANGES = [
+        { no: '01', method: 'POST', path: '/v1/inventory/lock', status: 200, time: '141 ms' },
+        { no: '02', method: 'POST', path: '/v1/inventory/lock', status: 200, time: '146 ms', active: true },
+        { no: '03', method: 'GET', path: '/v1/inventory/SKU-1001', status: 200, time: '37 ms' },
+      ];
+
+      const statusLabel = { pass: 'PASS', fail: 'FAIL', skip: 'SKIP' };
+      const markLabel = { pass: '·', fail: '×', skip: '—' };
+      const swissLabel = { pass: 'P', fail: 'F', skip: 'S' };
+
+      function renderCases(theme) {
+        return CASES.map((item, index) => {
+          const no = String(index + 1).padStart(2, '0');
+          const active = item.name === 'test_lock_inventory_concurrent' ? ' is-active' : '';
+          if (theme === 'docket') {
+            return `<button class="d-case${active}">
+              <span class="d-case-no">${no}</span>
+              <span>
+                <span class="d-case-name">${item.name}</span>
+                <span class="d-case-meta">${item.file} · ${item.dur}</span>
+              </span>
+              <span class="d-case-mark is-${item.status}">${markLabel[item.status]}</span>
+            </button>`;
+          }
+          if (theme === 'terminal') {
+            return `<button class="t-case${active}">
+              <span>${no}</span>
+              <span class="t-case-status is-${item.status}">${statusLabel[item.status]}</span>
+              <span class="t-case-name">${item.name}</span>
+              <span class="t-case-dur">${item.dur.replace(' ', '')}</span>
+            </button>`;
+          }
+          return `<button class="s-case${active}">
+            <span class="s-case-no">${no}</span>
+            <span>
+              <span class="s-case-name">${item.name}</span>
+              <span class="s-case-meta">${item.file} / ${item.dur}</span>
+            </span>
+            <span class="s-case-status is-${item.status}">${swissLabel[item.status]}</span>
+          </button>`;
+        }).join('');
+      }
+
+      function renderExchanges(theme) {
+        return EXCHANGES.map((item) => {
+          const active = item.active ? ' is-active' : '';
+          if (theme === 'docket') {
+            return `<div class="d-exchange${active}">
+              <span>${item.no}</span>
+              <span class="d-method">${item.method}</span>
+              <span class="d-path">${item.path}</span>
+              <span class="d-code">${item.status}</span>
+              <span class="d-time">${item.time}</span>
+            </div>`;
+          }
+          if (theme === 'terminal') {
+            return `<div class="t-exchange${active}">
+              <span>[${item.no}]</span>
+              <span class="t-method">${item.method}</span>
+              <span class="t-path">${item.path}</span>
+              <span class="t-code">${item.status}</span>
+              <span class="t-time">${item.time.replace(' ', '')}</span>
+            </div>`;
+          }
+          return `<div class="s-exchange${active}">
+            <span>${item.no}</span>
+            <span class="s-method">${item.method}</span>
+            <span class="s-path">${item.path}</span>
+            <span class="s-code">${item.status}</span>
+            <span class="s-time">${item.time}</span>
+          </div>`;
+        }).join('');
+      }
+
+      document.querySelectorAll('[data-cases]').forEach((node) => {
+        node.innerHTML = renderCases(node.dataset.cases);
+      });
+      document.querySelectorAll('[data-exchanges]').forEach((node) => {
+        node.innerHTML = renderExchanges(node.dataset.exchanges);
+      });
+
+      const tabs = document.querySelectorAll('.switch-tab');
+      const concepts = document.querySelectorAll('.concept');
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          tabs.forEach((item) => {
+            const active = item === tab;
+            item.classList.toggle('is-active', active);
+            item.setAttribute('aria-selected', String(active));
+          });
+          concepts.forEach((concept) => {
+            concept.classList.toggle('is-active', concept.id === tab.dataset.target);
+          });
+        });
+      });
+
+      document.querySelectorAll('.d-verdict-options, .t-verdict-options, .s-verdict-options').forEach((group) => {
+        group.addEventListener('click', (event) => {
+          const button = event.target.closest('button');
+          if (!button) return;
+          group.querySelectorAll('button').forEach((item) => {
+            item.classList.toggle('is-active', item === button);
+          });
+        });
+      });
+
+      document.querySelectorAll('[data-submit]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const scope = button.closest('.concept');
+          const result = scope.querySelector('.d-stamp-result, .t-stamp-result, .s-stamp-result');
+          if (result) result.classList.add('is-visible');
+        });
+      });
+    </script>
+  </body>
+</html>

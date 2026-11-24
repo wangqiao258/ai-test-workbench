@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>运行与审判 · 风格实验室</title>
+    <style>
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        background: #e9e7e0;
+        color: #1b1915;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+          'Microsoft YaHei', sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      button { font: inherit; color: inherit; cursor: pointer; }
+      code { font-family: 'Cascadia Code', Consolas, monospace; }
+
+      .lab-top {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        padding: 13px 20px;
+        background: #f7f6f1;
+        border-bottom: 1px solid #d1cec4;
+      }
+      .lab-brand { display: flex; align-items: center; gap: 10px; min-width: 250px; }
+      .lab-mark {
+        width: 24px; height: 24px;
+        display: grid; place-items: center;
+        background: #1b1915; color: #f7f6f1;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7px; letter-spacing: -0.03em;
+      }
+      .lab-brand strong { display: block; font-size: 11px; font-weight: 600; }
+      .lab-brand em {
+        display: block; margin-top: 2px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-style: normal; font-size: 7px; letter-spacing: 0.1em;
+        color: #8a857a; text-transform: uppercase;
+      }
+      .lab-copy {
+        font-size: 10px; color: #6f6a5f;
+        padding-left: 18px; border-left: 1px solid #d8d4ca;
+      }
+      .lab-filter { display: flex; gap: 3px; margin-left: auto; }
+      .lab-filter button {
+        border: 0; background: transparent;
+        padding: 6px 9px;
+        font-size: 9.5px; color: #6f6a5f;
+      }
+      .lab-filter button:hover { background: #ece9e0; color: #1b1915; }
+      .lab-filter button.is-active { background: #1b1915; color: #f7f6f1; }
+      .lab-meta {
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 8px; color: #8a857a; white-space: nowrap;
+      }
+
+      .lab-intro {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 26px 20px 12px;
+      }
+      .lab-intro h1 {
+        margin: 0;
+        font-family: 'Songti SC', 'SimSun', Georgia, serif;
+        font-size: 28px; line-height: 1.1; font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+      .lab-intro p {
+        max-width: 660px;
+        margin: 7px 0 0;
+        font-size: 11px; line-height: 1.6; color: #6f6a5f;
+      }
+      .lab-intro .intro-hint {
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 8px; line-height: 1.7; color: #8a857a;
+        text-align: right; white-space: nowrap;
+      }
+
+      .tile-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(408px, 1fr));
+        gap: 18px;
+        padding: 0 20px 42px;
+      }
+      .tile {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #c9c5ba;
+        background: #fff;
+        transition: border-color 0.15s;
+      }
+      .tile:hover { border-color: #1b1915; }
+      .tile[hidden] { display: none; }
+
+      /* ---------- shared mini-screen ---------- */
+      .screen {
+        height: 292px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font);
+        border-bottom: 1px solid #c9c5ba;
+      }
+      .m-head {
+        flex: 0 0 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 10px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+      .m-brand { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+      .m-brand b {
+        font-family: var(--mono); font-size: 7.5px; font-weight: 600;
+        letter-spacing: 0.02em; white-space: nowrap;
+      }
+      .m-brand span {
+        font-family: var(--mono); font-size: 6.5px; color: var(--muted);
+        white-space: nowrap;
+      }
+      .m-stats {
+        margin-left: auto; display: flex; gap: 9px;
+        font-family: var(--mono); font-size: 6.5px; color: var(--muted);
+        white-space: nowrap;
+      }
+      .m-stats b { font-size: 8px; font-weight: 500; color: var(--text); }
+      .m-stats .m-fail { color: var(--danger); }
+      .m-body {
+        flex: 1; min-height: 0;
+        display: grid; grid-template-columns: 145px minmax(0, 1fr);
+      }
+      .m-rail {
+        min-width: 0;
+        padding: 7px 8px;
+        border-right: 1px solid var(--line);
+        background: var(--surface);
+      }
+      .m-label {
+        display: flex; align-items: center; justify-content: space-between;
+        padding-bottom: 4px; margin-bottom: 3px;
+        border-bottom: 1px solid var(--line);
+        font-family: var(--mono); font-size: 6px; letter-spacing: 0.1em;
+        color: var(--muted);
+      }
+      .m-case {
+        display: grid;
+        grid-template-columns: 5px minmax(0, 1fr) auto;
+        gap: 4px; align-items: center;
+        padding: 4px 0;
+        border-bottom: 1px solid var(--line);
+        font-size: 7.5px; line-height: 1.25; color: var(--muted);
+      }
+      .m-case .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--muted); }
+      .m-case .dot.pass { background: var(--pass); }
+      .m-case .dot.fail { background: var(--danger); }
+      .m-case b {
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        color: var(--text); font-weight: 500;
+      }
+      .m-case em { font-family: var(--mono); font-size: 6px; font-style: normal; color: var(--muted); }
+      .m-case.is-active {
+        margin: 0 -4px; padding-left: 4px; padding-right: 4px;
+        background: var(--active-bg);
+        box-shadow: inset 2px 0 0 var(--accent);
+      }
+      .m-case.is-active b { color: var(--active-text); }
+      .m-case.is-active em, .m-case.is-active .dot { color: var(--active-text); }
+      .m-main { min-width: 0; padding: 7px 9px; overflow: hidden; }
+      .m-kicker { font-family: var(--mono); font-size: 6px; letter-spacing: 0.1em; color: var(--muted); }
+      .m-title {
+        margin-top: 2px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        font-size: 13px; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em;
+      }
+      .m-error {
+        margin-top: 6px;
+        padding: 4px 0 4px 6px;
+        border-left: 2px solid var(--danger);
+        font-size: 8.5px; line-height: 1.35;
+      }
+      .m-error span {
+        display: block; margin-bottom: 1px;
+        font-family: var(--mono); font-size: 5.5px; letter-spacing: 0.08em;
+        color: var(--danger);
+      }
+      .m-error em { font-style: normal; color: var(--danger); }
+      .m-ex {
+        display: grid;
+        grid-template-columns: 16px 27px minmax(0, 1fr) 22px 31px;
+        gap: 4px; align-items: center;
+        padding: 3px 0;
+        border-bottom: 1px solid var(--line);
+        font-family: var(--mono); font-size: 6.5px; color: var(--muted);
+      }
+      .m-ex b { color: var(--text); font-weight: 500; }
+      .m-ex code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .m-ex .ok { color: var(--text); }
+      .m-ex .time { text-align: right; }
+      .m-ai { margin-top: 6px; padding-top: 5px; border-top: 1px solid var(--line); }
+      .m-ai-tag {
+        display: block; margin-bottom: 2px;
+        font-family: var(--mono); font-size: 5.5px; letter-spacing: 0.07em;
+        color: var(--accent);
+      }
+      .m-ai b { display: block; font-size: 8px; line-height: 1.35; font-weight: 600; }
+      .m-ai p {
+        display: -webkit-box; overflow: hidden; margin: 2px 0 0;
+        font-size: 7px; line-height: 1.45; color: var(--muted);
+        -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      }
+      .m-foot {
+        flex: 0 0 32px; height: 32px;
+        display: flex; align-items: center; gap: 8px;
+        padding: 0 9px;
+        border-top: 1px solid var(--line);
+        background: var(--surface);
+      }
+      .m-foot-label {
+        font-family: var(--mono); font-size: 6px; letter-spacing: 0.08em;
+        color: var(--muted); white-space: nowrap;
+      }
+      .m-options { display: flex; gap: 3px; min-width: 0; }
+      .m-options button {
+        padding: 3px 5px;
+        border: 1px solid var(--line);
+        background: transparent;
+        color: var(--muted);
+        font-size: 6.5px;
+        white-space: nowrap;
+      }
+      .m-options button:hover { border-color: var(--accent); color: var(--accent); }
+      .m-options button.is-active {
+        border-color: var(--accent); background: var(--accent); color: var(--accent-text);
+      }
+      .m-foot-hint {
+        margin-left: auto;
+        font-family: var(--mono); font-size: 5.5px; color: var(--muted);
+        white-space: nowrap;
+      }
+
+      /* ---------- captions ---------- */
+      .caption { padding: 10px 12px 11px; background: #fff; }
+      .caption-top { display: flex; align-items: baseline; gap: 8px; }
+      .caption-top strong { font-size: 12px; font-weight: 600; }
+      .caption-top span {
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7px; letter-spacing: 0.08em; color: #8a857a;
+      }
+      .caption p { margin: 4px 0 0; font-size: 10px; line-height: 1.5; color: #5e5a52; }
+      .caption-meta {
+        display: flex; flex-wrap: wrap; gap: 8px;
+        margin-top: 5px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7px; color: #8a857a;
+      }
+      .caption-meta span::before { content: '/ '; color: #c0bbb0; }
+      .caption-meta span:first-child::before { content: ''; }
+
+      /* =========================================================
+         01 / 墨线 — ink on white, red only for failure
+         ========================================================= */
+      .theme-ink {
+        --bg: #f7f7f4; --surface: #ffffff; --text: #121212; --muted: #6c6c66;
+        --line: #d8d8d2; --accent: #b3261e; --accent-text: #ffffff;
+        --danger: #b3261e; --pass: #4f7a5c;
+        --active-bg: #f0f0eb; --active-text: #121212;
+        --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+        --mono: 'Cascadia Code', Consolas, monospace;
+      }
+
+      /* =========================================================
+         02 / 石墨 — graphite dark, dense
+         ========================================================= */
+      .theme-graphite {
+        --bg: #0e1113; --surface: #15191c; --text: #e8eaeb; --muted: #8a9399;
+        --line: #252c31; --accent: #ff5a4f; --accent-text: #0e1113;
+        --danger: #ff5a4f; --pass: #7f9f88;
+        --active-bg: #1c2327; --active-text: #ffffff;
+        --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+        --mono: 'Cascadia Code', Consolas, monospace;
+      }
+
+      /* =========================================================
+         03 / 琥珀 — amber monochrome terminal
+         ========================================================= */
+      .theme-amber {
+        --bg: #0b0a07; --surface: #12100a; --text: #ffb000; --muted: #b3862c;
+        --line: #3a2a10; --accent: #ffb000; --accent-text: #0b0a07;
+        --danger: #ffb000; --pass: #c39a3a;
+        --active-bg: #ffb000; --active-text: #0b0a07;
+        --font: 'Cascadia Code', Consolas, monospace;
+        --mono: 'Cascadia Code', Consolas, monospace;
+      }
+      .theme-amber .m-title { font-size: 11px; letter-spacing: 0; }
+      .theme-amber .m-ai b { font-size: 7.5px; }
+      .theme-amber .m-options button.is-active { color: #0b0a07; }
+
+      /* =========================================================
+         04 / 苔纸 — moss paper
+         ========================================================= */
+      .theme-moss {
+        --bg: #f4f4ed; --surface: #fbfbf6; --text: #1b241d; --muted: #6a756b;
+        --line: #d3d8cf; --accent: #2f5d3f; --accent-text: #ffffff;
+        --danger: #a33b2b; --pass: #2f5d3f;
+        --active-bg: #e6ecdf; --active-text: #1b241d;
+        --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+        --mono: 'Cascadia Code', Consolas, monospace;
+      }
+      .theme-moss .m-ai { border-top: 1px solid var(--accent); }
+      .theme-moss .m-title { letter-spacing: 0; }
+
+      /* =========================================================
+         05 / 高亮 — white, yellow marker, black action
+         ========================================================= */
+      .theme-highlight {
+        --bg: #ffffff; --surface: #ffffff; --text: #1f2328; --muted: #6b7280;
+        --line: #e4e4df; --accent: #1f2328; --accent-text: #ffffff;
+        --danger: #c0392b; --pass: #5b7a63;
+        --active-bg: #fffbe2; --active-text: #1f2328;
+        --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+        --mono: 'Cascadia Code', Consolas, monospace;
+      }
+      .theme-highlight .m-ai {
+        margin: 6px -3px 0;
+        padding: 5px 5px 5px 7px;
+        border-top: 0;
+        border-left: 3px solid #e7c94e;
+        background: #fff7cc;
+      }
+      .theme-highlight .m-ai-tag { color: #8a7420; }
+
+      /* =========================================================
+         06 / 绛红 — warm paper, burgundy, serif titles
+         ========================================================= */
+      .theme-oxblood {
+        --bg: #f4f0ea; --surface: #fbf8f3; --text: #1d1917; --muted: #7b6d63;
+        --line: #ddd2c6; --accent: #7a1f2b; --accent-text: #ffffff;
+        --danger: #7a1f2b; --pass: #5f6b4f;
+        --active-bg: #f0e4e2; --active-text: #1d1917;
+        --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+        --mono: 'Cascadia Code', Consolas, monospace;
+        --serif: 'Songti SC', 'SimSun', Georgia, serif;
+      }
+      .theme-oxblood .m-title,
+      .theme-oxblood .m-ai b,
+      .theme-oxblood .m-error { font-family: var(--serif); }
+      .theme-oxblood .m-title { font-size: 13.5px; letter-spacing: 0; }
+
+      /* =========================================================
+         07 / 冷灰 — cool gray, teal accent
+         ========================================================= */
+      .theme-cool {
+        --bg: #f2f4f5; --surface: #ffffff; --text: #16191c; --muted: #68737b;
+        --line: #d9dee3; --accent: #0f766e; --accent-text: #ffffff;
+        --danger: #b3261e; --pass: #0f766e;
+        --active-bg: #e3eeec; --active-text: #16191c;
+        --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+        --mono: 'Cascadia Code', Consolas, monospace;
+      }
+      .theme-cool .m-options button { border-radius: 2px; }
+      .theme-cool .m-ai { border-top: 1px solid var(--accent); }
+
+      /* =========================================================
+         08 / 表格 — spreadsheet, black grid, mono
+         ========================================================= */
+      .theme-grid {
+        --bg: #ffffff; --surface: #ffffff; --text: #111111; --muted: #666666;
+        --line: #d0d0d0; --accent: #111111; --accent-text: #ffffff;
+        --danger: #b3261e; --pass: #111111;
+        --active-bg: #111111; --active-text: #ffffff;
+        --font: 'Cascadia Code', Consolas, monospace;
+        --mono: 'Cascadia Code', Consolas, monospace;
+      }
+      .theme-grid .m-head { border-bottom: 1px solid #111; }
+      .theme-grid .m-body { border-top: 1px solid #111; }
+      .theme-grid .m-rail { border-right: 1px solid #111; }
+      .theme-grid .m-foot { border-top: 1px solid #111; }
+      .theme-grid .m-case { border-bottom: 1px solid #dedede; }
+      .theme-grid .m-case.is-active { box-shadow: none; }
+      .theme-grid .m-case.is-active .dot.fail { background: #b3261e; }
+      .theme-grid .m-title { font-size: 11px; letter-spacing: 0; }
+      .theme-grid .m-ai {
+        margin-top: 5px;
+        padding: 5px;
+        border: 1px solid #111;
+      }
+      .theme-grid .m-ai-tag { color: #b3261e; }
+      .theme-grid .m-options button.is-active { border-color: #111; }
+
+      .lab-foot {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 0 20px 30px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 8px; color: #8a857a;
+      }
+
+      @media (max-width: 900px) {
+        .lab-top { flex-wrap: wrap; gap: 10px; padding: 10px 12px; }
+        .lab-copy, .lab-meta { display: none; }
+        .lab-filter { margin-left: 0; }
+        .lab-intro { padding: 18px 12px 10px; }
+        .lab-intro h1 { font-size: 23px; }
+        .lab-intro .intro-hint { display: none; }
+        .tile-grid { grid-template-columns: 1fr; padding: 0 12px 30px; gap: 12px; }
+        .lab-foot { padding: 0 12px 24px; }
+      }
+      @media (max-width: 480px) {
+        .lab-brand { min-width: 0; }
+        .lab-brand strong { font-size: 10px; }
+        .m-body { grid-template-columns: 125px minmax(0, 1fr); }
+        .screen { height: 300px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="lab-top">
+      <div class="lab-brand">
+        <span class="lab-mark">LAB</span>
+        <div>
+          <strong>运行与审判 · 风格实验室</strong>
+          <em>8 Directions / One Dataset</em>
+        </div>
+      </div>
+      <div class="lab-copy">同一份 RUN-1124-0912 数据，只切风格，不切结构。</div>
+      <div class="lab-filter">
+        <button data-filter="all" class="is-active">全部 08</button>
+        <button data-filter="light">浅色 06</button>
+        <button data-filter="dark">深色 02</button>
+      </div>
+      <div class="lab-meta">MINIMAL / DENSE / 931PX</div>
+    </header>
+
+    <section class="lab-intro">
+      <div>
+        <h1>信息密集 + 极简，八个方向</h1>
+        <p>
+          每个切片只保留：运行头、用例、失败证据、HAR 交换、AI 提案、裁决按钮。
+          先看字体、线条、留白与颜色，再决定把哪个方向扩成完整工作台。
+        </p>
+      </div>
+      <div class="intro-hint">CLICK VERDICT OPTIONS<br />TO PREVIEW ACTIVE STATE</div>
+    </section>
+
+    <main class="tile-grid" id="tileGrid"></main>
+    <div class="lab-foot">
+      <span>STYLE LAB / RUN &amp; TRIAL</span>
+      <span>8 DIRECTIONS · SAME DATA · NO GRADIENTS</span>
+    </div>
+
+    <script>
+      const THEMES = [
+        {
+          id: 'ink',
+          no: '01',
+          name: '墨线',
+          en: 'INK RULE',
+          tone: 'light',
+          desc: '白纸、黑规则线、红色只给失败。零圆角、零阴影，像一份可以签字的测试记录。',
+          meta: ['浅色', '1px 规则线', '无圆角'],
+        },
+        {
+          id: 'graphite',
+          no: '02',
+          name: '石墨',
+          en: 'GRAPHITE',
+          tone: 'dark',
+          desc: '中性石墨底、低饱和文字、单一红色信号。密集但不喧闹，接近开发工具的控制台。',
+          meta: ['深色', '中性灰', '红色信号'],
+        },
+        {
+          id: 'amber',
+          no: '03',
+          name: '琥珀',
+          en: 'AMBER',
+          tone: 'dark',
+          desc: '黑底琥珀单色、全等宽字体。没有第二种颜色，信息靠亮度和字符密度分层。',
+          meta: ['深色', '单色', '全等宽'],
+        },
+        {
+          id: 'moss',
+          no: '04',
+          name: '苔纸',
+          en: 'MOSS PAPER',
+          tone: 'light',
+          desc: '暖灰纸面、墨绿主色、红色仅作故障。比纯黑白温和，但仍然是工具而不是文档。',
+          meta: ['浅色', '墨绿', '暖纸'],
+        },
+        {
+          id: 'highlight',
+          no: '05',
+          name: '高亮',
+          en: 'HIGHLIGHTER',
+          tone: 'light',
+          desc: '纯白底、黑色操作、黄色只标记 AI 批注。像飞书文档里的审阅痕迹，轻但不空。',
+          meta: ['浅色', '黄色批注', '无边框卡片'],
+        },
+        {
+          id: 'oxblood',
+          no: '06',
+          name: '绛红',
+          en: 'OXBLOOD',
+          tone: 'light',
+          desc: '暖纸底、酒红强调、标题用宋体。像一份财务底稿或审计报告，克制但有分量。',
+          meta: ['浅色', '宋体标题', '酒红'],
+        },
+        {
+          id: 'cool',
+          no: '07',
+          name: '冷灰',
+          en: 'COOL GRAY',
+          tone: 'light',
+          desc: '冷灰界面、近黑文字、青绿主色。干净、理性，适合长时间盯表格和日志。',
+          meta: ['浅色', '青绿', '冷灰'],
+        },
+        {
+          id: 'grid',
+          no: '08',
+          name: '表格',
+          en: 'GRID',
+          tone: 'light',
+          desc: '纯白底、黑色单元格边框、全等宽数字。没有装饰，只有行列和状态，最像内部数据工具。',
+          meta: ['浅色', '黑色网格', '全等宽'],
+        },
+      ];
+
+      const CASES = [
+        { name: 'test_lock_inventory_concurrent', status: 'fail', dur: '305ms', active: true },
+        { name: 'test_create_order_success', status: 'pass', dur: '142ms' },
+        { name: 'test_payment_callback_idempotent', status: 'pass', dur: '512ms' },
+        { name: 'test_daily_report_aggregation', status: 'skip', dur: '—' },
+      ];
+
+      function caseRows() {
+        return CASES.map(
+          (item) => `<div class="m-case${item.active ? ' is-active' : ''}">
+            <span class="dot ${item.status}"></span>
+            <b>${item.name}</b>
+            <em>${item.dur}</em>
+          </div>`,
+        ).join('');
+      }
+
+      function tile(theme) {
+        return `<article class="tile" data-tone="${theme.tone}">
+          <div class="screen theme-${theme.id}">
+            <header class="m-head">
+              <div class="m-brand"><b>RUN-1124-0912</b><span>staging · 42.6s</span></div>
+              <div class="m-stats">
+                <span><b>10</b> cases</span>
+                <span class="m-fail"><b>2</b> fail</span>
+                <span><b>1</b> skip</span>
+              </div>
+            </header>
+            <div class="m-body">
+              <aside class="m-rail">
+                <div class="m-label"><span>CASES</span><span>04 / 10</span></div>
+                ${caseRows()}
+              </aside>
+              <main class="m-main">
+                <div class="m-kicker">CASE 04 · EVIDENCE</div>
+                <div class="m-title">test_lock_inventory_concurrent</div>
+                <div class="m-error">
+                  <span>ASSERTION FAILED</span>
+                  locked=2 exceeds stock=1 <em>available=-1</em>
+                </div>
+                <div class="m-ex">
+                  <span>02</span><b>POST</b><code>/v1/inventory/lock</code>
+                  <span class="ok">200</span><span class="time">146ms</span>
+                </div>
+                <div class="m-ex">
+                  <span>03</span><b>GET</b><code>/v1/inventory/SKU-1001</code>
+                  <span class="ok">200</span><span class="time">37ms</span>
+                </div>
+                <div class="m-ai">
+                  <span class="m-ai-tag">AI · 92% · 未裁决</span>
+                  <b>并发库存锁定未做原子校验，存在超卖风险</b>
+                  <p>两次并发锁定都返回 200，locked=2 &gt; stock=1。</p>
+                </div>
+              </main>
+            </div>
+            <footer class="m-foot">
+              <span class="m-foot-label">你的裁决</span>
+              <div class="m-options">
+                <button class="is-active">确认缺陷</button>
+                <button>驳回</button>
+                <button>误报</button>
+              </div>
+              <span class="m-foot-hint">DEF-1008</span>
+            </footer>
+          </div>
+          <footer class="caption">
+            <div class="caption-top"><strong>${theme.no} / ${theme.name}</strong><span>${theme.en}</span></div>
+            <p>${theme.desc}</p>
+            <div class="caption-meta">${theme.meta.map((item) => `<span>${item}</span>`).join('')}</div>
+          </footer>
+        </article>`;
+      }
+
+      const grid = document.getElementById('tileGrid');
+      grid.innerHTML = THEMES.map(tile).join('');
+
+      const filterButtons = document.querySelectorAll('.lab-filter button');
+      const tiles = document.querySelectorAll('.tile');
+      filterButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          filterButtons.forEach((item) => item.classList.toggle('is-active', item === button));
+          const filter = button.dataset.filter;
+          tiles.forEach((tile) => {
+            tile.hidden = filter !== 'all' && tile.dataset.tone !== filter;
+          });
+        });
+      });
+
+      document.querySelectorAll('.m-options').forEach((group) => {
+        group.addEventListener('click', (event) => {
+          const button = event.target.closest('button');
+          if (!button) return;
+          group.querySelectorAll('button').forEach((item) => {
+            item.classList.toggle('is-active', item === button);
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

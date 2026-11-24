@@ -1,0 +1,986 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>运行与审判 · 风格墙</title>
+    <style>
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        background: #e7e5df;
+        color: #1b1915;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+          'Microsoft YaHei', sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      button { font: inherit; color: inherit; cursor: pointer; }
+      code, pre { font-family: 'Cascadia Code', Consolas, monospace; }
+
+      .wall-top {
+        position: sticky; top: 0; z-index: 20;
+        display: flex; align-items: center; gap: 22px;
+        padding: 12px 20px;
+        background: #f7f6f1;
+        border-bottom: 1px solid #d1cec4;
+      }
+      .wall-brand { display: flex; align-items: center; gap: 10px; min-width: 250px; }
+      .wall-mark {
+        width: 24px; height: 24px;
+        display: grid; place-items: center;
+        background: #1b1915; color: #f7f6f1;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7px;
+      }
+      .wall-brand strong { display: block; font-size: 11px; font-weight: 600; }
+      .wall-brand em {
+        display: block; margin-top: 2px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-style: normal; font-size: 7px; letter-spacing: 0.1em;
+        color: #8a857a; text-transform: uppercase;
+      }
+      .wall-note {
+        padding-left: 18px; border-left: 1px solid #d8d4ca;
+        font-size: 10px; color: #6f6a5f;
+      }
+      .wall-meta {
+        margin-left: auto;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 8px; color: #8a857a; white-space: nowrap;
+      }
+      .wall-intro {
+        display: flex; align-items: flex-end; justify-content: space-between;
+        gap: 24px; padding: 26px 20px 14px;
+      }
+      .wall-intro h1 {
+        margin: 0;
+        font-family: 'Songti SC', 'SimSun', Georgia, serif;
+        font-size: 28px; line-height: 1.1; font-weight: 600;
+      }
+      .wall-intro p {
+        max-width: 700px; margin: 7px 0 0;
+        font-size: 11px; line-height: 1.6; color: #6f6a5f;
+      }
+      .wall-intro .intro-hint {
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 8px; line-height: 1.7; color: #8a857a;
+        text-align: right; white-space: nowrap;
+      }
+
+      .wall-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(430px, 1fr));
+        gap: 18px;
+        padding: 0 20px 42px;
+      }
+      .wall-card {
+        min-width: 0;
+        display: flex; flex-direction: column;
+        border: 1px solid #c7c3b8;
+        background: #fff;
+      }
+      .wall-card:hover { border-color: #1b1915; }
+      .mini { height: 320px; overflow: hidden; border-bottom: 1px solid #c7c3b8; position: relative; }
+      .wall-caption { padding: 10px 12px 11px; background: #fff; }
+      .wc-top { display: flex; align-items: baseline; gap: 8px; }
+      .wc-top strong { font-size: 12px; font-weight: 600; }
+      .wc-top span {
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7px; letter-spacing: 0.08em; color: #8a857a;
+      }
+      .wc-top .wc-fit {
+        margin-left: auto; font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7px; color: #1b1915;
+      }
+      .wall-caption p { margin: 4px 0 0; font-size: 10px; line-height: 1.5; color: #5e5a52; }
+      .wc-tags {
+        display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7px; color: #8a857a;
+      }
+      .wc-tags span::before { content: '/ '; color: #c0bbb0; }
+      .wc-tags span:first-child::before { content: ''; }
+
+      .wall-foot {
+        display: flex; justify-content: space-between; gap: 20px;
+        padding: 0 20px 30px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 8px; color: #8a857a;
+      }
+
+      /* =========================================================
+         01 — BENTO
+         ========================================================= */
+      .mini.bento { background: #f2f3f6; padding: 10px; }
+      .bento-grid {
+        height: 100%;
+        display: grid;
+        grid-template-columns: 1.05fr 0.95fr;
+        grid-template-rows: 0.9fr 1.1fr;
+        gap: 8px;
+      }
+      .bento-tile {
+        min-width: 0; padding: 9px 10px;
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: 0 2px 10px rgba(16,24,40,0.06);
+        overflow: hidden;
+      }
+      .bt-label {
+        display: block;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 5.5px; letter-spacing: 0.08em; color: #8a929d;
+      }
+      .bt-big {
+        margin-top: 2px;
+        font-size: 30px; line-height: 1; font-weight: 650;
+        letter-spacing: -0.05em; color: #111827;
+      }
+      .bt-big span { font-size: 12px; color: #9aa3af; letter-spacing: 0; }
+      .bt-bar {
+        height: 4px; margin-top: 7px;
+        border-radius: 2px; background: #edf0f4; overflow: hidden;
+      }
+      .bt-bar i { display: block; width: 70%; height: 100%; border-radius: 2px; background: #111827; }
+      .bt-meta {
+        margin-top: 5px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 5.5px; color: #8a929d;
+      }
+      .bt-case strong {
+        display: block; margin-top: 3px;
+        font-size: 7.5px; line-height: 1.35; font-weight: 600; color: #111827;
+      }
+      .bt-error {
+        margin-top: 5px; padding: 4px 6px;
+        border-radius: 7px; background: #fff1ef;
+        font-size: 6.5px; line-height: 1.4; color: #b42318;
+      }
+      .bt-row {
+        display: grid; grid-template-columns: 15px 25px minmax(0,1fr) auto;
+        gap: 3px; align-items: center; margin-top: 5px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 5.2px; color: #7c8590;
+      }
+      .bt-row b { color: #111827; }
+      .bt-row code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .bt-ai { background: #e9f5ef; }
+      .bt-ai strong {
+        display: block; margin-top: 4px;
+        font-size: 7.5px; line-height: 1.35; font-weight: 600; color: #0b3b2a;
+      }
+      .bt-ai p { margin: 3px 0 0; font-size: 6px; line-height: 1.45; color: #46705e; }
+      .bt-verdict { background: #111827; }
+      .bt-verdict .bt-label { color: #7f8a9a; }
+      .bt-actions { display: flex; gap: 3px; margin-top: 5px; flex-wrap: wrap; }
+      .bt-actions button {
+        padding: 3px 6px; border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.25);
+        background: transparent; color: #c7ced8; font-size: 5.5px;
+      }
+      .bt-actions button.is-active { background: #fff; border-color: #fff; color: #111827; }
+      .bt-hint {
+        display: block; margin-top: 6px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 4.8px; color: #7f8a9a;
+      }
+
+      /* =========================================================
+         02 — AURORA
+         ========================================================= */
+      .mini.aurora {
+        background: #0c0d18;
+        padding: 12px;
+        overflow: hidden;
+      }
+      .aurora-bg { position: absolute; inset: 0; overflow: hidden; }
+      .aurora-bg i {
+        position: absolute; display: block; border-radius: 50%;
+        filter: blur(34px); opacity: 0.9;
+      }
+      .aurora-bg .a1 { width: 180px; height: 180px; left: -40px; top: -50px; background: #ff6b6b; }
+      .aurora-bg .a2 { width: 190px; height: 190px; right: -60px; top: 20px; background: #ffd166; opacity: 0.7; }
+      .aurora-bg .a3 { width: 210px; height: 210px; left: 80px; bottom: -100px; background: #4fd1c5; opacity: 0.65; }
+      .aurora-card {
+        position: relative; z-index: 1;
+        height: 100%;
+        display: flex; flex-direction: column;
+        padding: 12px 13px;
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,0.2);
+        background: rgba(18,20,34,0.55);
+        backdrop-filter: blur(22px);
+        box-shadow: 0 16px 40px rgba(0,0,0,0.25);
+        color: #f6f7fb;
+      }
+      .au-top {
+        display: flex; align-items: baseline; justify-content: space-between;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 5.5px; color: #aab2c5;
+      }
+      .au-top b { font-family: inherit; font-size: 12px; color: #fff; font-weight: 500; }
+      .aurora-card h2 {
+        margin: 8px 0 0;
+        font-size: 20px; line-height: 1.12; font-weight: 600;
+        letter-spacing: -0.035em;
+      }
+      .au-error {
+        margin-top: 7px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 6.5px; color: #ff9b91;
+      }
+      .au-evidence {
+        display: flex; align-items: center; gap: 5px;
+        margin-top: 6px; padding: 5px 6px;
+        border-radius: 8px; background: rgba(255,255,255,0.08);
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 5.2px; color: #c3c9d6;
+      }
+      .au-evidence b { color: #fff; }
+      .au-evidence em { margin-left: auto; font-style: normal; color: #aab2c5; }
+      .au-actions { display: flex; gap: 4px; margin-top: auto; flex-wrap: wrap; }
+      .au-actions button {
+        padding: 4px 8px; border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.24);
+        background: rgba(255,255,255,0.06);
+        color: #e7eaf2; font-size: 5.8px;
+      }
+      .au-actions button.is-active { background: #fff; border-color: #fff; color: #0c0d18; }
+
+      /* =========================================================
+         03 — BRUTALIST
+         ========================================================= */
+      .mini.brutal {
+        background: #f2e63d;
+        color: #111;
+        padding: 9px;
+        display: flex; flex-direction: column; gap: 6px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+      }
+      .br-head {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 4px 6px;
+        border: 2px solid #111; background: #111; color: #f2e63d;
+        font-size: 6px; letter-spacing: 0.06em;
+      }
+      .br-head b { font-weight: 500; }
+      .br-grid {
+        flex: 1; min-height: 0;
+        display: grid; grid-template-columns: 1.15fr 0.85fr;
+        grid-template-rows: 1.25fr 0.75fr; gap: 6px;
+      }
+      .br-box {
+        padding: 6px;
+        border: 2px solid #111;
+        background: #fff;
+        box-shadow: 4px 4px 0 #111;
+        overflow: hidden;
+      }
+      .br-box > span {
+        display: block; margin-bottom: 3px;
+        font-size: 4.8px; letter-spacing: 0.1em; color: #555;
+      }
+      .br-case strong {
+        display: block; font-size: 8px; line-height: 1.3; font-weight: 700;
+      }
+      .br-error {
+        margin-top: 6px; padding: 3px 4px;
+        border: 2px solid #111; background: #f2e63d;
+        font-size: 6px; font-weight: 700;
+      }
+      .br-ai { background: #111; color: #f2e63d; }
+      .br-ai > span { color: #9a9430; }
+      .br-ai strong { display: block; font-size: 7px; line-height: 1.35; }
+      .br-ai p { margin: 3px 0 0; font-size: 5.2px; line-height: 1.4; color: #bdb84c; }
+      .br-verdict { grid-column: 1 / -1; display: flex; flex-direction: column; justify-content: center; }
+      .br-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+      .br-actions button {
+        padding: 4px 7px; border: 2px solid #111; background: #fff;
+        font-size: 5.5px; box-shadow: 2px 2px 0 #111;
+      }
+      .br-actions button.is-active { background: #111; color: #f2e63d; box-shadow: 2px 2px 0 #666; }
+
+      /* =========================================================
+         04 — MA (Japanese minimal)
+         ========================================================= */
+      .mini.ma {
+        background: #f7f5ee;
+        color: #1a1813;
+        display: flex;
+        font-family: 'Songti SC', 'Noto Serif SC', 'STSong', 'SimSun', Georgia, serif;
+      }
+      .ma-side {
+        width: 52px; flex: 0 0 52px;
+        display: flex; flex-direction: column; align-items: center;
+        padding: 12px 0;
+        border-right: 1px solid #dcd6c8;
+      }
+      .ma-vertical {
+        writing-mode: vertical-rl;
+        font-size: 12px; letter-spacing: 0.24em; color: #1a1813;
+      }
+      .ma-reddot {
+        width: 7px; height: 7px; margin-top: 10px;
+        background: #b3261e; border-radius: 50%;
+      }
+      .ma-side-meta {
+        margin-top: auto;
+        writing-mode: vertical-rl;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 4.8px; letter-spacing: 0.08em; color: #999184;
+      }
+      .ma-main {
+        flex: 1; min-width: 0;
+        padding: 16px 18px 14px;
+        display: flex; flex-direction: column;
+      }
+      .ma-top {
+        display: flex; justify-content: space-between;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 5px; color: #8f887a;
+      }
+      .ma-stats {
+        display: flex; align-items: baseline; gap: 5px;
+        margin-top: 10px;
+      }
+      .ma-stats b { font-size: 32px; line-height: 1; font-weight: 600; letter-spacing: -0.04em; }
+      .ma-stats span { font-size: 8px; color: #6f6a5e; }
+      .ma-stats em {
+        margin-left: auto; font-family: 'Cascadia Code', Consolas, monospace;
+        font-style: normal; font-size: 4.8px; color: #8f887a;
+      }
+      .ma-case {
+        margin-top: 18px;
+        font-size: 10.5px; line-height: 1.35; letter-spacing: 0.01em;
+      }
+      .ma-error {
+        margin-top: 5px; padding-left: 7px;
+        border-left: 1px solid #b3261e;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 6px; line-height: 1.5; color: #8b3a30;
+      }
+      .ma-ai {
+        margin-top: auto;
+        padding-top: 8px;
+        border-top: 1px solid #ddd6c7;
+      }
+      .ma-ai span {
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 4.8px; letter-spacing: 0.08em; color: #b3261e;
+      }
+      .ma-ai p {
+        margin: 4px 0 0;
+        font-size: 8px; line-height: 1.5; color: #3d382e;
+      }
+      .ma-actions {
+        display: flex; gap: 10px; margin-top: 8px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 5.2px;
+      }
+      .ma-actions button {
+        padding: 0 0 2px; border: 0; background: transparent;
+        border-bottom: 1px solid #b9b2a3; color: #6f6a5e;
+      }
+      .ma-actions button.is-active { border-bottom-color: #b3261e; color: #b3261e; }
+
+      /* =========================================================
+         05 — ART DECO
+         ========================================================= */
+      .mini.deco {
+        background: #0b241c;
+        color: #d9c28a;
+        padding: 9px;
+        font-family: 'Songti SC', 'Noto Serif SC', 'STSong', 'SimSun', Georgia, serif;
+      }
+      .deco-inner {
+        height: 100%;
+        border: 1px solid #c9a85c;
+        outline: 1px solid #c9a85c; outline-offset: 3px;
+        padding: 10px 14px;
+        display: flex; flex-direction: column; align-items: center;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+      .deco-fan {
+        position: absolute; left: 50%; top: -26px;
+        width: 160px; height: 60px;
+        transform: translateX(-50%);
+        background: repeating-conic-gradient(from 250deg at 50% 100%, rgba(201,168,92,0.55) 0 2deg, transparent 2deg 8deg);
+        opacity: 0.55;
+      }
+      .deco-top {
+        position: relative;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 4.8px; letter-spacing: 0.16em; color: #a88e55;
+      }
+      .deco-inner h2 {
+        position: relative;
+        margin: 12px 0 0;
+        font-size: 23px; font-weight: 600; letter-spacing: 0.12em; color: #e5d3a4;
+      }
+      .deco-rule {
+        width: 56%; height: 5px; margin-top: 6px;
+        border-top: 1px solid #c9a85c; border-bottom: 1px solid #c9a85c;
+        position: relative;
+      }
+      .deco-rule::after {
+        content: ''; position: absolute; left: 50%; top: -2px;
+        width: 5px; height: 5px; background: #c9a85c; transform: translateX(-50%) rotate(45deg);
+      }
+      .deco-stats {
+        display: flex; gap: 22px; margin-top: 12px;
+      }
+      .deco-stats div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+      .deco-stats b { font-size: 18px; font-weight: 600; color: #e5d3a4; }
+      .deco-stats span {
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 4.5px; letter-spacing: 0.12em; color: #a88e55;
+      }
+      .deco-ai {
+        margin-top: 12px; padding-top: 8px;
+        border-top: 1px solid rgba(201,168,92,0.4);
+        width: 86%;
+      }
+      .deco-ai span {
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 4.6px; letter-spacing: 0.1em; color: #a88e55;
+      }
+      .deco-ai strong {
+        display: block; margin-top: 3px;
+        font-size: 7.5px; line-height: 1.4; color: #e5d3a4; font-weight: 600;
+      }
+      .deco-actions { display: flex; gap: 5px; margin-top: auto; padding-top: 10px; flex-wrap: wrap; justify-content: center; }
+      .deco-actions button {
+        padding: 4px 9px; border: 1px solid #c9a85c; background: transparent;
+        color: #c9a85c; font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 4.8px; letter-spacing: 0.08em;
+      }
+      .deco-actions button.is-active { background: #c9a85c; color: #0b241c; }
+
+      /* =========================================================
+         06 — CYBERPUNK HUD
+         ========================================================= */
+      .mini.cyber {
+        background: #05070a;
+        color: #c9fbf6;
+        padding: 9px;
+        display: flex; flex-direction: column; gap: 6px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        overflow: hidden;
+      }
+      .mini.cyber::after {
+        content: ''; position: absolute; inset: 0; pointer-events: none;
+        background: repeating-linear-gradient(0deg, rgba(95,251,241,0.025) 0 1px, transparent 1px 3px);
+      }
+      .cy-head {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 4px 6px;
+        border: 1px solid #1f3b40;
+        background: #071013;
+        font-size: 5.5px; color: #5ffbf1;
+        clip-path: polygon(0 0, 100% 0, 100% 70%, 97% 100%, 0 100%);
+      }
+      .cy-head em { font-style: normal; color: #ff3cac; font-size: 4.8px; letter-spacing: 0.08em; }
+      .cy-main {
+        flex: 1; min-height: 0;
+        display: grid; grid-template-columns: 1.2fr 0.8fr;
+        grid-template-rows: 1fr 0.8fr; gap: 6px;
+      }
+      .cy-case {
+        padding: 7px;
+        border: 1px solid #2a4a50;
+        background: rgba(8,20,24,0.9);
+        clip-path: polygon(0 0, 96% 0, 100% 14%, 100% 100%, 4% 100%, 0 86%);
+      }
+      .cy-case span {
+        display: block; font-size: 4.5px; color: #ff3cac; letter-spacing: 0.1em;
+      }
+      .cy-case b {
+        display: block; margin-top: 3px;
+        font-size: 7.5px; line-height: 1.35; color: #e8fffc; font-weight: 500;
+      }
+      .cy-error {
+        margin-top: 6px; padding: 3px 4px;
+        border-left: 2px solid #ff3cac;
+        background: rgba(255,60,172,0.08);
+        font-size: 5.5px; color: #ff7fc8;
+      }
+      .cy-gauge { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+      .cy-ring {
+        width: 56px; height: 56px; border-radius: 50%;
+        display: grid; place-items: center;
+        background: conic-gradient(#5ffbf1 0 92%, #17282c 92% 100%);
+        position: relative;
+      }
+      .cy-ring::after {
+        content: ''; position: absolute; inset: 5px;
+        border-radius: 50%; background: #05070a;
+      }
+      .cy-ring span { position: relative; z-index: 1; font-size: 13px; color: #5ffbf1; }
+      .cy-ring small { font-size: 6px; }
+      .cy-gauge em {
+        margin-top: 4px; font-style: normal; font-size: 4.2px; letter-spacing: 0.12em; color: #5b7d82;
+      }
+      .cy-ai {
+        grid-column: 1 / -1;
+        padding: 6px 7px;
+        border: 1px solid #2a4a50;
+        background: rgba(8,20,24,0.9);
+        clip-path: polygon(0 0, 100% 0, 100% 80%, 97% 100%, 0 100%);
+      }
+      .cy-ai span { font-size: 4.2px; letter-spacing: 0.1em; color: #5ffbf1; }
+      .cy-ai b { display: block; margin-top: 2px; font-size: 7px; color: #e8fffc; font-weight: 500; }
+      .cy-ai p { margin: 2px 0 0; font-size: 5px; line-height: 1.4; color: #7fa7aa; }
+      .cy-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+      .cy-actions button {
+        padding: 4px 7px;
+        border: 1px solid #2a4a50;
+        background: transparent; color: #7fa7aa; font-size: 5px;
+        clip-path: polygon(0 0, 92% 0, 100% 30%, 100% 100%, 8% 100%, 0 70%);
+      }
+      .cy-actions button.is-active { background: #5ffbf1; border-color: #5ffbf1; color: #05070a; }
+
+      /* =========================================================
+         07 — GLASS
+         ========================================================= */
+      .mini.glass {
+        background: #0c1020;
+        padding: 12px;
+        overflow: hidden;
+      }
+      .gl-bg { position: absolute; inset: 0; overflow: hidden; }
+      .gl-bg i {
+        position: absolute; display: block; border-radius: 50%; filter: blur(36px);
+      }
+      .gl-bg .g1 { width: 170px; height: 170px; left: -30px; top: -20px; background: #7c5cff; opacity: 0.55; }
+      .gl-bg .g2 { width: 190px; height: 190px; right: -50px; top: 40px; background: #ff5c8a; opacity: 0.4; }
+      .gl-bg .g3 { width: 220px; height: 220px; left: 40px; bottom: -110px; background: #2fd6c3; opacity: 0.35; }
+      .gl-card {
+        position: relative; z-index: 1;
+        height: 100%;
+        padding: 12px;
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.22);
+        background: rgba(255,255,255,0.07);
+        backdrop-filter: blur(24px) saturate(140%);
+        box-shadow: 0 20px 50px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.25);
+        color: #f5f6fa;
+        display: flex; flex-direction: column;
+      }
+      .gl-head {
+        display: flex; align-items: baseline; justify-content: space-between;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 5.5px; color: #bdc3d6;
+      }
+      .gl-head b { font-size: 12px; color: #fff; font-weight: 500; }
+      .gl-error {
+        margin-top: 12px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7px; letter-spacing: 0.04em; color: #ff9aa8;
+      }
+      .gl-ai { margin-top: auto; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.16); }
+      .gl-ai span {
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 5px; letter-spacing: 0.08em; color: #cbc3ff;
+      }
+      .gl-ai strong {
+        display: block; margin-top: 3px;
+        font-size: 10px; line-height: 1.35; font-weight: 500; color: #fff;
+      }
+      .gl-actions { display: flex; gap: 4px; margin-top: 9px; flex-wrap: wrap; }
+      .gl-actions button {
+        padding: 4px 8px; border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.22);
+        background: rgba(255,255,255,0.08); color: #e8ebf4; font-size: 5.5px;
+      }
+      .gl-actions button.is-active { background: #fff; border-color: #fff; color: #111; }
+
+      /* =========================================================
+         08 — Y2K CHROME
+         ========================================================= */
+      .mini.y2k {
+        background:
+          radial-gradient(circle at 20% 10%, #ffffff 0, transparent 40%),
+          linear-gradient(135deg, #cdd5e0, #eef1f5 40%, #b9c3d1);
+        padding: 12px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+      }
+      .y-window {
+        height: 100%;
+        display: flex; flex-direction: column;
+        border-radius: 14px;
+        border: 1px solid #7e8998;
+        background: linear-gradient(180deg, #f7f9fc, #dce3ec);
+        box-shadow: inset 0 1px 0 #fff, 0 8px 20px rgba(58,70,88,0.25);
+        overflow: hidden;
+      }
+      .y-title {
+        flex: 0 0 20px; height: 20px;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 8px;
+        background: linear-gradient(180deg, #6f7f96, #3d4d63);
+        color: #eef4fb; font-size: 5.5px; letter-spacing: 0.06em;
+      }
+      .y-title em { font-style: normal; color: #cdd8e6; letter-spacing: 0.12em; }
+      .y-body {
+        flex: 1; min-height: 0;
+        padding: 9px 10px;
+        display: flex; flex-direction: column;
+      }
+      .y-top { display: flex; align-items: flex-start; justify-content: space-between; }
+      .y-big {
+        font-size: 28px; line-height: 1; font-weight: 700; letter-spacing: -0.05em;
+        background: linear-gradient(180deg, #2e3a4a, #8d9aab);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+      }
+      .y-big span { font-size: 11px; color: #6e7c8f; -webkit-text-fill-color: #6e7c8f; }
+      .y-badge {
+        padding: 3px 7px; border-radius: 999px;
+        border: 1px solid #8a97a8;
+        background: linear-gradient(180deg, #ffffff, #cbd6e3);
+        font-size: 4.5px; color: #445366; letter-spacing: 0.08em;
+      }
+      .y-case {
+        margin-top: 7px;
+        padding: 5px 6px;
+        border-radius: 6px;
+        border: 1px solid #b7c2d0;
+        background: linear-gradient(180deg, #ffffff, #e9eef5);
+        font-size: 6.5px; color: #2e3a4a;
+      }
+      .y-error {
+        margin-top: 5px;
+        padding: 4px 6px;
+        border-radius: 6px;
+        border: 1px solid #c98c8c;
+        background: #fae9e9;
+        font-size: 5.8px; color: #9c2f2f;
+      }
+      .y-ai {
+        margin-top: auto;
+        padding-top: 6px;
+        border-top: 1px solid #b7c2d0;
+        font-size: 5.5px; line-height: 1.5; color: #3e4c5f;
+      }
+      .y-ai span {
+        font-size: 4.5px; color: #7b8798; letter-spacing: 0.08em; display: block; margin-bottom: 2px;
+      }
+      .y-actions { display: flex; gap: 4px; margin-top: 7px; flex-wrap: wrap; }
+      .y-actions button {
+        padding: 3px 7px; border-radius: 999px;
+        border: 1px solid #8a97a8;
+        background: linear-gradient(180deg, #ffffff, #d5dee9);
+        font-size: 5px; color: #445366;
+        box-shadow: inset 0 1px 0 #fff;
+      }
+      .y-actions button.is-active {
+        background: linear-gradient(180deg, #445366, #202b39);
+        border-color: #202b39; color: #eaf1fa;
+      }
+
+      @media (max-width: 900px) {
+        .wall-top { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+        .wall-note, .wall-meta { display: none; }
+        .wall-brand { min-width: 0; }
+        .wall-intro { padding: 18px 12px 10px; }
+        .wall-intro h1 { font-size: 23px; }
+        .wall-intro .intro-hint { display: none; }
+        .wall-grid { grid-template-columns: 1fr; padding: 0 12px 30px; gap: 12px; }
+        .wall-foot { padding: 0 12px 24px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="wall-top">
+      <div class="wall-brand">
+        <span class="wall-mark">08</span>
+        <div>
+          <strong>运行与审判 · 风格墙</strong>
+          <em>Eight Visual Languages / One Dataset</em>
+        </div>
+      </div>
+      <div class="wall-note">这次连圆角、阴影、材质、构图都不同。</div>
+      <div class="wall-meta">RUN-1124-0912 / STAGING / 42.6S</div>
+    </header>
+
+    <section class="wall-intro">
+      <div>
+        <h1>八种视觉语言，不是八个配色</h1>
+        <p>
+          从便当盒、极光、粗野主义，到和风留白、装饰艺术、赛博 HUD、玻璃拟态、Y2K。
+          每种只保留同一份运行数据，便于直接比较“气质”而不是内容。
+        </p>
+      </div>
+      <div class="intro-hint">SCROLL / PICK A LANGUAGE<br />FIT RATING INCLUDED</div>
+    </section>
+
+    <main class="wall-grid">
+      <!-- 01 Bento -->
+      <article class="wall-card">
+        <div class="mini bento">
+          <div class="bento-grid">
+            <div class="bento-tile bt-run">
+              <span class="bt-label">RUN-1124-0912</span>
+              <div class="bt-big">7<span>/10</span></div>
+              <div class="bt-bar"><i></i></div>
+              <div class="bt-meta">2 fail · 1 skip · 42.6s</div>
+            </div>
+            <div class="bento-tile bt-case">
+              <span class="bt-label">CASE 04 / EVIDENCE</span>
+              <strong>test_lock_inventory_concurrent</strong>
+              <div class="bt-error">locked=2 &gt; stock=1</div>
+              <div class="bt-row"><b>#02</b><span>POST</span><code>/v1/inventory/lock</code><em>200 · 146ms</em></div>
+            </div>
+            <div class="bento-tile bt-ai">
+              <span class="bt-label">AI PROPOSAL · 92%</span>
+              <strong>并发库存锁定未做原子校验</strong>
+              <p>两次并发锁定都成功，库存仅 1。</p>
+            </div>
+            <div class="bento-tile bt-verdict">
+              <span class="bt-label">HUMAN DECISION</span>
+              <div class="bt-actions">
+                <button class="is-active">确认缺陷</button>
+                <button>驳回</button>
+                <button>误报</button>
+              </div>
+              <span class="bt-hint">CONFIRM → DEF-1008</span>
+            </div>
+          </div>
+        </div>
+        <footer class="wall-caption">
+          <div class="wc-top"><strong>01 / 便当盒</strong><span>BENTO</span><em class="wc-fit">适配度 高</em></div>
+          <p>2×2 模块、14px 圆角、极轻阴影。最接近现代 SaaS 产品，信息密集但不压抑。</p>
+          <div class="wc-tags"><span>柔和</span><span>产品化</span><span>模块化</span></div>
+        </footer>
+      </article>
+
+      <!-- 02 Aurora -->
+      <article class="wall-card">
+        <div class="mini aurora">
+          <div class="aurora-bg"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+          <div class="aurora-card">
+            <div class="au-top"><span>RUN-1124-0912</span><b>7/10</b></div>
+            <h2>并发库存锁定<br />未做原子校验</h2>
+            <div class="au-error">locked=2 &gt; stock=1</div>
+            <div class="au-evidence"><b>#02</b> POST /v1/inventory/lock <em>200 · 146ms</em></div>
+            <div class="au-actions">
+              <button class="is-active">确认缺陷</button>
+              <button>驳回</button>
+              <button>误报</button>
+            </div>
+          </div>
+        </div>
+        <footer class="wall-caption">
+          <div class="wc-top"><strong>02 / 极光</strong><span>AURORA</span><em class="wc-fit">适配度 中</em></div>
+          <p>彩色光斑 + 磨砂深卡 + 大字号标题。品牌感最强，但可能盖过证据本身。</p>
+          <div class="wc-tags"><span>品牌感</span><span>渐变</span><span>沉浸</span></div>
+        </footer>
+      </article>
+
+      <!-- 03 Brutalist -->
+      <article class="wall-card">
+        <div class="mini brutal">
+          <header class="br-head"><b>RUN-1124-0912</b><span>7/10 · 2 FAIL</span></header>
+          <div class="br-grid">
+            <div class="br-box br-case">
+              <span>CASE 04 / FAILED</span>
+              <strong>test_lock_inventory_concurrent</strong>
+              <div class="br-error">locked=2 &gt; stock=1</div>
+            </div>
+            <div class="br-box br-ai">
+              <span>AI / 92%</span>
+              <strong>并发库存锁定未做原子校验</strong>
+              <p>两次并发锁定都成功。</p>
+            </div>
+            <div class="br-box br-verdict">
+              <span>你的裁决 / VERDICT</span>
+              <div class="br-actions">
+                <button class="is-active">确认缺陷</button>
+                <button>驳回</button>
+                <button>误报</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <footer class="wall-caption">
+          <div class="wc-top"><strong>03 / 粗野主义</strong><span>BRUTALIST</span><em class="wc-fit">适配度 中</em></div>
+          <p>黄黑粗框、硬阴影、零圆角。识别度极强，适合做内部工具里的“重音”。</p>
+          <div class="wc-tags"><span>强识别</span><span>硬边框</span><span>高对比</span></div>
+        </footer>
+      </article>
+
+      <!-- 04 Ma -->
+      <article class="wall-card">
+        <div class="mini ma">
+          <div class="ma-side">
+            <span class="ma-vertical">运行与审判</span>
+            <span class="ma-reddot"></span>
+            <span class="ma-side-meta">RUN-1124-0912</span>
+          </div>
+          <div class="ma-main">
+            <div class="ma-top"><span>2026.11.24 / 09:12</span><span>预发</span></div>
+            <div class="ma-stats">
+              <b>7</b><span>/ 10 通过</span>
+              <em>2 失败 · 1 跳过</em>
+            </div>
+            <div class="ma-case">test_lock_inventory_concurrent</div>
+            <div class="ma-error">locked=2 exceeds stock=1</div>
+            <div class="ma-ai">
+              <span>AI · 92% · 未裁决</span>
+              <p>并发库存锁定未做原子校验，存在超卖风险。</p>
+            </div>
+            <div class="ma-actions">
+              <button class="is-active">确认</button>
+              <button>驳回</button>
+              <button>误报</button>
+            </div>
+          </div>
+        </div>
+        <footer class="wall-caption">
+          <div class="wc-top"><strong>04 / 和风留白</strong><span>MA</span><em class="wc-fit">适配度 中</em></div>
+          <p>竖排标题、发丝线、大量负空间、一个朱红点。最克制，但信息密度需要重新设计。</p>
+          <div class="wc-tags"><span>留白</span><span>竖排</span><span>安静</span></div>
+        </footer>
+      </article>
+
+      <!-- 05 Art Deco -->
+      <article class="wall-card">
+        <div class="mini deco">
+          <div class="deco-inner">
+            <div class="deco-fan"></div>
+            <div class="deco-top">RUN-1124-0912 · STAGING</div>
+            <h2>运行与审判</h2>
+            <div class="deco-rule"></div>
+            <div class="deco-stats">
+              <div><b>7</b><span>PASS</span></div>
+              <div><b>2</b><span>FAIL</span></div>
+              <div><b>1</b><span>SKIP</span></div>
+            </div>
+            <div class="deco-ai">
+              <span>AI · 92%</span>
+              <strong>并发库存锁定未做原子校验</strong>
+            </div>
+            <div class="deco-actions">
+              <button class="is-active">确认缺陷</button>
+              <button>驳回</button>
+              <button>误报</button>
+            </div>
+          </div>
+        </div>
+        <footer class="wall-caption">
+          <div class="wc-top"><strong>05 / 装饰艺术</strong><span>ART DECO</span><em class="wc-fit">适配度 低</em></div>
+          <p>深绿 + 金线 + 对称构图 + 扇形纹样。高级感强，但和测试工具的效率目标冲突。</p>
+          <div class="wc-tags"><span>奢华</span><span>对称</span><span>金线</span></div>
+        </footer>
+      </article>
+
+      <!-- 06 Cyberpunk -->
+      <article class="wall-card">
+        <div class="mini cyber">
+          <header class="cy-head"><span>SYS://RUN-1124-0912</span><em>FAILURE DETECTED</em></header>
+          <div class="cy-main">
+            <div class="cy-case">
+              <span>CASE 04</span>
+              <b>test_lock_inventory_concurrent</b>
+              <div class="cy-error">LOCKED=2 &gt; STOCK=1</div>
+            </div>
+            <div class="cy-gauge">
+              <div class="cy-ring"><span>92<small>%</small></span></div>
+              <em>CONFIDENCE</em>
+            </div>
+            <div class="cy-ai">
+              <span>AI PROPOSAL</span>
+              <b>原子校验缺失 / 超卖风险</b>
+              <p>两次并发锁定成功，库存仅 1。</p>
+            </div>
+          </div>
+          <div class="cy-actions">
+            <button class="is-active">CONFIRM</button>
+            <button>REJECT</button>
+            <button>FALSE POSITIVE</button>
+          </div>
+        </div>
+        <footer class="wall-caption">
+          <div class="wc-top"><strong>06 / 赛博 HUD</strong><span>CYBERPUNK</span><em class="wc-fit">适配度 低</em></div>
+          <p>黑底、霓虹青/品红、切角、扫描线、圆形仪表。最强烈，适合演示，不适合日常。</p>
+          <div class="wc-tags"><span>霓虹</span><span>切角</span><span>HUD</span></div>
+        </footer>
+      </article>
+
+      <!-- 07 Glass -->
+      <article class="wall-card">
+        <div class="mini glass">
+          <div class="gl-bg"><i class="g1"></i><i class="g2"></i><i class="g3"></i></div>
+          <div class="gl-card">
+            <div class="gl-head"><span>RUN-1124-0912</span><b>7/10</b></div>
+            <div class="gl-error">LOCKED=2 &gt; STOCK=1</div>
+            <div class="gl-ai">
+              <span>AI · 92% · UNJUDGED</span>
+              <strong>并发库存锁定未做原子校验</strong>
+            </div>
+            <div class="gl-actions">
+              <button class="is-active">确认缺陷</button>
+              <button>驳回</button>
+              <button>误报</button>
+            </div>
+          </div>
+        </div>
+        <footer class="wall-caption">
+          <div class="wc-top"><strong>07 / 玻璃拟态</strong><span>GLASS</span><em class="wc-fit">适配度 中</em></div>
+          <p>磨砂玻璃、彩色光斑、内外高光。未来感强，但可读性和性能需要克制使用。</p>
+          <div class="wc-tags"><span>磨砂</span><span>光斑</span><span>未来感</span></div>
+        </footer>
+      </article>
+
+      <!-- 08 Y2K -->
+      <article class="wall-card">
+        <div class="mini y2k">
+          <div class="y-window">
+            <div class="y-title"><span>RUN_1124_0912.exe</span><em>_ □ ×</em></div>
+            <div class="y-body">
+              <div class="y-top">
+                <div class="y-big">7<span>/10</span></div>
+                <div class="y-badge">CHROME EDITION</div>
+              </div>
+              <div class="y-case">test_lock_inventory_concurrent</div>
+              <div class="y-error">ERROR: LOCKED=2 &gt; STOCK=1</div>
+              <div class="y-ai">
+                <span>AI///92%</span>
+                原子校验缺失，存在超卖风险。
+              </div>
+              <div class="y-actions">
+                <button class="is-active">CONFIRM</button>
+                <button>REJECT</button>
+                <button>FALSE</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <footer class="wall-caption">
+          <div class="wc-top"><strong>08 / Y2K 铬合金</strong><span>Y2K CHROME</span><em class="wc-fit">适配度 低</em></div>
+          <p>银灰渐变、窗口边框、全息字、胶囊按钮。趣味性最强，适合做品牌实验。</p>
+          <div class="wc-tags"><span>铬合金</span><span>全息</span><span>复古未来</span></div>
+        </footer>
+      </article>
+    </main>
+
+    <div class="wall-foot">
+      <span>STYLE WALL / RUN &amp; TRIAL</span>
+      <span>8 LANGUAGES · SAME DATA · DIFFERENT MATERIALS</span>
+    </div>
+
+    <script>
+      document.querySelectorAll('.bt-actions, .au-actions, .br-actions, .ma-actions, .deco-actions, .cy-actions, .gl-actions, .y-actions').forEach((group) => {
+        group.addEventListener('click', (event) => {
+          const button = event.target.closest('button');
+          if (!button) return;
+          group.querySelectorAll('button').forEach((item) => {
+            item.classList.toggle('is-active', item === button);
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1118 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>运行与审判 · 开发工具三种范式</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0; overflow: hidden;
+        background: #1e1e1e;
+        color: #d4d4d4;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+          'Microsoft YaHei', sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      button { font: inherit; color: inherit; cursor: pointer; }
+      code, pre, .mono { font-family: 'Cascadia Code', Consolas, monospace; }
+
+      .dev-switch {
+        height: 46px;
+        display: flex; align-items: center; gap: 22px;
+        padding: 0 16px;
+        background: #111315;
+        border-bottom: 1px solid #2a2d31;
+        position: relative; z-index: 20;
+      }
+      .dev-brand { display: flex; align-items: center; gap: 9px; min-width: 224px; }
+      .dev-mark {
+        width: 22px; height: 22px; display: grid; place-items: center;
+        background: #e8eae6; color: #111315;
+        font-family: 'Cascadia Code', Consolas, monospace; font-size: 7px;
+      }
+      .dev-brand strong { display: block; font-size: 10.5px; font-weight: 600; color: #e8eae6; }
+      .dev-brand em {
+        display: block; margin-top: 1px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-style: normal; font-size: 7px; letter-spacing: 0.1em; color: #6f767b;
+      }
+      .dev-tabs { display: flex; align-self: stretch; }
+      .dev-tab {
+        position: relative; border: 0; background: transparent;
+        padding: 0 14px; color: #8a9297; font-size: 10.5px;
+        display: flex; align-items: center; gap: 6px;
+      }
+      .dev-tab span {
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7.5px; color: #5f666b;
+      }
+      .dev-tab:hover { color: #e8eae6; }
+      .dev-tab.is-active { color: #e8eae6; }
+      .dev-tab.is-active::after {
+        content: ''; position: absolute; left: 14px; right: 14px; bottom: 0;
+        height: 2px; background: #e8eae6;
+      }
+      .dev-tab.is-active span { color: #e8eae6; }
+      .dev-meta {
+        margin-left: auto;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 8px; color: #6f767b; white-space: nowrap;
+      }
+
+      .concept { display: none; height: calc(100vh - 46px); overflow: hidden; }
+      .concept.is-active { display: flex; flex-direction: column; }
+
+      /* =========================================================
+         01 — IDE
+         ========================================================= */
+      .ide { background: #1e1e1e; color: #d4d4d4; }
+      .ide-title {
+        flex: 0 0 30px; height: 30px;
+        display: flex; align-items: center; gap: 12px;
+        padding: 0 10px;
+        background: #323233;
+        border-bottom: 1px solid #252526;
+        font-size: 10px; color: #a9a9a9;
+      }
+      .ide-dots { display: flex; gap: 5px; }
+      .ide-dots i { width: 8px; height: 8px; border-radius: 50%; background: #555; }
+      .ide-dots i:nth-child(1) { background: #ff5f57; }
+      .ide-dots i:nth-child(2) { background: #febc2e; }
+      .ide-dots i:nth-child(3) { background: #28c840; }
+      .ide-title-text { color: #cccccc; font-size: 10px; }
+      .ide-menu { display: flex; gap: 11px; font-size: 9px; color: #9a9a9a; }
+      .ide-title-right { margin-left: auto; font-family: 'Cascadia Code', Consolas, monospace; font-size: 8px; color: #8a8a8a; }
+      .ide-main { flex: 1; min-height: 0; display: flex; }
+      .ide-activity {
+        width: 42px; flex: 0 0 42px;
+        display: flex; flex-direction: column; align-items: center;
+        padding: 4px 0;
+        background: #333333; border-right: 1px solid #252526;
+      }
+      .ide-act {
+        width: 42px; height: 38px;
+        display: grid; place-items: center;
+        color: #858585; font-size: 14px;
+        border-left: 2px solid transparent;
+      }
+      .ide-act:hover { color: #cccccc; }
+      .ide-act.is-active { color: #ffffff; border-left-color: #0f8f7a; }
+      .ide-act.act-ai { color: #d7ba7d; }
+      .ide-act-bottom { margin-top: auto; }
+      .ide-side {
+        width: 220px; flex: 0 0 220px;
+        display: flex; flex-direction: column;
+        background: #252526; border-right: 1px solid #1e1e1e;
+      }
+      .ide-side-head {
+        flex: 0 0 28px; height: 28px;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 10px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7.5px; letter-spacing: 0.09em; color: #8b8b8b;
+      }
+      .ide-tree { flex: 1; overflow-y: auto; padding: 2px 0 8px; }
+      .ide-row {
+        height: 21px; display: flex; align-items: center; gap: 4px;
+        padding-left: calc(8px + var(--d, 0) * 12px);
+        font-size: 9.5px; color: #bdbdbd; white-space: nowrap;
+        cursor: default;
+      }
+      .ide-row:hover { background: #2a2d2e; }
+      .ide-row.root { color: #d4d4d4; font-weight: 600; }
+      .ide-row.folder { color: #c8c8c8; }
+      .ide-row.file { color: #b5b5b5; }
+      .ide-row.case { color: #9fa0a0; font-family: 'Cascadia Code', Consolas, monospace; font-size: 8.2px; }
+      .ide-row.case.is-active { background: #37373d; color: #ffffff; }
+      .ide-row.har { color: #9fa0a0; font-family: 'Cascadia Code', Consolas, monospace; font-size: 8px; }
+      .ide-row.har.is-active { background: #37373d; color: #f48771; }
+      .ide-row.link { color: #7fa99b; font-family: 'Cascadia Code', Consolas, monospace; font-size: 7.6px; }
+      .ide-badge {
+        margin-left: auto; margin-right: 8px;
+        min-width: 14px; height: 13px; padding: 0 3px;
+        border-radius: 7px; background: #4d4d4d; color: #fff;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 6.5px; line-height: 13px; text-align: center;
+      }
+      .ide-badge.red { background: #a93226; }
+      .ide-side-foot {
+        flex: 0 0 24px; height: 24px;
+        display: flex; align-items: center;
+        padding: 0 10px;
+        border-top: 1px solid #333;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 6.5px; color: #6f6f6f;
+      }
+      .ide-work { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #1e1e1e; }
+      .ide-tabs {
+        flex: 0 0 30px; height: 30px;
+        display: flex; align-items: stretch;
+        background: #252526; border-bottom: 1px solid #1e1e1e;
+      }
+      .ide-tab {
+        display: flex; align-items: center; gap: 5px;
+        padding: 0 10px;
+        border-right: 1px solid #1e1e1e;
+        font-size: 9.5px; color: #9a9a9a;
+        background: #2d2d2d;
+      }
+      .ide-tab.is-active { background: #1e1e1e; color: #ffffff; border-top: 1px solid #0f8f7a; }
+      .ide-tab .tab-dot { width: 5px; height: 5px; border-radius: 50%; background: #f48771; }
+      .ide-tab .tab-x { margin-left: 4px; color: #777; }
+      .ide-breadcrumb {
+        flex: 0 0 22px; height: 22px;
+        display: flex; align-items: center;
+        padding: 0 12px;
+        color: #7c7c7c; font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7.8px;
+        border-bottom: 1px solid #2a2a2a;
+      }
+      .ide-editor {
+        flex: 1; min-height: 0; overflow: auto;
+        padding: 8px 0 12px;
+        background: #1e1e1e;
+      }
+      .code-line {
+        display: flex; gap: 12px;
+        min-height: 19px;
+        padding: 0 12px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 10.5px; line-height: 19px;
+        white-space: pre;
+        color: #d4d4d4;
+      }
+      .code-line .ln {
+        width: 20px; flex: 0 0 20px; text-align: right;
+        color: #6e7681; user-select: none;
+      }
+      .code-line.err { background: rgba(244,135,113,0.09); box-shadow: inset 2px 0 0 #f48771; }
+      .code-line.err .code-text { text-decoration: underline wavy #f48771; text-underline-offset: 2px; }
+      .tok-kw { color: #c586c0; }
+      .tok-fn { color: #dcdcaa; }
+      .tok-str { color: #ce9178; }
+      .tok-num { color: #b5cea8; }
+      .tok-cmt { color: #6a9955; }
+      .tok-err { color: #f48771; }
+      .tok-var { color: #9cdcfe; }
+      .ide-bottom {
+        flex: 0 0 136px; height: 136px;
+        display: flex; flex-direction: column;
+        border-top: 1px solid #3c3c3c;
+        background: #1e1e1e;
+      }
+      .ide-bottom-tabs {
+        flex: 0 0 26px; height: 26px;
+        display: flex; align-items: center; gap: 14px;
+        padding: 0 10px;
+        border-bottom: 1px solid #2a2a2a;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7.5px; letter-spacing: 0.06em; color: #8a8a8a;
+      }
+      .ide-bottom-tabs .is-active { color: #ffffff; border-bottom: 1px solid #e8eae6; }
+      .ide-bottom-tabs b { color: #f48771; font-weight: 400; }
+      .ide-problems { flex: 1; overflow-y: auto; padding: 3px 0; }
+      .ide-problem {
+        display: grid; grid-template-columns: 12px minmax(0,1fr) auto;
+        gap: 6px; align-items: center;
+        padding: 3px 12px;
+        font-size: 8.6px; color: #bdbdbd;
+      }
+      .ide-problem:hover { background: #2a2d2e; }
+      .ide-problem .p-red { color: #f48771; font-size: 7px; }
+      .ide-problem .p-gray { color: #7c7c7c; font-size: 7px; }
+      .ide-problem em {
+        font-style: normal; font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7px; color: #7c7c7c;
+      }
+      .ide-ai {
+        width: 318px; flex: 0 0 318px;
+        display: flex; flex-direction: column;
+        padding: 12px 13px;
+        border-left: 1px solid #333333;
+        background: #252526;
+      }
+      .ide-ai-head {
+        display: flex; align-items: center; gap: 7px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7.5px; letter-spacing: 0.09em; color: #d7ba7d;
+      }
+      .ide-ai-head b { color: #ffffff; font-size: 11px; font-weight: 500; }
+      .ide-ai-head em { margin-left: auto; font-style: normal; color: #f48771; font-size: 6.5px; }
+      .ide-ai-title { margin-top: 9px; font-size: 14px; line-height: 1.35; font-weight: 600; color: #ededed; }
+      .ide-ai-summary { margin-top: 6px; font-size: 10px; line-height: 1.6; color: #b0b0b0; }
+      .ide-ai-label {
+        margin-top: 11px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 6.5px; letter-spacing: 0.1em; color: #7c7c7c;
+      }
+      .ide-ai-text { margin-top: 3px; font-size: 9.5px; line-height: 1.55; color: #bdbdbd; }
+      .ide-ai-evidence {
+        margin-top: 3px; padding: 5px 6px;
+        background: #1e1e1e; border: 1px solid #3c3c3c;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7.5px; line-height: 1.5; color: #9fa0a0;
+      }
+      .ide-ai-actions { display: flex; gap: 4px; margin-top: 12px; flex-wrap: wrap; }
+      .ide-ai-actions button {
+        padding: 5px 8px; border: 1px solid #4a4a4a; background: transparent;
+        color: #b0b0b0; font-size: 9px;
+      }
+      .ide-ai-actions button.is-active { background: #e8eae6; border-color: #e8eae6; color: #1e1e1e; }
+      .ide-note {
+        width: 100%; margin-top: 7px; padding: 6px 7px;
+        border: 1px solid #3c3c3c; background: #1e1e1e;
+        color: #d4d4d4; font-size: 9px; outline: none; resize: none;
+      }
+      .ide-note::placeholder { color: #6f6f6f; }
+      .ide-submit {
+        width: 100%; margin-top: 7px; padding: 7px;
+        border: 1px solid #e8eae6; background: #e8eae6; color: #1e1e1e;
+        font-size: 9px; font-weight: 600;
+      }
+      .ide-submit:hover { background: #0f8f7a; border-color: #0f8f7a; color: #fff; }
+      .ide-result {
+        display: none; margin-top: 6px; padding: 5px;
+        border: 1px solid #0f8f7a; color: #7fd7c4;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7.5px; text-align: center;
+      }
+      .ide-result.is-visible { display: block; }
+      .ide-ai-foot {
+        margin-top: auto; padding-top: 8px;
+        border-top: 1px solid #333;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 6.5px; color: #6f6f6f;
+      }
+      .ide-status {
+        flex: 0 0 22px; height: 22px;
+        display: flex; align-items: center; gap: 14px;
+        padding: 0 10px;
+        background: #1f6f5c; color: #e8f5ef;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7.5px;
+      }
+      .ide-status .status-right { margin-left: auto; }
+
+      /* =========================================================
+         02 — API CLIENT
+         ========================================================= */
+      .api { background: #f5f5f2; color: #1f2328; }
+      .api-top {
+        flex: 0 0 42px; height: 42px;
+        display: flex; align-items: center; gap: 14px;
+        padding: 0 14px;
+        background: #ffffff; border-bottom: 1px solid #deded8;
+      }
+      .api-brand {
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 9px; letter-spacing: 0.08em; color: #1f2328;
+      }
+      .api-env {
+        padding: 3px 7px; border: 1px solid #d8d8d1; border-radius: 3px;
+        font-size: 8.5px; color: #4b5563;
+      }
+      .api-run { font-family: 'Cascadia Code', Consolas, monospace; font-size: 7.8px; color: #6b7280; }
+      .api-top-right { margin-left: auto; font-family: 'Cascadia Code', Consolas, monospace; font-size: 7.5px; color: #8a8f98; }
+      .api-main { flex: 1; min-height: 0; display: flex; }
+      .api-side {
+        width: 246px; flex: 0 0 246px;
+        display: flex; flex-direction: column;
+        background: #fbfbf8; border-right: 1px solid #deded8;
+      }
+      .api-search {
+        margin: 8px; padding: 5px 7px;
+        border: 1px solid #deded8; border-radius: 3px;
+        background: #fff; color: #9aa0a6; font-size: 8.5px;
+      }
+      .api-section {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 5px 10px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 6.8px; letter-spacing: 0.1em; color: #8a8f98;
+      }
+      .api-section b { color: #b42318; font-weight: 500; }
+      .api-tree { padding: 0 5px 8px; }
+      .api-row {
+        display: flex; align-items: center; gap: 5px;
+        padding: 3px 5px; border-radius: 3px;
+        font-size: 8.8px; color: #3f4650; white-space: nowrap;
+      }
+      .api-row:hover { background: #f0f0ea; }
+      .api-row.folder { color: #1f2328; font-weight: 600; }
+      .api-row.req.is-active { background: #e8f3ed; color: #0f5132; }
+      .api-row .m {
+        width: 28px; flex: 0 0 28px; text-align: center;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 6px; font-weight: 600; padding: 1px 2px; border-radius: 2px;
+      }
+      .api-row .m.post { background: #e3f2e8; color: #1a7f37; }
+      .api-row .m.get { background: #e5efef; color: #0f6b5c; }
+      .api-row code { overflow: hidden; text-overflow: ellipsis; font-family: 'Cascadia Code', Consolas, monospace; font-size: 7.6px; }
+      .api-finding {
+        margin: 3px 6px; padding: 7px 8px;
+        border: 1px solid #e3e3dc; background: #fff;
+        display: flex; gap: 6px;
+      }
+      .api-finding.is-active { border-left: 3px solid #b42318; background: #fff7f5; }
+      .api-finding .dot { width: 5px; height: 5px; margin-top: 3px; border-radius: 50%; background: #b42318; }
+      .api-finding .dot.major { background: #b07a18; }
+      .api-finding b { display: block; font-size: 8.6px; line-height: 1.4; font-weight: 600; }
+      .api-finding em {
+        display: block; margin-top: 2px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-style: normal; font-size: 6.6px; color: #8a8f98;
+      }
+      .api-side-foot {
+        margin-top: auto; padding: 8px 10px;
+        border-top: 1px solid #deded8;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 6.5px; color: #8a8f98;
+      }
+      .api-work { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+      .api-tabs {
+        flex: 0 0 32px; height: 32px;
+        display: flex; align-items: stretch;
+        background: #fff; border-bottom: 1px solid #deded8;
+      }
+      .api-tab {
+        display: flex; align-items: center; gap: 5px;
+        padding: 0 12px;
+        border-right: 1px solid #ededE7;
+        font-size: 9px; color: #6b7280;
+      }
+      .api-tab.is-active { color: #1f2328; border-top: 2px solid #0f6b4f; background: #fbfbf8; }
+      .api-tab i { width: 4px; height: 4px; border-radius: 50%; background: #b42318; }
+      .api-request {
+        flex: 0 0 208px; min-height: 0;
+        display: flex; flex-direction: column;
+        border-bottom: 1px solid #c9c9c0;
+        background: #fff;
+      }
+      .api-urlbar {
+        flex: 0 0 38px; height: 38px;
+        display: flex; align-items: center; gap: 7px;
+        padding: 0 12px;
+        border-bottom: 1px solid #ededE7;
+      }
+      .api-method {
+        padding: 4px 7px; border-radius: 3px;
+        background: #e3f2e8; color: #1a7f37;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7.5px; font-weight: 600;
+      }
+      .api-urlbar input {
+        flex: 1; min-width: 0; height: 26px;
+        border: 1px solid #deded8; border-radius: 3px;
+        padding: 0 7px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 8.5px; color: #1f2328; outline: none;
+      }
+      .api-send {
+        padding: 5px 12px; border: 1px solid #0f6b4f;
+        background: #0f6b4f; color: #fff; font-size: 8.5px; font-weight: 600;
+      }
+      .api-subtabs {
+        flex: 0 0 24px; height: 24px;
+        display: flex; align-items: center; gap: 12px;
+        padding: 0 12px;
+        border-bottom: 1px solid #ededE7;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7px; color: #8a8f98;
+      }
+      .api-subtabs .is-active { color: #1f2328; }
+      .api-json {
+        flex: 0 0 auto; max-height: 150px; margin: 0;
+        padding: 8px 12px; overflow: auto;
+        background: #fbfbf8; color: #30363d;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 9px; line-height: 1.65; white-space: pre;
+      }
+      .api-json .k { color: #0f5132; }
+      .api-json .s { color: #6b7280; }
+      .api-json .n { color: #b42318; }
+      .api-tests {
+        flex: 0 0 auto;
+        padding: 6px 12px 8px;
+        border-top: 1px solid #ededE7;
+      }
+      .api-tests-head {
+        display: flex; align-items: center; justify-content: space-between;
+        padding-bottom: 4px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 6.8px; letter-spacing: 0.08em; color: #8a8f98;
+      }
+      .api-assert {
+        display: grid; grid-template-columns: 14px minmax(0,1fr) auto;
+        gap: 6px; align-items: center;
+        padding: 3px 0;
+        border-top: 1px solid #f1f1eb;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7.6px;
+      }
+      .api-assert b { font-weight: 400; }
+      .api-assert code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #3f4650; }
+      .api-assert em { font-style: normal; }
+      .api-assert.fail b, .api-assert.fail em { color: #b42318; }
+      .api-assert.pass b, .api-assert.pass em { color: #1a7f37; }
+      .api-har {
+        flex: 1; min-height: 0; overflow: auto;
+        padding: 8px 12px 10px;
+        border-top: 1px solid #c9c9c0;
+        background: #fbfbf8;
+      }
+      .api-har-head {
+        display: flex; align-items: center; justify-content: space-between;
+        padding-bottom: 4px;
+        border-bottom: 1px solid #e4e4dd;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 6.8px; letter-spacing: 0.1em; color: #8a8f98;
+      }
+      .api-har-row {
+        display: grid; grid-template-columns: 20px 30px minmax(0,1fr) auto;
+        gap: 6px; align-items: center;
+        padding: 5px 4px;
+        border-bottom: 1px solid #ecece6;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7.6px; color: #5c636b;
+      }
+      .api-har-row.is-active { background: #e8f3ed; color: #0f5132; }
+      .api-har-row span:first-child { color: #8a8f98; }
+      .api-har-row b { font-weight: 600; }
+      .api-har-row code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .api-har-row em { font-style: normal; }
+      .api-har-foot {
+        padding-top: 5px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 6.5px; color: #8a8f98;
+      }
+      .api-response { flex: 0 0 auto; min-height: 0; display: flex; flex-direction: column; background: #fff; }
+      .api-res-head {
+        flex: 0 0 34px; height: 34px;
+        display: flex; align-items: center; gap: 12px;
+        padding: 0 12px;
+        border-bottom: 1px solid #ededE7;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7.5px; color: #6b7280;
+      }
+      .api-status { padding: 3px 6px; border-radius: 3px; background: #e3f2e8; color: #1a7f37; font-weight: 600; }
+      .api-res-tabs { margin-left: auto; display: flex; gap: 12px; }
+      .api-res-tabs .is-active { color: #1f2328; }
+      .api-res-tabs .has-fail { color: #b42318; }
+      .api-testfail {
+        flex: 0 0 auto; margin: 0 12px 10px; padding: 7px 9px;
+        border-left: 3px solid #b42318; background: #fff5f3;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 8px; line-height: 1.5; color: #b42318;
+      }
+      .api-ai {
+        width: 322px; flex: 0 0 322px;
+        display: flex; flex-direction: column;
+        padding: 13px 14px;
+        border-left: 1px solid #deded8;
+        background: #fbfbf8;
+      }
+      .api-ai-head {
+        display: flex; align-items: baseline; gap: 8px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7px; letter-spacing: 0.1em; color: #0f6b4f;
+      }
+      .api-ai-head b { margin-left: auto; font-size: 11px; color: #b42318; font-weight: 500; }
+      .api-ai h3 { margin: 8px 0 0; font-size: 14px; line-height: 1.35; font-weight: 600; }
+      .api-ai p { margin: 6px 0 0; font-size: 9.5px; line-height: 1.6; color: #5c636b; }
+      .api-label {
+        margin-top: 11px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 6.5px; letter-spacing: 0.1em; color: #8a8f98;
+      }
+      .api-text { margin-top: 3px; font-size: 9.2px; line-height: 1.55; color: #3f4650; }
+      .api-evidence {
+        margin-top: 3px; padding: 5px 6px;
+        border: 1px solid #deded8; background: #fff;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7.4px; line-height: 1.5; color: #5c636b;
+      }
+      .api-actions { display: flex; gap: 4px; margin-top: 12px; flex-wrap: wrap; }
+      .api-actions button {
+        padding: 5px 8px; border: 1px solid #d8d8d1; background: #fff;
+        font-size: 8.5px; color: #5c636b;
+      }
+      .api-actions button.is-active { background: #0f6b4f; border-color: #0f6b4f; color: #fff; }
+      .api-note {
+        width: 100%; margin-top: 7px; padding: 6px 7px;
+        border: 1px solid #deded8; background: #fff;
+        font-size: 8.5px; color: #1f2328; outline: none; resize: none;
+      }
+      .api-note::placeholder { color: #a0a5aa; }
+      .api-submit {
+        width: 100%; margin-top: 7px; padding: 7px;
+        border: 1px solid #1f2328; background: #1f2328; color: #fff;
+        font-size: 8.5px; font-weight: 600;
+      }
+      .api-submit:hover { background: #0f6b4f; border-color: #0f6b4f; }
+      .api-result {
+        display: none; margin-top: 6px; padding: 5px;
+        border: 1px solid #0f6b4f; color: #0f6b4f;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7.5px; text-align: center;
+      }
+      .api-result.is-visible { display: block; }
+      .api-foot {
+        margin-top: auto; padding-top: 8px; border-top: 1px solid #deded8;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 6.5px; color: #8a8f98;
+      }
+
+      /* =========================================================
+         03 — CI RUN
+         ========================================================= */
+      .ci { background: #f6f8fa; color: #1f2328; }
+      .ci-top {
+        flex: 0 0 44px; height: 44px;
+        display: flex; align-items: center; gap: 14px;
+        padding: 0 16px;
+        background: #fff; border-bottom: 1px solid #d0d7de;
+      }
+      .ci-crumb {
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 8.5px; color: #59636e;
+      }
+      .ci-crumb b { color: #1f2328; font-weight: 600; }
+      .ci-branch {
+        padding: 2px 6px; border-radius: 3px;
+        background: #eef1f4; color: #59636e;
+        font-family: 'Cascadia Code', Consolas, monospace; font-size: 7px;
+      }
+      .ci-status { padding: 3px 7px; border-radius: 3px; background: #ffebe9; color: #cf222e; font-size: 8px; font-weight: 600; }
+      .ci-rerun {
+        margin-left: auto; padding: 5px 10px;
+        border: 1px solid #d0d7de; border-radius: 4px;
+        background: #f6f8fa; color: #1f2328; font-size: 8.5px;
+      }
+      .ci-body { flex: 1; min-height: 0; display: flex; }
+      .ci-main { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 12px 16px 16px; }
+      .ci-runhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+      .ci-runhead h1 { margin: 0; font-size: 17px; line-height: 1.2; font-weight: 600; }
+      .ci-runhead p {
+        margin: 4px 0 0;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 8px; color: #59636e;
+      }
+      .ci-stats { display: flex; gap: 14px; }
+      .ci-stats div { text-align: right; }
+      .ci-stats b { display: block; font-size: 16px; line-height: 1; font-weight: 600; }
+      .ci-stats span { display: block; margin-top: 3px; font-size: 6.5px; color: #59636e; letter-spacing: 0.06em; }
+      .ci-stats .fail b { color: #cf222e; }
+      .ci-jobs {
+        display: flex; align-items: center; gap: 6px;
+        margin-top: 12px; padding: 8px;
+        border: 1px solid #d0d7de; border-radius: 6px;
+        background: #fff;
+      }
+      .ci-job {
+        flex: 1; min-width: 0;
+        display: grid; grid-template-columns: 16px 1fr auto; gap: 5px; align-items: center;
+        padding: 5px 6px;
+        border: 1px solid #d0d7de; border-radius: 4px;
+        background: #f6f8fa;
+      }
+      .ci-job .ico { width: 14px; height: 14px; border-radius: 50%; display: grid; place-items: center; font-size: 9px; }
+      .ci-job.done .ico { background: #dafbe1; color: #1a7f37; }
+      .ci-job.fail .ico { background: #ffebe9; color: #cf222e; }
+      .ci-job.skip .ico { background: #eef1f4; color: #8c959f; }
+      .ci-job.wait .ico { background: #fff8c5; color: #9a6700; }
+      .ci-job b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; font-weight: 600; }
+      .ci-job em { font-style: normal; font-family: 'Cascadia Code', Consolas, monospace; font-size: 6.5px; color: #8c959f; }
+      .ci-arrow { color: #8c959f; font-size: 9px; }
+      .ci-content { flex: 1; min-height: 0; display: flex; gap: 10px; margin-top: 10px; }
+      .ci-steps {
+        width: 178px; flex: 0 0 178px;
+        border: 1px solid #d0d7de; border-radius: 6px; background: #fff;
+        padding: 5px;
+        overflow-y: auto;
+      }
+      .ci-step {
+        display: flex; align-items: center; gap: 5px;
+        padding: 5px 6px; border-radius: 4px;
+        font-size: 8px; color: #59636e;
+      }
+      .ci-step:hover { background: #f6f8fa; }
+      .ci-step.is-active { background: #fff5f0; color: #cf222e; }
+      .ci-step .si { width: 10px; text-align: center; font-size: 8px; }
+      .ci-step.done .si { color: #1a7f37; }
+      .ci-step.fail .si { color: #cf222e; }
+      .ci-step em { margin-left: auto; font-style: normal; font-family: 'Cascadia Code', Consolas, monospace; font-size: 6px; color: #8c959f; }
+      .ci-log {
+        flex: 1; min-width: 0;
+        display: flex; flex-direction: column;
+        border: 1px solid #d0d7de; border-radius: 6px;
+        background: #0d1117; overflow: hidden;
+      }
+      .ci-log-head {
+        flex: 0 0 28px; height: 28px;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 10px;
+        background: #161b22; border-bottom: 1px solid #30363d;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7.5px; color: #c9d1d9;
+      }
+      .ci-log-head em { font-style: normal; color: #8b949e; }
+      .ci-log pre {
+        flex: 1; min-height: 0; margin: 0; padding: 8px 10px;
+        overflow: auto;
+        color: #c9d1d9;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 8.2px; line-height: 1.65; white-space: pre-wrap;
+      }
+      .ci-log .dim { color: #8b949e; }
+      .ci-log .green { color: #7ee787; }
+      .ci-log .red { color: #ff7b72; }
+      .ci-log .yellow { color: #e3b341; }
+      .ci-side {
+        width: 346px; flex: 0 0 346px;
+        overflow-y: auto;
+        border-left: 1px solid #d0d7de;
+        background: #fff;
+      }
+      .ci-side-section { padding: 11px 14px; border-bottom: 1px solid #d8dee4; }
+      .ci-side-section h3 {
+        display: flex; align-items: center; gap: 6px;
+        margin: 0 0 7px;
+        font-size: 9.5px; font-weight: 600;
+      }
+      .ci-side-section h3 b {
+        margin-left: auto;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7px; font-weight: 400; color: #59636e;
+      }
+      .ci-summary-row { display: flex; gap: 12px; }
+      .ci-summary-row div { flex: 1; }
+      .ci-summary-row b { display: block; font-size: 17px; line-height: 1; }
+      .ci-summary-row span { display: block; margin-top: 2px; font-size: 6.5px; color: #59636e; }
+      .ci-summary-row .fail b { color: #cf222e; }
+      .ci-annotation {
+        display: flex; gap: 6px;
+        padding: 6px 0; border-top: 1px solid #eaeef2;
+        font-size: 8px; line-height: 1.45;
+      }
+      .ci-annotation:first-of-type { border-top: 0; }
+      .ci-annotation .aico { color: #cf222e; font-size: 7px; }
+      .ci-annotation b { display: block; font-weight: 600; }
+      .ci-annotation em {
+        display: block; margin-top: 2px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-style: normal; font-size: 6.5px; color: #59636e;
+      }
+      .ci-ai { background: #fbfbf8; }
+      .ci-ai p { margin: 0; font-size: 8.5px; line-height: 1.55; color: #3d444d; }
+      .ci-evidence {
+        margin-top: 6px; padding: 5px 6px;
+        border: 1px solid #d8dee4; background: #fff;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7px; line-height: 1.5; color: #59636e;
+      }
+      .ci-actions { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+      .ci-actions button {
+        padding: 4px 7px; border: 1px solid #d0d7de; border-radius: 4px;
+        background: #f6f8fa; color: #3d444d; font-size: 7.8px;
+      }
+      .ci-actions button.is-active { background: #1f2328; border-color: #1f2328; color: #fff; }
+      .ci-note {
+        width: 100%; margin-top: 6px; padding: 5px 6px;
+        border: 1px solid #d0d7de; border-radius: 4px; background: #fff;
+        font-size: 8px; outline: none; resize: none;
+      }
+      .ci-note::placeholder { color: #8c959f; }
+      .ci-submit {
+        width: 100%; margin-top: 6px; padding: 6px;
+        border: 1px solid #1f2328; border-radius: 4px;
+        background: #1f2328; color: #fff; font-size: 8px; font-weight: 600;
+      }
+      .ci-submit:hover { background: #0969da; border-color: #0969da; }
+      .ci-result {
+        display: none; margin-top: 6px; padding: 5px;
+        border: 1px solid #1a7f37; border-radius: 4px; color: #1a7f37;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7px; text-align: center;
+      }
+      .ci-result.is-visible { display: block; }
+      .ci-artifact {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 4px 0; border-top: 1px solid #eaeef2;
+        font-family: 'Cascadia Code', Consolas, monospace;
+        font-size: 7px; color: #59636e;
+      }
+      .ci-artifact:first-of-type { border-top: 0; }
+      .ci-artifact b { color: #1f2328; font-weight: 500; }
+
+      @media (max-width: 900px) {
+        body { overflow: auto; }
+        .dev-switch { flex-wrap: wrap; height: auto; padding: 8px 10px; gap: 8px; }
+        .dev-brand { min-width: 0; }
+        .dev-meta { display: none; }
+        .concept { height: auto; min-height: calc(100vh - 46px); overflow: visible; }
+        .ide-main, .api-main, .ci-body { flex-direction: column; }
+        .ide-side, .api-side, .ci-side { width: 100%; flex-basis: auto; }
+        .ide-ai, .api-ai { width: 100%; flex-basis: auto; border-left: 0; border-top: 1px solid #333; }
+        .ide-work, .api-work, .ci-main { min-height: 0; }
+        .ci-side { border-left: 0; border-top: 1px solid #d0d7de; }
+        .ci-content { flex-direction: column; }
+        .ci-steps { width: 100%; flex-basis: auto; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="dev-switch">
+      <div class="dev-brand">
+        <span class="dev-mark">DT</span>
+        <div>
+          <strong>运行与审判 · 开发工具范式</strong>
+          <em>IDE / API Client / CI Run</em>
+        </div>
+      </div>
+      <nav class="dev-tabs" role="tablist">
+        <button class="dev-tab is-active" data-target="ide" role="tab" aria-selected="true"><span>01</span>IDE</button>
+        <button class="dev-tab" data-target="api" role="tab" aria-selected="false"><span>02</span>API Client</button>
+        <button class="dev-tab" data-target="ci" role="tab" aria-selected="false"><span>03</span>CI Run</button>
+      </nav>
+      <div class="dev-meta">RUN-1124-0912 · STAGING · 42.6S</div>
+    </header>
+
+    <!-- ================= 01 IDE ================= -->
+    <section class="concept ide is-active" id="ide">
+      <div class="ide-title">
+        <div class="ide-dots"><i></i><i></i><i></i></div>
+        <div class="ide-title-text">AI Test Workbench — RUN-1124-0912</div>
+        <div class="ide-menu"><span>File</span><span>Edit</span><span>Selection</span><span>View</span><span>Run</span><span>Terminal</span><span>Help</span></div>
+        <div class="ide-title-right">⌘K  Search</div>
+      </div>
+      <div class="ide-main">
+        <div class="ide-activity">
+          <div class="ide-act is-active">▤</div>
+          <div class="ide-act">⌕</div>
+          <div class="ide-act">⑂</div>
+          <div class="ide-act">▷</div>
+          <div class="ide-act act-ai">✦</div>
+          <div class="ide-act ide-act-bottom">⚙</div>
+        </div>
+        <aside class="ide-side">
+          <div class="ide-side-head"><span>EXPLORER</span><span>···</span></div>
+          <div class="ide-tree">
+            <div class="ide-row root">▾ RUN-1124-0912</div>
+            <div class="ide-row folder" style="--d:1">▾ tests</div>
+            <div class="ide-row file" style="--d:2">test_inventory.py <span class="ide-badge red">2</span></div>
+            <div class="ide-row case is-active" style="--d:3">test_lock_inventory_concurrent</div>
+            <div class="ide-row case" style="--d:3">test_create_order_out_of_stock</div>
+            <div class="ide-row file" style="--d:2">test_order.py</div>
+            <div class="ide-row file" style="--d:2">test_payment.py</div>
+            <div class="ide-row folder" style="--d:1">▾ HAR</div>
+            <div class="ide-row har" style="--d:2">#01 lock · 200</div>
+            <div class="ide-row har is-active" style="--d:2">#02 lock · 200 <span class="ide-badge red">!</span></div>
+            <div class="ide-row har" style="--d:2">#03 stock · -1</div>
+            <div class="ide-row folder" style="--d:1">▾ ASSETS</div>
+            <div class="ide-row link" style="--d:2">REQ-ORDER-01</div>
+            <div class="ide-row link" style="--d:2">POST /v1/inventory/lock</div>
+          </div>
+          <div class="ide-side-foot">OUTLINE · TIMELINE · AI TRACE</div>
+        </aside>
+        <div class="ide-work">
+          <div class="ide-tabs">
+            <div class="ide-tab is-active"><span class="tab-dot"></span>test_lock_inventory_concurrent.py<span class="tab-x">×</span></div>
+            <div class="ide-tab">response.json</div>
+            <div class="ide-tab">run.log</div>
+          </div>
+          <div class="ide-breadcrumb">tests › test_inventory.py › test_lock_inventory_concurrent</div>
+          <div class="ide-editor">
+            <div class="code-line"><span class="ln">1</span><span class="code-text"><span class="tok-kw">def</span> <span class="tok-fn">test_lock_inventory_concurrent</span>(client, seed_inventory):</span></div>
+            <div class="code-line"><span class="ln">2</span><span class="code-text">    seed_inventory(<span class="tok-str">"SKU-1001"</span>, stock=<span class="tok-num">1</span>)</span></div>
+            <div class="code-line"><span class="ln">3</span><span class="code-text">    <span class="tok-kw">with</span> ThreadPoolExecutor(max_workers=<span class="tok-num">2</span>) <span class="tok-kw">as</span> pool:</span></div>
+            <div class="code-line"><span class="ln">4</span><span class="code-text">        r1, r2 = pool.map(lock, [<span class="tok-str">"ORD-11"</span>, <span class="tok-str">"ORD-12"</span>])</span></div>
+            <div class="code-line"><span class="ln">5</span><span class="code-text">    <span class="tok-kw">assert</span> r1.status_code == <span class="tok-num">200</span></span></div>
+            <div class="code-line err"><span class="ln">6</span><span class="code-text">    <span class="tok-kw">assert</span> r2.status_code == <span class="tok-num">409</span>  <span class="tok-cmt"># got 200</span></span></div>
+            <div class="code-line"><span class="ln">7</span><span class="code-text">    stock = client.get(<span class="tok-str">"/v1/inventory/SKU-1001"</span>)</span></div>
+            <div class="code-line err"><span class="ln">8</span><span class="code-text">    <span class="tok-kw">assert</span> stock[<span class="tok-str">"available"</span>] &gt;= <span class="tok-num">0</span>  <span class="tok-cmt"># got -1</span></span></div>
+            <div class="code-line"><span class="ln">9</span><span class="code-text"></span></div>
+            <div class="code-line"><span class="ln">10</span><span class="code-text"><span class="tok-cmt"># captured_traffic/</span></span></div>
+            <div class="code-line"><span class="ln">11</span><span class="code-text"><span class="tok-cmt">#   test_lock_inventory_concurrent.har</span></span></div>
+            <div class="code-line"><span class="ln">12</span><span class="code-text"><span class="tok-cmt">#   exchanges: #01, #02, #03</span></span></div>
+          </div>
+          <div class="ide-bottom">
+            <div class="ide-bottom-tabs"><span class="is-active">PROBLEMS <b>2</b></span><span>OUTPUT</span><span>TERMINAL</span><span>HAR</span></div>
+            <div class="ide-problems">
+              <div class="ide-problem"><span class="p-red">●</span><span>AssertionError: expected 409 OUT_OF_STOCK, got 201 CREATED</span><em>test_inventory.py:6</em></div>
+              <div class="ide-problem"><span class="p-red">●</span><span>AssertionError: locked=2 exceeds stock=1 (available=-1)</span><em>test_inventory.py:8</em></div>
+              <div class="ide-problem"><span class="p-gray">●</span><span>Captured 3 HAR exchanges → captured_traffic/</span><em>pytest-traffic-capture</em></div>
+            </div>
+          </div>
+        </div>
+        <aside class="ide-ai">
+          <div class="ide-ai-head"><span>AI REVIEW</span><b>92%</b><em>UNJUDGED</em></div>
+          <div class="ide-ai-title">并发库存锁定未做原子校验</div>
+          <div class="ide-ai-summary">两条并发锁定都返回 200，locked=2 而库存仅 1。</div>
+          <div class="ide-ai-label">ROOT CAUSE</div>
+          <div class="ide-ai-text">读取、校验、写入之间没有行锁或版本校验。</div>
+          <div class="ide-ai-label">EVIDENCE</div>
+          <div class="ide-ai-evidence">HAR #02 · POST /v1/inventory/lock · 200 · 146ms</div>
+          <div class="ide-ai-actions">
+            <button class="is-active">确认缺陷</button>
+            <button>驳回</button>
+            <button>误报</button>
+          </div>
+          <textarea class="ide-note" rows="2" placeholder="判断依据（可选）"></textarea>
+          <button class="ide-submit" data-submit>确认并生成缺陷</button>
+          <div class="ide-result">DEF-1008 CREATED</div>
+          <div class="ide-ai-foot">REQ-ORDER-01 · OpenAPI v1.12 · HAR 1.2</div>
+        </aside>
+      </div>
+      <div class="ide-status">
+        <span>⑂ main*</span><span>× 2</span><span>△ 0</span><span>RUN-1124-0912</span><span>Python 3.12.4</span><span>HAR 3</span><span class="status-right">AI ready</span>
+      </div>
+    </section>
+
+    <!-- ================= 02 API CLIENT ================= -->
+    <section class="concept api" id="api">
+      <div class="api-top">
+        <div class="api-brand">API / WORKBENCH</div>
+        <div class="api-env">staging-cn-east ▾</div>
+        <div class="api-run">RUN-1124-0912 · 7 pass / 2 fail</div>
+        <div class="api-top-right">Import · ⌘K</div>
+      </div>
+      <div class="api-main">
+        <aside class="api-side">
+          <div class="api-search">Search collections</div>
+          <div class="api-section"><span>COLLECTIONS</span><span>···</span></div>
+          <div class="api-tree">
+            <div class="api-row folder">▾ RUN-1124-0912</div>
+            <div class="api-row folder" style="padding-left:14px">▾ Inventory</div>
+            <div class="api-row req is-active" style="padding-left:22px"><span class="m post">POST</span><code>/v1/inventory/lock</code></div>
+            <div class="api-row req" style="padding-left:22px"><span class="m get">GET</span><code>/v1/inventory/{sku}</code></div>
+            <div class="api-row folder" style="padding-left:14px">▾ Payments</div>
+            <div class="api-row req" style="padding-left:22px"><span class="m post">POST</span><code>/v1/payments/callback</code></div>
+            <div class="api-row folder" style="padding-left:14px">▾ Requirements</div>
+            <div class="api-row" style="padding-left:22px"><code>REQ-ORDER-01</code></div>
+          </div>
+          <div class="api-section"><span>AI FINDINGS</span><b>3</b></div>
+          <div class="api-finding is-active">
+            <span class="dot"></span>
+            <div><b>并发库存锁定未做原子校验</b><em>REGRESSION · CRITICAL · 92%</em></div>
+          </div>
+          <div class="api-finding">
+            <span class="dot"></span>
+            <div><b>缺货场景未返回 409</b><em>SPEC-MISMATCH · BLOCKER · 88%</em></div>
+          </div>
+          <div class="api-finding">
+            <span class="dot major"></span>
+            <div><b>回调未回显幂等键</b><em>CONTRACT · MAJOR · 76%</em></div>
+          </div>
+          <div class="api-side-foot">ENV staging-cn-east · HAR 1.2</div>
+        </aside>
+
+        <main class="api-work">
+          <div class="api-tabs">
+            <div class="api-tab is-active">POST lock <i></i></div>
+            <div class="api-tab">GET stock</div>
+            <div class="api-tab">AI Review</div>
+          </div>
+          <div class="api-request">
+            <div class="api-urlbar">
+              <span class="api-method">POST</span>
+              <input value="https://api.staging.shop.dev/v1/inventory/lock" readonly />
+              <button class="api-send">Send</button>
+            </div>
+            <div class="api-subtabs"><span class="is-active">Body</span><span>Headers</span><span>Tests</span></div>
+            <pre class="api-json">{
+  <span class="k">"sku"</span>: <span class="s">"SKU-1001"</span>,
+  <span class="k">"quantity"</span>: <span class="n">1</span>,
+  <span class="k">"order_id"</span>: <span class="s">"ORD-20261124-0012"</span>
+}</pre>
+          </div>
+          <div class="api-response">
+            <div class="api-res-head">
+              <span class="api-status">200 OK</span>
+              <span>146 ms</span><span>1.2 KB</span>
+              <div class="api-res-tabs"><span class="is-active">Body</span><span>Headers</span><span class="has-fail">Test Results 1</span></div>
+            </div>
+            <pre class="api-json">{
+  <span class="k">"lock_id"</span>: <span class="s">"LCK-9002"</span>,
+  <span class="k">"sku"</span>: <span class="s">"SKU-1001"</span>,
+  <span class="k">"remaining"</span>: <span class="n">1</span>
+}</pre>
+            <div class="api-tests">
+              <div class="api-tests-head"><span>TEST RESULTS</span><span>1 failed · 2 passed</span></div>
+              <div class="api-assert fail"><b>✕</b><code>status_code == 409</code><em>got 200</em></div>
+              <div class="api-assert fail"><b>✕</b><code>available &gt;= 0</code><em>got -1</em></div>
+              <div class="api-assert pass"><b>✓</b><code>exchanges == 3</code><em>3 HAR</em></div>
+            </div>
+          </div>
+          <div class="api-har">
+            <div class="api-har-head"><span>CAPTURED HAR</span><span>3 exchanges · 18 KB</span></div>
+            <div class="api-har-row is-active"><span>#02</span><b>POST</b><code>/v1/inventory/lock</code><em>200 · 146ms</em></div>
+            <div class="api-har-row"><span>#01</span><b>POST</b><code>/v1/inventory/lock</code><em>200 · 141ms</em></div>
+            <div class="api-har-row"><span>#03</span><b>GET</b><code>/v1/inventory/SKU-1001</code><em>200 · 37ms</em></div>
+            <div class="api-har-foot">pytest-traffic-capture · HAR 1.2 · captured_traffic/</div>
+          </div>
+        </main>
+
+        <aside class="api-ai">
+          <div class="api-ai-head"><span>AI REVIEW</span><b>92%</b></div>
+          <h3>并发库存锁定未做原子校验</h3>
+          <p>两条并发锁定都返回 200，locked=2 而库存仅 1。AI 建议确认为回归缺陷。</p>
+          <div class="api-label">ROOT CAUSE</div>
+          <div class="api-text">锁定服务在读取、校验、写入之间没有行锁或乐观版本校验。</div>
+          <div class="api-label">EVIDENCE</div>
+          <div class="api-evidence">HAR #02 · POST /v1/inventory/lock · 200 · 146ms</div>
+          <div class="api-actions">
+            <button class="is-active">Confirm defect</button>
+            <button>Reject</button>
+            <button>False positive</button>
+          </div>
+          <textarea class="api-note" rows="2" placeholder="Reason (optional)"></textarea>
+          <button class="api-submit" data-submit>Create defect</button>
+          <div class="api-result">DEF-1008 CREATED</div>
+          <div class="api-foot">REQ-ORDER-01 · OpenAPI v1.12.0 · 3 HAR</div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================= 03 CI RUN ================= -->
+    <section class="concept ci" id="ci">
+      <div class="ci-top">
+        <div class="ci-crumb">shop / ai-test-workbench / Actions / <b>RUN-1124-0912</b></div>
+        <div class="ci-branch">main</div>
+        <div class="ci-status">× Failed</div>
+        <button class="ci-rerun">Re-run all jobs</button>
+      </div>
+      <div class="ci-body">
+        <main class="ci-main">
+          <div class="ci-runhead">
+            <div>
+              <h1>pytest + capture</h1>
+              <p>RUN-1124-0912 · 2026-11-24 09:12 · 42.6s · a7f3c21</p>
+            </div>
+            <div class="ci-stats">
+              <div><b>10</b><span>CASES</span></div>
+              <div><b>7</b><span>PASS</span></div>
+              <div class="fail"><b>2</b><span>FAIL</span></div>
+              <div><b>1</b><span>SKIP</span></div>
+            </div>
+          </div>
+
+          <div class="ci-jobs">
+            <div class="ci-job done"><span class="ico">✓</span><b>Set up job</b><em>2s</em></div>
+            <span class="ci-arrow">→</span>
+            <div class="ci-job fail"><span class="ico">×</span><b>pytest</b><em>38.4s</em></div>
+            <span class="ci-arrow">→</span>
+            <div class="ci-job skip"><span class="ico">—</span><b>Capture HAR</b><em>skipped</em></div>
+            <span class="ci-arrow">→</span>
+            <div class="ci-job wait"><span class="ico">·</span><b>AI analysis</b><em>queued</em></div>
+          </div>
+
+          <div class="ci-content">
+            <div class="ci-steps">
+              <div class="ci-step done"><span class="si">✓</span>Set up job<em>2s</em></div>
+              <div class="ci-step done"><span class="si">✓</span>Checkout<em>1s</em></div>
+              <div class="ci-step done"><span class="si">✓</span>Install deps<em>9s</em></div>
+              <div class="ci-step fail is-active"><span class="si">×</span>Run pytest<em>38.4s</em></div>
+              <div class="ci-step"><span class="si">—</span>Upload HAR</div>
+              <div class="ci-step"><span class="si">·</span>AI analysis</div>
+            </div>
+            <div class="ci-log">
+              <div class="ci-log-head"><span>Run pytest --capture-traffic</span><em>38.4s</em></div>
+              <pre><span class="dim">2026-11-24T09:12:33Z</span> <span class="green">$</span> pytest --capture-traffic -q
+
+......<span class="red">F</span>..<span class="red">F</span>.
+10 cases · <span class="green">7 passed</span> · <span class="red">2 failed</span> · 1 skipped · 42.6s
+
+<span class="red">FAILED</span> tests/test_order.py::test_create_order_out_of_stock
+<span class="red">AssertionError:</span> expected 409 OUT_OF_STOCK, got 201 CREATED
+
+<span class="red">FAILED</span> tests/test_inventory.py::test_lock_inventory_concurrent
+<span class="red">AssertionError:</span> locked=2 exceeds stock=1 (available=-1)
+
+<span class="yellow">[pytest-traffic-capture]</span> wrote 3 HAR exchanges
+<span class="dim">→ captured_traffic/tests_test_inventory.py_test_lock...har</span>
+
+<span class="dim">Process completed with exit code 1.</span></pre>
+            </div>
+          </div>
+        </main>
+
+        <aside class="ci-side">
+          <div class="ci-side-section">
+            <h3>Run summary <b>10 cases</b></h3>
+            <div class="ci-summary-row">
+              <div><b>7</b><span>PASSED</span></div>
+              <div class="fail"><b>2</b><span>FAILED</span></div>
+              <div><b>1</b><span>SKIPPED</span></div>
+              <div><b>42.6s</b><span>DURATION</span></div>
+            </div>
+          </div>
+          <div class="ci-side-section">
+            <h3>Annotations <b>2 errors</b></h3>
+            <div class="ci-annotation">
+              <span class="aico">×</span>
+              <div><b>expected 409 OUT_OF_STOCK, got 201 CREATED</b><em>tests/test_order.py:6</em></div>
+            </div>
+            <div class="ci-annotation">
+              <span class="aico">×</span>
+              <div><b>locked=2 exceeds stock=1 (available=-1)</b><em>tests/test_inventory.py:8</em></div>
+            </div>
+          </div>
+          <div class="ci-side-section ci-ai">
+            <h3>AI analysis <b>92% · unjudged</b></h3>
+            <p>两条并发锁定都返回 200，locked=2 而库存仅 1。建议确认为回归缺陷。</p>
+            <div class="ci-evidence">HAR #02 · POST /v1/inventory/lock · 200 · 146ms</div>
+            <div class="ci-actions">
+              <button class="is-active">确认缺陷</button>
+              <button>驳回</button>
+              <button>误报</button>
+            </div>
+            <textarea class="ci-note" rows="2" placeholder="判断依据（可选）"></textarea>
+            <button class="ci-submit" data-submit>确认并生成缺陷</button>
+            <div class="ci-result">DEF-1008 CREATED</div>
+          </div>
+          <div class="ci-side-section">
+            <h3>Artifacts</h3>
+            <div class="ci-artifact"><span>har</span><b>3 exchanges · 18 KB</b></div>
+            <div class="ci-artifact"><span>log</span><b>pytest · 42.6s</b></div>
+            <div class="ci-artifact"><span>report</span><b>junit.xml</b></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <script>
+      const tabs = document.querySelectorAll('.dev-tab');
+      const concepts = document.querySelectorAll('.concept');
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          tabs.forEach((item) => {
+            const active = item === tab;
+            item.classList.toggle('is-active', active);
+            item.setAttribute('aria-selected', String(active));
+          });
+          concepts.forEach((concept) => {
+            concept.classList.toggle('is-active', concept.id === tab.dataset.target);
+          });
+        });
+      });
+      document.querySelectorAll('.ide-ai-actions, .api-actions, .ci-actions').forEach((group) => {
+        group.addEventListener('click', (event) => {
+          const button = event.target.closest('button');
+          if (!button) return;
+          group.querySelectorAll('button').forEach((item) => {
+            item.classList.toggle('is-active', item === button);
+          });
+        });
+      });
+      document.querySelectorAll('[data-submit]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const scope = button.closest('.concept');
+          const result = scope.querySelector('.ide-result, .api-result, .ci-result');
+          if (result) result.classList.add('is-visible');
+        });
+      });
+    </script>
+  </body>
+</html>
