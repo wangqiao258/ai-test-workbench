@@ -1,9 +1,10 @@
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import UUID
 
 import jwt
-from fastapi import Depends, Header
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Depends
+from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -14,6 +15,37 @@ from app.db.models.project import ApiToken, Project
 from app.db.session import get_db
 
 _bearer = HTTPBearer(auto_error=False)
+_project_token = APIKeyHeader(
+    name="X-Project-Token",
+    scheme_name="ProjectToken",
+    description="项目级 Token，权限由 scope 决定；可用 GET /ingest/v1/whoami 查询当前能力",
+    auto_error=False,
+)
+
+SCOPE_LEGACY = "ingest"
+SCOPE_ASSETS_READ = "assets:read"
+SCOPE_ASSETS_WRITE = "assets:write"
+SCOPE_RUNS_READ = "runs:read"
+SCOPE_RUNS_WRITE = "runs:write"
+SCOPE_ANALYSIS_WRITE = "analysis:write"
+SCOPE_SPECS_WRITE = "specs:write"
+
+KNOWN_TOKEN_SCOPES = (
+    SCOPE_LEGACY,
+    SCOPE_ASSETS_READ,
+    SCOPE_ASSETS_WRITE,
+    SCOPE_RUNS_READ,
+    SCOPE_RUNS_WRITE,
+    SCOPE_ANALYSIS_WRITE,
+    SCOPE_SPECS_WRITE,
+)
+
+
+@dataclass(frozen=True)
+class TokenContext:
+    project: Project
+    scopes: frozenset[str]
+    token_id: UUID
 
 
 def get_current_user(
@@ -43,10 +75,10 @@ def get_membership(
     return member
 
 
-def get_project_by_token(
-    x_project_token: str | None = Header(default=None, alias="X-Project-Token"),
+def get_token_context(
+    x_project_token: str | None = Depends(_project_token),
     db: Session = Depends(get_db),
-) -> Project:
+) -> TokenContext:
     if not x_project_token:
         raise ApiError(401, "missing_project_token", "缺少 X-Project-Token")
     token = db.scalar(select(ApiToken).where(ApiToken.token_hash == hash_api_token(x_project_token)))
@@ -60,4 +92,29 @@ def get_project_by_token(
         raise ApiError(401, "invalid_project_token", "项目 Token 对应的项目不存在")
     token.last_used_at = now
     db.commit()
-    return project
+    return TokenContext(
+        project=project,
+        scopes=frozenset(token.scopes or []),
+        token_id=token.id,
+    )
+
+
+def get_project_by_token(context: TokenContext = Depends(get_token_context)) -> Project:
+    return context.project
+
+
+def require_token_scope(*required: str):
+    """要求 Token 具备任一指定 scope；历史 ingest scope 视为全量写权限。"""
+
+    def dependency(context: TokenContext = Depends(get_token_context)) -> Project:
+        scopes = context.scopes
+        if SCOPE_LEGACY in scopes or scopes.intersection(required):
+            return context.project
+        raise ApiError(
+            403,
+            "insufficient_scope",
+            "项目 Token 缺少所需权限",
+            details={"required": sorted(required), "granted": sorted(scopes)},
+        )
+
+    return dependency

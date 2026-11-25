@@ -1,8 +1,21 @@
-import { useMemo, useState } from 'react'
-import type { AppData, Navigate, NavState, SchemaField } from '../types'
+import { useMemo, useState, type ReactNode } from 'react'
+import type {
+  AppData,
+  NavState,
+  Navigate,
+  SchemaField,
+  ToastTone,
+} from '../types'
+import { api } from '../services/api'
+import type {
+  OpenApiImportInput,
+  OperationInput,
+  RequirementInput,
+} from '../services/api'
 import { formatDateTime } from '../utils/format'
 import { renderMarkdown } from '../utils/markdown'
 import {
+  ConfirmDialog,
   CopyButton,
   EmptyState,
   Icon,
@@ -10,12 +23,23 @@ import {
   RunStatusBadge,
   Segmented,
 } from './ui'
+import {
+  DocSettingsDialog,
+  OpenApiImportDialog,
+  OperationDialog,
+  RequirementDialog,
+} from './AssetDialogs'
 
 interface Props {
   data: AppData
   nav: NavState
   navigate: Navigate
+  canEdit: boolean
+  onRefresh: (patch?: Partial<NavState>) => Promise<void>
+  onToast: (text: string, tone?: ToastTone) => void
 }
+
+type DialogKey = 'requirement-new' | 'requirement-edit' | 'openapi-import' | 'doc-edit' | 'operation-edit'
 
 function SchemaTable({ fields }: { fields: SchemaField[] }) {
   if (!fields.length) {
@@ -55,9 +79,18 @@ function SchemaTable({ fields }: { fields: SchemaField[] }) {
   )
 }
 
-export function AssetsView({ data, nav, navigate }: Props) {
+export function AssetsView({
+  data,
+  nav,
+  navigate,
+  canEdit,
+  onRefresh,
+  onToast,
+}: Props) {
   const [mode, setMode] = useState<'render' | 'source'>('render')
   const [opSearch, setOpSearch] = useState('')
+  const [dialog, setDialog] = useState<DialogKey | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<'requirement' | 'doc' | null>(null)
 
   const requirement =
     data.requirements.find((item) => item.id === nav.requirementId) ??
@@ -115,8 +148,143 @@ export function AssetsView({ data, nav, navigate }: Props) {
     (acc, item) => acc + item.operations.length,
     0,
   )
+  const hasRequirements = data.requirements.length > 0
+  const hasDocs = data.openapi.length > 0
 
-  const emptyView = (title: string, description: string) => (
+  const saveRequirement = async (input: RequirementInput) => {
+    if (dialog === 'requirement-edit' && requirement) {
+      await api.updateRequirement(nav.projectId, requirement.id, {
+        title: input.title,
+        version: input.version,
+        owner: input.owner,
+        tags: input.tags,
+        contentMd: input.contentMd,
+      })
+      onToast('需求已更新', 'success')
+    } else {
+      await api.upsertRequirement(nav.projectId, input)
+      onToast('需求已导入', 'success')
+    }
+    setDialog(null)
+    await onRefresh({
+      assetTab: 'requirements',
+      requirementId: input.externalId,
+    })
+  }
+
+  const removeRequirement = async () => {
+    if (!requirement) return
+    await api.deleteRequirement(nav.projectId, requirement.id)
+    setConfirmDelete(null)
+    onToast('需求已删除', 'info')
+    await onRefresh({ assetTab: 'requirements' })
+  }
+
+  const importOpenApi = async (input: OpenApiImportInput) => {
+    const imported = await api.importOpenApiDoc(nav.projectId, input)
+    setDialog(null)
+    onToast(`已导入 ${imported.operations.length} 个接口`, 'success')
+    await onRefresh({
+      assetTab: 'openapi',
+      docId: imported.id,
+      operationId: imported.operations[0]?.id ?? '',
+    })
+  }
+
+  const saveDoc = async (input: {
+    title?: string
+    version?: string
+    baseUrl?: string
+    description?: string
+  }) => {
+    if (!doc) return
+    const updated = await api.updateOpenApiDoc(nav.projectId, doc.id, input)
+    setDialog(null)
+    onToast('契约文档已更新', 'success')
+    await onRefresh({
+      assetTab: 'openapi',
+      docId: updated.id,
+      operationId: operation?.id ?? updated.operations[0]?.id ?? '',
+    })
+  }
+
+  const removeDoc = async () => {
+    if (!doc) return
+    await api.deleteOpenApiDoc(nav.projectId, doc.id)
+    setConfirmDelete(null)
+    onToast('契约文档已删除', 'info')
+    await onRefresh({ assetTab: 'openapi', docId: '', operationId: '' })
+  }
+
+  const saveOperation = async (input: OperationInput) => {
+    if (!operation) return
+    const updated = await api.updateOperation(
+      nav.projectId,
+      operation.id,
+      input,
+    )
+    setDialog(null)
+    onToast('接口已更新', 'success')
+    await onRefresh({
+      assetTab: 'openapi',
+      docId: doc?.id ?? '',
+      operationId: updated.id,
+    })
+  }
+
+  const renderDialogs = () => (
+    <>
+      <RequirementDialog
+        open={dialog === 'requirement-new' || dialog === 'requirement-edit'}
+        initial={dialog === 'requirement-edit' ? requirement : null}
+        onCancel={() => setDialog(null)}
+        onSubmit={saveRequirement}
+      />
+      <OpenApiImportDialog
+        open={dialog === 'openapi-import'}
+        onCancel={() => setDialog(null)}
+        onSubmit={importOpenApi}
+      />
+      <DocSettingsDialog
+        open={dialog === 'doc-edit'}
+        initial={doc ?? null}
+        onCancel={() => setDialog(null)}
+        onSubmit={saveDoc}
+      />
+      <OperationDialog
+        open={dialog === 'operation-edit'}
+        initial={operation ?? null}
+        onCancel={() => setDialog(null)}
+        onSubmit={saveOperation}
+      />
+      <ConfirmDialog
+        open={confirmDelete === 'requirement'}
+        title="删除这份需求？"
+        description="需求正文会从项目资产中移除，已关联的用例标记将一并清理，操作不可撤销。"
+        confirmText="确认删除"
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={() => {
+          void removeRequirement()
+        }}
+      />
+      <ConfirmDialog
+        open={confirmDelete === 'doc'}
+        title="删除这份契约文档？"
+        description="文档及其全部接口会从项目中移除，已关联的用例标记将一并清理，操作不可撤销。"
+        confirmText="确认删除"
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={() => {
+          void removeDoc()
+        }}
+      />
+    </>
+  )
+
+  const emptyView = (
+    title: string,
+    description: string,
+    action?: ReactNode,
+  ) => (
     <div className="view">
       <header className="view-head">
         <div>
@@ -127,24 +295,114 @@ export function AssetsView({ data, nav, navigate }: Props) {
             用例、运行结果建立追溯关系，作为 AI 判断契约偏差的依据。
           </p>
         </div>
+        {(canEdit || hasRequirements || hasDocs) && (
+          <div className="view-head-actions">
+            {canEdit && (
+              <>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setDialog('requirement-new')}
+                >
+                  <Icon name="file" size={14} />
+                  导入需求
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setDialog('openapi-import')}
+                >
+                  <Icon name="plus" size={14} />
+                  导入 OpenAPI
+                </button>
+              </>
+            )}
+            {(hasRequirements || hasDocs) && (
+              <Segmented
+                value={nav.assetTab}
+                onChange={(value) => navigate({ assetTab: value })}
+                options={[
+                  {
+                    value: 'requirements',
+                    label: '需求文档',
+                    count: data.requirements.length,
+                  },
+                  {
+                    value: 'openapi',
+                    label: '接口契约',
+                    count: totalOperations,
+                  },
+                ]}
+              />
+            )}
+          </div>
+        )}
       </header>
       <div className="view-body">
-        <EmptyState icon="book" title={title} description={description} />
+        <EmptyState icon="book" title={title} description={description} action={action} />
       </div>
+      {renderDialogs()}
     </div>
   )
 
-  if (!requirement || !doc) {
+  if (!hasRequirements && !hasDocs) {
     return emptyView(
       '还没有需求或 OpenAPI 文档',
-      '通过 /ingest/v1/requirements 和 /ingest/v1/openapi 导入后再查看。',
+      '点击右上角导入需求 Markdown 或 OpenAPI 文档，导入后即可在这里查看和编辑。',
+      canEdit ? (
+        <div className="empty-actions">
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setDialog('requirement-new')}
+          >
+            导入需求
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setDialog('openapi-import')}
+          >
+            导入 OpenAPI
+          </button>
+        </div>
+      ) : undefined,
     )
   }
 
-  if (!operation) {
+  if (nav.assetTab === 'requirements' && !requirement) {
     return emptyView(
-      '该文档还没有 operation',
-      '导入包含 operations 的 OpenAPI 文档后再查看。',
+      '还没有需求文档',
+      '当前项目只有接口契约。点击右上角导入需求，或切换到「接口契约」查看接口。',
+      canEdit ? (
+        <div className="empty-actions">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setDialog('requirement-new')}
+          >
+            导入需求
+          </button>
+        </div>
+      ) : undefined,
+    )
+  }
+
+  if (nav.assetTab === 'openapi' && (!doc || !operation)) {
+    return emptyView(
+      '还没有可查看的接口',
+      '当前项目还没有接口契约。点击右上角导入 OpenAPI 文档（支持 JSON / YAML），或切换到「需求文档」。',
+      canEdit ? (
+        <div className="empty-actions">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setDialog('openapi-import')}
+          >
+            导入 OpenAPI
+          </button>
+        </div>
+      ) : undefined,
     )
   }
 
@@ -159,28 +417,54 @@ export function AssetsView({ data, nav, navigate }: Props) {
             用例、运行结果建立追溯关系，作为 AI 判断契约偏差的依据。
           </p>
         </div>
-        <Segmented
-          value={nav.assetTab}
-          onChange={(value) =>
-            navigate({
-              assetTab: value,
-              ...(value === 'openapi'
-                ? { docId: doc.id, operationId: operation.id }
-                : {}),
-            })
-          }
-          options={[
-            {
-              value: 'requirements',
-              label: '需求文档',
-              count: data.requirements.length,
-            },
-            { value: 'openapi', label: '接口契约', count: totalOperations },
-          ]}
-        />
+        <div className="view-head-actions">
+          {canEdit && nav.assetTab === 'requirements' && (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setDialog('requirement-new')}
+            >
+              <Icon name="file" size={14} />
+              导入需求
+            </button>
+          )}
+          {canEdit && nav.assetTab === 'openapi' && (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setDialog('openapi-import')}
+            >
+              <Icon name="file" size={14} />
+              导入 OpenAPI
+            </button>
+          )}
+          <Segmented
+            value={nav.assetTab}
+            onChange={(value) =>
+              navigate({
+                assetTab: value,
+                ...(value === 'openapi'
+                  ? {
+                      docId: doc?.id ?? '',
+                      operationId: operation?.id ?? '',
+                    }
+                  : {}),
+              })
+            }
+            options={[
+              {
+                value: 'requirements',
+                label: '需求文档',
+                count: data.requirements.length,
+              },
+              { value: 'openapi', label: '接口契约', count: totalOperations },
+            ]}
+          />
+        </div>
       </header>
 
       {nav.assetTab === 'requirements' ? (
+        requirement ? (
         <div className="assets-body">
           <div className="asset-list">
             <div className="asset-list-head">
@@ -231,15 +515,37 @@ export function AssetsView({ data, nav, navigate }: Props) {
                 <span className="dot-sep" />
                 <span>更新于 {formatDateTime(requirement.updatedAt)}</span>
               </div>
-              <Segmented
-                size="sm"
-                value={mode}
-                onChange={(value) => setMode(value)}
-                options={[
-                  { value: 'render', label: '渲染' },
-                  { value: 'source', label: 'Markdown 源码' },
-                ]}
-              />
+              <div className="doc-toolbar-actions">
+                {canEdit && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs"
+                      onClick={() => setDialog('requirement-edit')}
+                    >
+                      <Icon name="file" size={13} />
+                      编辑
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs"
+                      onClick={() => setConfirmDelete('requirement')}
+                    >
+                      <Icon name="x" size={13} />
+                      删除
+                    </button>
+                  </>
+                )}
+                <Segmented
+                  size="sm"
+                  value={mode}
+                  onChange={(value) => setMode(value)}
+                  options={[
+                    { value: 'render', label: '渲染' },
+                    { value: 'source', label: 'Markdown 源码' },
+                  ]}
+                />
+              </div>
             </div>
             <div className="doc-scroll">
               <div className="doc-body">
@@ -345,7 +651,8 @@ export function AssetsView({ data, nav, navigate }: Props) {
             </section>
           </aside>
         </div>
-      ) : (
+        ) : null
+      ) : doc && operation ? (
         <div className="assets-body">
           <div className="asset-list">
             <div className="asset-list-head">
@@ -363,7 +670,7 @@ export function AssetsView({ data, nav, navigate }: Props) {
                   onClick={() =>
                     navigate({
                       docId: item.id,
-                      operationId: item.operations[0].id,
+                      operationId: item.operations[0]?.id ?? '',
                     })
                   }
                 >
@@ -372,6 +679,26 @@ export function AssetsView({ data, nav, navigate }: Props) {
                 </button>
               ))}
             </div>
+            {canEdit && (
+              <div className="asset-list-tools">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  onClick={() => setDialog('doc-edit')}
+                >
+                  <Icon name="file" size={13} />
+                  编辑文档
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  onClick={() => setConfirmDelete('doc')}
+                >
+                  <Icon name="x" size={13} />
+                  删除文档
+                </button>
+              </div>
+            )}
             <label className="search-field search-field-inline">
               <Icon name="search" size={14} />
               <input
@@ -386,7 +713,7 @@ export function AssetsView({ data, nav, navigate }: Props) {
                 opGroups.map(([tag, items]) => (
                   <div className="op-group" key={tag}>
                     <div className="op-group-title">
-                      {tag}
+                      {tag || '未分组'}
                       <span>{items.length}</span>
                     </div>
                     {items.map((item) => (
@@ -430,6 +757,16 @@ export function AssetsView({ data, nav, navigate }: Props) {
                       text={`${operation.method} ${operation.path}`}
                       label="复制 path"
                     />
+                    {canEdit && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-xs"
+                        onClick={() => setDialog('operation-edit')}
+                      >
+                        <Icon name="file" size={13} />
+                        编辑接口
+                      </button>
+                    )}
                   </div>
                   <h1 className="op-title">{operation.summary}</h1>
                   <p className="op-desc">{operation.description}</p>
@@ -512,7 +849,7 @@ export function AssetsView({ data, nav, navigate }: Props) {
                                   : 'is-error'
                             }`}
                           >
-                            {response.status}
+                            {response.status || '默认'}
                           </span>
                           <span>{response.description}</span>
                         </div>
@@ -594,7 +931,9 @@ export function AssetsView({ data, nav, navigate }: Props) {
             </section>
           </aside>
         </div>
-      )}
+      ) : null}
+
+      {renderDialogs()}
     </div>
   )
 }

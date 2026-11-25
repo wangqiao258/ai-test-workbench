@@ -14,7 +14,7 @@ from app.db.models.project import Project
 from app.db.models.review import AuditLog, Defect
 from app.db.models.run import Run
 from app.db.session import get_db
-from app.schemas.project import ProjectCreateIn, ProjectOut
+from app.schemas.project import ProjectCreateIn, ProjectOut, ProjectUpdateIn
 from app.schemas.query import SummaryOut
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -104,6 +104,79 @@ def create_project(
         updated_at=project.updated_at,
         role="admin",
     )
+
+
+@router.patch("/{project_id}", response_model=ProjectOut)
+def update_project(
+    project_id: UUID,
+    payload: ProjectUpdateIn,
+    member: ProjectMember = Depends(get_membership),
+    db: Session = Depends(get_db),
+) -> ProjectOut:
+    if member.role != "admin":
+        raise ApiError(403, "forbidden", "仅项目管理员可以修改项目")
+    project = db.get(Project, project_id)
+    if project is None:
+        raise ApiError(404, "project_not_found", "项目不存在")
+
+    updates = payload.model_dump(exclude_unset=True, exclude_none=True)
+    before = {key: getattr(project, key) for key in updates}
+    for key, value in updates.items():
+        setattr(project, key, value)
+    db.add(
+        AuditLog(
+            project_id=project.id,
+            entity_type="project",
+            entity_id=str(project.id),
+            action="update",
+            actor_user_id=member.user_id,
+            before=before,
+            after=updates,
+        )
+    )
+    db.commit()
+    db.refresh(project)
+    return ProjectOut(
+        id=project.id,
+        key=project.key,
+        name=project.name,
+        repo=project.repo,
+        environment=project.environment,
+        owner=project.owner,
+        updated_at=project.updated_at,
+        role=member.role,
+    )
+
+
+@router.delete("/{project_id}", status_code=204)
+def delete_project(
+    project_id: UUID,
+    member: ProjectMember = Depends(get_membership),
+    db: Session = Depends(get_db),
+) -> None:
+    if member.role != "admin":
+        raise ApiError(403, "forbidden", "仅项目管理员可以删除项目")
+    project = db.get(Project, project_id)
+    if project is None:
+        raise ApiError(404, "project_not_found", "项目不存在")
+
+    membership_count = (
+        db.scalar(
+            select(func.count(ProjectMember.project_id)).where(
+                ProjectMember.user_id == member.user_id
+            )
+        )
+        or 0
+    )
+    if membership_count <= 1:
+        raise ApiError(
+            409,
+            "last_project",
+            "这是你唯一参与的项目，删除后将无法进入工作台；请先创建或加入其他项目",
+        )
+
+    db.delete(project)
+    db.commit()
 
 
 @router.get("/{project_id}/summary", response_model=SummaryOut)

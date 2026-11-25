@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=68", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai-test-workbench-backend"
-version = "0.1.0"
+dynamic = ["version"]
 description = "AI 协同测试工作台后端"
 requires-python = ">=3.11"
 dependencies = [
@@ -37,6 +37,10 @@ dev = [
 
 [tool.setuptools.packages.find]
 include = ["app*", "scripts*", "pytest_workbench*", "workbench_runner*"]
+
+[tool.setuptools_scm]
+# 版本号来自 git tag（如 v0.2.0）；仓库根在上一级目录
+root = ".."
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

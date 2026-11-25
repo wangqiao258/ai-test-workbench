@@ -11,7 +11,7 @@ import type {
   ToastTone,
   Verdict,
 } from '../types'
-import { api, API_MODE, type CreateRunRequestInput } from '../services/api'
+import { api, type CreateRunRequestInput } from '../services/api'
 import { formatDateTime, formatDuration } from '../utils/format'
 import { EvidencePanel } from './EvidencePanel'
 import { FindingsPanel } from './FindingsPanel'
@@ -79,17 +79,15 @@ function RunHeader({
             {request.runExternalId ? ` · ${request.runExternalId}` : ''}
           </span>
         )}
-        {API_MODE === 'http' && (
-          <button
-            type="button"
-            className="btn btn-primary btn-xs"
-            disabled={busy}
-            onClick={onOpen}
-          >
-            <Icon name="play" size={12} />
-            {busy ? '执行中…' : '运行测试'}
-          </button>
-        )}
+        <button
+          type="button"
+          className="btn btn-primary btn-xs"
+          disabled={busy}
+          onClick={onOpen}
+        >
+          <Icon name="play" size={12} />
+          {busy ? '执行中…' : '运行测试'}
+        </button>
       </div>
     </header>
   )
@@ -392,7 +390,6 @@ export function RunTrialView({
 
           <div className="pane-left-foot">
             <span className="mono-id">{run.environment}</span>
-            <span>捕捉器 pytest-traffic-capture</span>
           </div>
         </aside>
 

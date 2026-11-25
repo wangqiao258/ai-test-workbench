@@ -24,32 +24,13 @@ import type {
   TestCase,
   Verdict,
 } from '../types'
-import {
-  DEFECTS,
-  FINDINGS,
-  OPENAPI_DOCS,
-  PROJECTS,
-  REQUIREMENTS,
-  RUNS,
-  SUMMARIES,
-  TEST_CASES,
-} from '../data/seed'
 
 /**
- * 数据出入口。
- * API_MODE='mock' 时使用前端种子数据；'http' 时对接真实后端。
+ * 数据出入口：只对接真实后端。
  * 组件层只依赖 AppData，后端字段差异全部在本文件内转换。
  */
-export const API_MODE: 'mock' | 'http' = 'http'
 export const BASE_URL = '/api/v1'
-export const REQUIRES_AUTH = API_MODE === 'http'
-const STORAGE_KEY = 'ai-test-workbench:v2'
 const TOKEN_KEY = 'ai-test-workbench:token'
-
-interface Persisted {
-  findings: Finding[]
-  defects: Defect[]
-}
 
 interface BackendUser {
   id: string
@@ -275,43 +256,6 @@ interface Page<T> {
   total: number
 }
 
-const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
-function readPersisted(): Persisted | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as Partial<Persisted>
-    if (!Array.isArray(parsed.findings) || !Array.isArray(parsed.defects)) {
-      return null
-    }
-    return {
-      findings: parsed.findings,
-      defects: parsed.defects,
-    }
-  } catch {
-    return null
-  }
-}
-
-function writePersisted(value: Persisted) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(value))
-  } catch {
-    // localStorage 写入失败时保持内存态可用，不阻断界面。
-  }
-}
-
-function baseline(): Persisted {
-  return (
-    readPersisted() ?? {
-      findings: clone(FINDINGS),
-      defects: clone(DEFECTS),
-    }
-  )
-}
-
 export function getToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY)
@@ -332,7 +276,7 @@ export function logout(): void {
   }
 }
 
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+async function request(path: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers)
   headers.set('content-type', 'application/json')
   const token = getToken()
@@ -358,6 +302,11 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new Error(message)
   }
+  return response
+}
+
+async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await request(path, init)
   return (await response.json()) as T
 }
 
@@ -378,7 +327,6 @@ async function fetchAllPages<T>(
 }
 
 export async function login(email: string, password: string): Promise<Session> {
-  if (API_MODE !== 'http') throw new Error('当前为 Mock 模式，无需登录')
   const result = await fetchJson<LoginResponse>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
@@ -388,7 +336,6 @@ export async function login(email: string, password: string): Promise<Session> {
 }
 
 export async function fetchSession(): Promise<Session> {
-  if (API_MODE !== 'http') throw new Error('当前为 Mock 模式')
   const result = await fetchJson<{ user: BackendUser }>('/auth/me')
   return { user: result.user }
 }
@@ -397,7 +344,6 @@ export async function changePassword(
   currentPassword: string,
   newPassword: string,
 ): Promise<void> {
-  if (API_MODE !== 'http') throw new Error('Mock 模式不支持修改密码')
   await fetchJson<{ status: string }>('/auth/change-password', {
     method: 'POST',
     body: JSON.stringify({ currentPassword, newPassword }),
@@ -418,12 +364,137 @@ function mapProject(project: BackendProject): Project {
 }
 
 export async function createProject(input: CreateProjectInput): Promise<Project> {
-  if (API_MODE !== 'http') throw new Error('Mock 模式不支持新建项目')
   const project = await fetchJson<BackendProject>('/projects', {
     method: 'POST',
     body: JSON.stringify(input),
   })
   return mapProject(project)
+}
+
+export interface UpdateProjectInput {
+  name?: string
+  repo?: string
+  environment?: string
+  owner?: string
+}
+
+export async function updateProject(
+  projectId: string,
+  input: UpdateProjectInput,
+): Promise<Project> {
+  const project = await fetchJson<BackendProject>(`/projects/${projectId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+  return mapProject(project)
+}
+
+export async function deleteProject(projectId: string): Promise<void> {
+  await request(`/projects/${projectId}`, { method: 'DELETE' })
+}
+
+export interface RequirementInput {
+  externalId: string
+  title?: string
+  version?: string
+  tags?: string[]
+  owner?: string
+  contentMd?: string
+}
+
+export async function upsertRequirement(
+  projectId: string,
+  input: RequirementInput,
+): Promise<Requirement> {
+  const result = await fetchJson<BackendRequirement>(
+    `/projects/${projectId}/requirements`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+  return mapRequirement(projectId, result)
+}
+
+export async function updateRequirement(
+  projectId: string,
+  id: string,
+  input: Partial<Omit<RequirementInput, 'externalId'>>,
+): Promise<Requirement> {
+  const result = await fetchJson<BackendRequirement>(
+    `/projects/${projectId}/requirements/${encodeURIComponent(id)}`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  )
+  return mapRequirement(projectId, result)
+}
+
+export async function deleteRequirement(
+  projectId: string,
+  id: string,
+): Promise<void> {
+  await request(
+    `/projects/${projectId}/requirements/${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
+  )
+}
+
+export interface OpenApiImportInput {
+  externalId: string
+  content: string
+  title?: string
+  version?: string
+  baseUrl?: string
+}
+
+export async function importOpenApiDoc(
+  projectId: string,
+  input: OpenApiImportInput,
+): Promise<OpenApiDoc> {
+  const result = await fetchJson<BackendDoc>(
+    `/projects/${projectId}/openapi/import`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+  return mapDoc(projectId, result)
+}
+
+export async function updateOpenApiDoc(
+  projectId: string,
+  id: string,
+  input: Partial<Omit<OpenApiImportInput, 'externalId' | 'content'>> & {
+    description?: string
+  },
+): Promise<OpenApiDoc> {
+  const result = await fetchJson<BackendDoc>(
+    `/projects/${projectId}/openapi/${encodeURIComponent(id)}`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  )
+  return mapDoc(projectId, result)
+}
+
+export async function deleteOpenApiDoc(
+  projectId: string,
+  id: string,
+): Promise<void> {
+  await request(`/projects/${projectId}/openapi/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+}
+
+export interface OperationInput {
+  method?: HttpMethod
+  path?: string
+  summary?: string
+  tag?: string
+  description?: string
+}
+
+export async function updateOperation(
+  projectId: string,
+  id: string,
+  input: OperationInput,
+): Promise<Operation> {
+  const result = await fetchJson<BackendOperation>(
+    `/projects/${projectId}/openapi/operations/${encodeURIComponent(id)}`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  )
+  return mapOperation(result)
 }
 
 function mapExchange(exchange: BackendExchange): Exchange {
@@ -601,7 +672,6 @@ export async function createRunRequest(
   projectId: string,
   input: CreateRunRequestInput,
 ): Promise<RunRequest> {
-  if (API_MODE !== 'http') throw new Error('Mock 模式不支持触发运行')
   const result = await fetchJson<BackendRunRequest>(
     `/projects/${projectId}/run-requests`,
     {
@@ -615,7 +685,6 @@ export async function createRunRequest(
 export async function listRunRequests(
   projectId: string,
 ): Promise<RunRequest[]> {
-  if (API_MODE !== 'http') throw new Error('Mock 模式不支持运行任务')
   const page = await fetchJson<Page<BackendRunRequest>>(
     `/projects/${projectId}/run-requests?page=1&page_size=10`,
   )
@@ -626,7 +695,6 @@ export async function fetchRunRequest(
   projectId: string,
   id: string,
 ): Promise<RunRequest> {
-  if (API_MODE !== 'http') throw new Error('Mock 模式不支持运行任务')
   const result = await fetchJson<BackendRunRequest>(
     `/projects/${projectId}/run-requests/${id}`,
   )
@@ -754,31 +822,8 @@ async function bootstrapHttp(): Promise<AppData> {
   }
 }
 
-function nextDefectId(defects: Defect[]): string {
-  const max = defects.reduce((acc, item) => {
-    const matched = /DEF-(\d+)/.exec(item.id)
-    return matched ? Math.max(acc, Number(matched[1])) : acc
-  }, 982)
-  return `DEF-${String(max + 1).padStart(4, '0')}`
-}
-
 export async function bootstrap(): Promise<AppData> {
-  if (API_MODE === 'http') {
-    return bootstrapHttp()
-  }
-
-  await delay(320)
-  const persisted = readPersisted()
-  return {
-    projects: clone(PROJECTS),
-    requirements: clone(REQUIREMENTS),
-    openapi: clone(OPENAPI_DOCS),
-    cases: clone(TEST_CASES),
-    runs: clone(RUNS),
-    findings: persisted?.findings ?? clone(FINDINGS),
-    defects: persisted?.defects ?? clone(DEFECTS),
-    summaries: clone(SUMMARIES),
-  }
+  return bootstrapHttp()
 }
 
 export async function judgeFinding(
@@ -787,74 +832,17 @@ export async function judgeFinding(
   verdict: Verdict,
   note: string,
 ): Promise<{ finding: Finding; defect?: Defect }> {
-  if (API_MODE === 'http') {
-    const result = await fetchJson<{
-      finding: BackendFinding
-      defect?: BackendDefect | null
-    }>(`/projects/${projectId}/findings/${id}/judge`, {
-      method: 'POST',
-      body: JSON.stringify({ verdict, note }),
-    })
-    return {
-      finding: mapFinding(projectId, result.finding),
-      defect: result.defect ? mapDefect(projectId, result.defect) : undefined,
-    }
-  }
-
-  await delay(360)
-  const stored = baseline()
-  const target = stored.findings.find(
-    (item) => item.id === id && item.projectId === projectId,
-  )
-  if (!target) throw new Error('未找到该 AI 发现')
-
-  const now = new Date().toISOString()
-  const status: FindingStatus =
-    verdict === 'confirm'
-      ? 'confirmed'
-      : verdict === 'reject'
-        ? 'rejected'
-        : 'false-positive'
-
-  let defect: Defect | undefined
-  if (verdict === 'confirm') {
-    defect = {
-      projectId: target.projectId,
-      id: nextDefectId(stored.defects),
-      title: target.title,
-      severity: target.suggestedSeverity,
-      status: 'new',
-      findingId: target.id,
-      runId: target.runId,
-      nodeid: target.nodeid,
-      requirementId: target.requirementId,
-      operationId: target.operationId,
-      exchangeIndex: target.exchangeIndex,
-      evidenceSummary: `${target.runId} / ${target.nodeid} / 第 ${
-        (target.exchangeIndex ?? 0) + 1
-      } 次交换`,
-      source: 'AI 审判',
-      decision: { verdict, note, at: now },
-      createdAt: now,
-      updatedAt: now,
-    }
-  }
-
-  const finding: Finding = {
-    ...target,
-    status,
-    note,
-    judgedAt: now,
-    defectId: defect?.id ?? target.defectId,
-  }
-
-  writePersisted({
-    ...stored,
-    findings: stored.findings.map((item) => (item.id === id ? finding : item)),
-    defects: defect ? [defect, ...stored.defects] : stored.defects,
+  const result = await fetchJson<{
+    finding: BackendFinding
+    defect?: BackendDefect | null
+  }>(`/projects/${projectId}/findings/${id}/judge`, {
+    method: 'POST',
+    body: JSON.stringify({ verdict, note }),
   })
-
-  return { finding, defect }
+  return {
+    finding: mapFinding(projectId, result.finding),
+    defect: result.defect ? mapDefect(projectId, result.defect) : undefined,
+  }
 }
 
 export async function updateDefectStatus(
@@ -862,42 +850,14 @@ export async function updateDefectStatus(
   id: string,
   status: DefectStatus,
 ): Promise<Defect> {
-  if (API_MODE === 'http') {
-    const result = await fetchJson<BackendDefect>(
-      `/projects/${projectId}/defects/${id}`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      },
-    )
-    return mapDefect(projectId, result)
-  }
-
-  await delay(220)
-  const stored = baseline()
-  const target = stored.defects.find(
-    (item) => item.id === id && item.projectId === projectId,
+  const result = await fetchJson<BackendDefect>(
+    `/projects/${projectId}/defects/${id}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    },
   )
-  if (!target) throw new Error('未找到该缺陷')
-  const updated: Defect = {
-    ...target,
-    status,
-    updatedAt: new Date().toISOString(),
-  }
-  writePersisted({
-    ...stored,
-    defects: stored.defects.map((item) => (item.id === id ? updated : item)),
-  })
-  return updated
-}
-
-export async function resetDemoData(): Promise<AppData> {
-  if (API_MODE === 'http') {
-    throw new Error('真实后端模式不支持重置演示数据')
-  }
-  await delay(240)
-  localStorage.removeItem(STORAGE_KEY)
-  return bootstrap()
+  return mapDefect(projectId, result)
 }
 
 export const api = {
@@ -907,21 +867,19 @@ export const api = {
   hasToken,
   logout,
   changePassword,
-  requiresAuth: REQUIRES_AUTH,
   createProject,
+  updateProject,
+  deleteProject,
+  upsertRequirement,
+  updateRequirement,
+  deleteRequirement,
+  importOpenApiDoc,
+  updateOpenApiDoc,
+  deleteOpenApiDoc,
+  updateOperation,
   createRunRequest,
   listRunRequests,
   fetchRunRequest,
   judgeFinding,
   updateDefectStatus,
-  resetDemoData,
-  listRequirements: async () => delay(120).then(() => clone(REQUIREMENTS)),
-  listOpenApiDocs: async () => delay(120).then(() => clone(OPENAPI_DOCS)),
-  listCases: async () => delay(120).then(() => clone(TEST_CASES)),
-  listRuns: async () => delay(120).then(() => clone(RUNS)),
-  listFindings: async (runId?: string) =>
-    delay(120).then(() =>
-      clone(FINDINGS.filter((item) => !runId || item.runId === runId)),
-    ),
-  listDefects: async () => delay(120).then(() => clone(DEFECTS)),
 }

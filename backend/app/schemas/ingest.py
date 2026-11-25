@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 RunStatus = Literal["passed", "failed", "skipped", "error"]
 Severity = Literal["blocker", "critical", "major", "minor"]
@@ -83,6 +83,34 @@ class FindingIn(BaseModel):
 
 
 class AnalysisIn(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "analyzer": "pytest-ai-analyzer",
+                    "model": "gpt-5.1",
+                    "generated_at": "2026-11-25T20:01:00+08:00",
+                    "summary": "库存锁定失败时返回 500 而不是 409，属于契约偏差。",
+                    "findings": [
+                        {
+                            "external_id": "FND-ORDER-1",
+                            "nodeid": "tests/test_order.py::test_create_order",
+                            "exchange_index": 0,
+                            "type": "contract",
+                            "title": "库存不足应返回 409",
+                            "severity": "major",
+                            "confidence": 0.86,
+                            "summary": "接口返回 500，与 OpenAPI 声明的 409 不符",
+                            "root_cause": "库存服务异常未映射为业务错误码",
+                            "impact": "调用方无法区分业务失败与系统故障",
+                            "requirement_id": "REQ-ORDER-01",
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+
     analyzer: str = ""
     model: str = ""
     generated_at: datetime
@@ -98,6 +126,54 @@ class AnalysisIn(BaseModel):
 
 
 class RunIngestIn(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "run": {
+                        "external_id": "RUN-20261125-2000",
+                        "started_at": "2026-11-25T20:00:00+08:00",
+                        "duration_ms": 1280,
+                        "branch": "main",
+                        "commit": "3f2c1ab",
+                        "environment": "staging",
+                    },
+                    "cases": [
+                        {
+                            "nodeid": "tests/test_order.py::test_create_order",
+                            "status": "failed",
+                            "duration_ms": 320,
+                            "error": "assert 500 == 409",
+                            "logs": ["[20:00:01] POST /orders -> 500"],
+                            "tags": ["order"],
+                            "requirements": ["REQ-ORDER-01"],
+                            "exchanges": [
+                                {
+                                    "index": 0,
+                                    "method": "POST",
+                                    "url": "http://127.0.0.1:9100/orders",
+                                    "status": 500,
+                                    "elapsed_ms": 210,
+                                    "request": {
+                                        "headers": [
+                                            {"name": "content-type", "value": "application/json"}
+                                        ],
+                                        "body": '{"sku": "A-1", "qty": 2}',
+                                    },
+                                    "response": {
+                                        "headers": [],
+                                        "body": '{"detail": "inventory error"}',
+                                    },
+                                }
+                            ],
+                        }
+                    ],
+                    "analysis": None,
+                }
+            ]
+        }
+    )
+
     run: RunMeta
     cases: list[CaseIn] = Field(default_factory=list)
     analysis: AnalysisIn | None = None

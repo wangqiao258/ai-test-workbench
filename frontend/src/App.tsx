@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { APP_VERSION } from 'virtual:app-version'
 import type {
   AppData,
   DefectStatus,
@@ -9,18 +10,11 @@ import type {
 } from './types'
 import {
   api,
-  API_MODE,
-  REQUIRES_AUTH,
   type CreateProjectInput,
   type Session,
+  type UpdateProjectInput,
 } from './services/api'
-import {
-  ConfirmDialog,
-  Icon,
-  SkeletonRows,
-  Toast,
-  type IconName,
-} from './components/ui'
+import { SkeletonRows, Toast, type IconName } from './components/ui'
 import { AssetsView } from './components/AssetsView'
 import { CasesView } from './components/CasesView'
 import { RunTrialView } from './components/RunTrialView'
@@ -28,6 +22,7 @@ import { DefectsView } from './components/DefectsView'
 import { LoginView } from './components/LoginView'
 import { ChangePasswordDialog } from './components/ChangePasswordDialog'
 import { CreateProjectDialog } from './components/CreateProjectDialog'
+import { ProjectSettingsDialog } from './components/ProjectSettingsDialog'
 import {
   ProjectSwitcher,
   type ProjectSummary,
@@ -135,11 +130,11 @@ export default function App() {
   const [data, setData] = useState<AppData | null>(null)
   const [nav, setNav] = useState<NavState>(INITIAL_NAV)
   const [toast, setToast] = useState<ToastState | null>(null)
-  const [resetOpen, setResetOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [session, setSession] = useState<Session | null>(null)
-  const [authChecking, setAuthChecking] = useState(REQUIRES_AUTH)
+  const [authChecking, setAuthChecking] = useState(true)
   const [loginLoading, setLoginLoading] = useState(false)
   const [loginError, setLoginError] = useState('')
   const toastTimer = useRef<number | null>(null)
@@ -154,28 +149,22 @@ export default function App() {
     let alive = true
     const load = async () => {
       try {
-        if (REQUIRES_AUTH) {
-          if (!api.hasToken()) {
-            if (alive) setAuthChecking(false)
-            return
-          }
-          const current = await api.fetchSession()
-          if (!alive) return
-          setSession(current)
+        if (!api.hasToken()) {
+          if (alive) setAuthChecking(false)
+          return
         }
+        const current = await api.fetchSession()
+        if (!alive) return
+        setSession(current)
         const result = await api.bootstrap()
         if (!alive) return
         setData(result)
         setNav(defaultNav(result))
       } catch {
         if (!alive) return
-        if (REQUIRES_AUTH) {
-          api.logout()
-          setSession(null)
-          setLoginError('无法连接后端或登录已失效，请重新登录')
-        } else {
-          notify('演示数据加载失败', 'danger')
-        }
+        api.logout()
+        setSession(null)
+        setLoginError('无法连接后端或登录已失效，请重新登录')
       } finally {
         if (alive) setAuthChecking(false)
       }
@@ -185,7 +174,7 @@ export default function App() {
       alive = false
       if (toastTimer.current) window.clearTimeout(toastTimer.current)
     }
-  }, [notify])
+  }, [])
 
   useEffect(() => {
     const handler = () => {
@@ -280,7 +269,6 @@ export default function App() {
   }, [data])
 
   const canCreateProject =
-    API_MODE === 'http' &&
     Boolean(session) &&
     (projectData?.projects.some((item) => item.role === 'admin') ?? false)
 
@@ -313,6 +301,39 @@ export default function App() {
       setNav({ ...INITIAL_NAV, ...projectNavPatch(fresh, created.id) })
       setCreateOpen(false)
       notify(`已创建项目 ${created.name}`, 'success')
+    },
+    [notify],
+  )
+
+  const handleAssetRefresh = useCallback(async (patch?: Partial<NavState>) => {
+    const fresh = await api.bootstrap()
+    setData(fresh)
+    setNav((prev) => ({
+      ...prev,
+      ...projectNavPatch(fresh, prev.projectId),
+      ...patch,
+    }))
+  }, [])
+
+  const handleUpdateProject = useCallback(
+    async (projectId: string, input: UpdateProjectInput) => {
+      await api.updateProject(projectId, input)
+      const fresh = await api.bootstrap()
+      setData(fresh)
+      setSettingsOpen(false)
+      notify('项目资料已更新', 'success')
+    },
+    [notify],
+  )
+
+  const handleDeleteProject = useCallback(
+    async (projectId: string) => {
+      await api.deleteProject(projectId)
+      const fresh = await api.bootstrap()
+      setData(fresh)
+      setNav(defaultNav(fresh))
+      setSettingsOpen(false)
+      notify('项目已删除', 'info')
     },
     [notify],
   )
@@ -390,20 +411,7 @@ export default function App() {
     [nav.projectId, notify],
   )
 
-  const handleReset = useCallback(async () => {
-    if (API_MODE === 'http') {
-      notify('真实后端模式不支持重置演示数据', 'info')
-      setResetOpen(false)
-      return
-    }
-    const fresh = await api.resetDemoData()
-    setData(fresh)
-    setNav(defaultNav(fresh))
-    setResetOpen(false)
-    notify('演示数据已重置', 'success')
-  }, [notify])
-
-  if (REQUIRES_AUTH && authChecking) {
+  if (authChecking) {
     return (
       <div className="login-page">
         <span className="login-hint">正在校验登录状态…</span>
@@ -411,7 +419,7 @@ export default function App() {
     )
   }
 
-  if (REQUIRES_AUTH && !session) {
+  if (!session) {
     return (
       <LoginView
         loading={loginLoading}
@@ -430,6 +438,9 @@ export default function App() {
   const activeProject =
     projectData?.projects.find((item) => item.id === nav.projectId) ??
     projectData?.projects[0]
+  const canEditAssets =
+    activeProject?.role === 'admin' || activeProject?.role === 'tester'
+  const canManageProject = activeProject?.role === 'admin'
 
   return (
     <div className="app">
@@ -448,6 +459,8 @@ export default function App() {
             onSelect={switchProject}
             canCreate={canCreateProject}
             onCreate={() => setCreateOpen(true)}
+            canManage={canManageProject}
+            onManage={() => setSettingsOpen(true)}
           />
         )}
 
@@ -459,20 +472,12 @@ export default function App() {
         </div>
 
         <div className="topbar-actions">
-          <span className={`mock-pill ${API_MODE === 'http' ? 'is-live' : ''}`}>
-            <i />
-            {API_MODE === 'http' ? 'LIVE API' : 'MOCK DATA'}
-          </span>
-          <span className="sync-state">
-            <span className="sync-dot" />
-            {activeProject
-              ? `${activeProject.environment} · ${
-                  API_MODE === 'http'
-                    ? '真实后端已连接'
-                    : 'pytest 与 HAR 已聚合'
-                }`
-              : 'pytest 结果与 HAR 已聚合'}
-          </span>
+          {activeProject && (
+            <span className="sync-state">
+              <span className="sync-dot" />
+              {activeProject.environment || activeProject.key}
+            </span>
+          )}
           {session && (
             <>
               <span className="topbar-user" title={session.user.email}>
@@ -493,16 +498,6 @@ export default function App() {
                 退出
               </button>
             </>
-          )}
-          {API_MODE === 'mock' && (
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => setResetOpen(true)}
-            >
-              <Icon name="refresh" size={14} />
-              重置演示数据
-            </button>
           )}
         </div>
       </header>
@@ -535,26 +530,7 @@ export default function App() {
 
           <div className="nav-spacer" />
 
-          <div className="chain-card">
-            <div className="chain-title">链路状态</div>
-            <div className="chain-row">
-              <span className="sync-dot" />
-              <Icon name="server" size={14} />
-              <span>pytest 执行器</span>
-              <em>{API_MODE === 'http' ? '已接入' : 'MOCK'}</em>
-            </div>
-            <div className="chain-row">
-              <span className="sync-dot" />
-              <Icon name="file" size={14} />
-              <span>AI 分析结果</span>
-              <em>已落库</em>
-            </div>
-            <div className="chain-foot">外部写入 → 平台聚合 → 人工审判</div>
-          </div>
-
-          <div className="nav-version">
-            v0.1 · {API_MODE === 'http' ? '联调模式' : '前端演示'}
-          </div>
+          <div className="nav-version">v{APP_VERSION}</div>
         </aside>
 
         <main className="content">
@@ -581,7 +557,14 @@ export default function App() {
               key={`${nav.projectId}-${nav.module}`}
             >
               {nav.module === 'assets' && (
-                <AssetsView data={projectData} nav={nav} navigate={navigate} />
+                <AssetsView
+                  data={projectData}
+                  nav={nav}
+                  navigate={navigate}
+                  canEdit={canEditAssets}
+                  onRefresh={handleAssetRefresh}
+                  onToast={notify}
+                />
               )}
               {nav.module === 'cases' && (
                 <CasesView data={projectData} nav={nav} navigate={navigate} />
@@ -612,31 +595,27 @@ export default function App() {
 
       {toast && <Toast key={toast.id} text={toast.text} tone={toast.tone} />}
 
-      {API_MODE === 'http' && (
-        <>
-          <CreateProjectDialog
-            open={createOpen}
-            onCancel={() => setCreateOpen(false)}
-            onSubmit={handleCreateProject}
-          />
-          <ChangePasswordDialog
-            open={passwordOpen}
-            onCancel={() => setPasswordOpen(false)}
-            onSubmit={handleChangePassword}
-          />
-        </>
-      )}
-
-      {API_MODE === 'mock' && (
-        <ConfirmDialog
-          open={resetOpen}
-          title="重置演示数据？"
-          description="将清除本地保存的 AI 发现、审判记录与缺陷状态，并恢复初始的 2 个项目、4 个运行批次与 6 条 AI 发现。"
-          confirmText="确认重置"
-          onCancel={() => setResetOpen(false)}
-          onConfirm={handleReset}
+      <>
+        <CreateProjectDialog
+          open={createOpen}
+          onCancel={() => setCreateOpen(false)}
+          onSubmit={handleCreateProject}
         />
-      )}
+        {activeProject && (
+          <ProjectSettingsDialog
+            open={settingsOpen}
+            project={activeProject}
+            onCancel={() => setSettingsOpen(false)}
+            onSubmit={handleUpdateProject}
+            onDelete={handleDeleteProject}
+          />
+        )}
+        <ChangePasswordDialog
+          open={passwordOpen}
+          onCancel={() => setPasswordOpen(false)}
+          onSubmit={handleChangePassword}
+        />
+      </>
     </div>
   )
 }

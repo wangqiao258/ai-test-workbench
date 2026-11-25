@@ -91,7 +91,7 @@ export function DefectsView({
 
   const openInRun = (defect: Defect) => {
     if (!runExists) {
-      onToast('该缺陷来自历史批次，演示数据中未包含运行证据', 'info')
+      onToast('该缺陷来自历史批次，当前项目未保留运行证据', 'info')
       return
     }
     navigate({
@@ -347,7 +347,7 @@ export function DefectsView({
                     onClick={() => openInRun(selected)}
                   >
                     <Icon name="terminal" size={14} />
-                    {runExists ? '查看请求 / 响应' : '历史批次不在演示数据中'}
+                    {runExists ? '查看请求 / 响应' : '历史批次未保留运行记录'}
                   </button>
                 </div>
               </section>
@@ -370,7 +370,6 @@ export function DefectsView({
                         {selected.decision.note || '未填写审判理由。'}
                       </p>
                       <div className="audit-meta">
-                        <span>审判人：我</span>
                         {selected.findingId && (
                           <span>
                             来源 AI 发现：
@@ -379,7 +378,7 @@ export function DefectsView({
                               className="inline-link"
                               onClick={() => {
                                 if (!finding) {
-                                  onToast('该 AI 发现不在演示数据中', 'info')
+                                  onToast('该 AI 发现未关联当前运行数据', 'info')
                                   return
                                 }
                                 navigate({

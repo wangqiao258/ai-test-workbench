@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_project_by_token
+from app.core.deps import SCOPE_ASSETS_WRITE, require_token_scope
 from app.db.models.project import Project
 from app.db.session import get_db
 from app.schemas.ingest import CatalogIn, CatalogOut
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/catalog", tags=["ingest"])
 def upload_catalog(
     payload: CatalogIn,
     idempotency_key: str = Header(alias="Idempotency-Key"),
-    project: Project = Depends(get_project_by_token),
+    project: Project = Depends(require_token_scope(SCOPE_ASSETS_WRITE)),
     db: Session = Depends(get_db),
 ) -> CatalogOut:
     record, replay = begin_idempotent(

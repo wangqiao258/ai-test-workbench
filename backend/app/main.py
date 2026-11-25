@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.ingest import artifacts, assets, catalog, jobs, runs, whoami
+from app import __version__
+from app.api.ingest import artifacts, assets, assets_read, catalog, docs, jobs, runs, specs, whoami
 from app.api.v1 import assets as asset_queries
 from app.api.v1 import audit, auth, cases, defects, findings, projects, run_requests
 from app.api.v1 import runs as run_queries
@@ -10,7 +11,7 @@ from app.core.errors import register_exception_handlers
 
 settings = get_settings()
 
-app = FastAPI(title=settings.app_name, version="0.1.0")
+app = FastAPI(title=settings.app_name, version=__version__)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
@@ -34,7 +35,10 @@ app.include_router(catalog.router, prefix="/ingest/v1")
 app.include_router(runs.router, prefix="/ingest/v1")
 app.include_router(artifacts.router, prefix="/ingest/v1")
 app.include_router(assets.router, prefix="/ingest/v1")
+app.include_router(assets_read.router, prefix="/ingest/v1")
+app.include_router(specs.router, prefix="/ingest/v1")
 app.include_router(jobs.router, prefix="/ingest/v1")
+app.include_router(docs.router)
 
 
 @app.get("/healthz", tags=["system"])

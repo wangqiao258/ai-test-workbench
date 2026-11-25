@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_project_by_token
+from app.core.deps import SCOPE_ANALYSIS_WRITE, SCOPE_RUNS_WRITE, require_token_scope
 from app.core.errors import ApiError
 from app.db.models.project import Project
 from app.db.models.run import Run
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/runs", tags=["ingest"])
 def upload_run(
     payload: RunIngestIn,
     idempotency_key: str = Header(alias="Idempotency-Key"),
-    project: Project = Depends(get_project_by_token),
+    project: Project = Depends(require_token_scope(SCOPE_RUNS_WRITE)),
     db: Session = Depends(get_db),
 ) -> RunIngestOut:
     record, replay = begin_idempotent(
@@ -40,7 +40,7 @@ def upload_analysis(
     run_id: UUID,
     payload: AnalysisIn,
     idempotency_key: str = Header(alias="Idempotency-Key"),
-    project: Project = Depends(get_project_by_token),
+    project: Project = Depends(require_token_scope(SCOPE_ANALYSIS_WRITE)),
     db: Session = Depends(get_db),
 ) -> AnalysisOut:
     run = db.get(Run, run_id)

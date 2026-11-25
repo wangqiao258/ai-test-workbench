@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_project_by_token
+from app.core.deps import SCOPE_ASSETS_WRITE, require_token_scope
 from app.db.models.project import Project
 from app.db.session import get_db
 from app.schemas.asset import (
@@ -20,7 +20,7 @@ router = APIRouter(tags=["ingest"])
 def upload_requirements(
     payload: RequirementBatchIn,
     idempotency_key: str = Header(alias="Idempotency-Key"),
-    project: Project = Depends(get_project_by_token),
+    project: Project = Depends(require_token_scope(SCOPE_ASSETS_WRITE)),
     db: Session = Depends(get_db),
 ) -> RequirementIngestOut:
     record, replay = begin_idempotent(
@@ -40,7 +40,7 @@ def upload_requirements(
 def upload_openapi(
     payload: OpenApiBatchIn,
     idempotency_key: str = Header(alias="Idempotency-Key"),
-    project: Project = Depends(get_project_by_token),
+    project: Project = Depends(require_token_scope(SCOPE_ASSETS_WRITE)),
     db: Session = Depends(get_db),
 ) -> OpenApiIngestOut:
     record, replay = begin_idempotent(

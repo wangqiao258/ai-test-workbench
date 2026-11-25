@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, Upl
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_project_by_token
+from app.core.deps import SCOPE_RUNS_WRITE, require_token_scope
 from app.core.errors import ApiError
 from app.db.models.ingest import IngestionJob
 from app.db.models.project import Project
@@ -28,7 +28,7 @@ async def upload_artifact(
     kind: str = Form(default="har"),
     nodeid: str | None = Form(default=None),
     file: UploadFile = File(...),
-    project: Project = Depends(get_project_by_token),
+    project: Project = Depends(require_token_scope(SCOPE_RUNS_WRITE)),
     db: Session = Depends(get_db),
 ) -> ArtifactOut:
     if kind not in ALLOWED_KINDS:

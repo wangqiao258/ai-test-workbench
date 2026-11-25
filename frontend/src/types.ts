@@ -11,7 +11,15 @@ export type FindingType =
   | 'flaky'
 export type Verdict = 'confirm' | 'reject' | 'false-positive'
 export type FindingStatus = 'pending' | 'confirmed' | 'rejected' | 'false-positive'
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
+export type HttpMethod =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'PATCH'
+  | 'DELETE'
+  | 'HEAD'
+  | 'OPTIONS'
+  | 'TRACE'
 export type ToastTone = 'success' | 'info' | 'danger'
 
 export interface Project {

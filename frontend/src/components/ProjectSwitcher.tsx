@@ -17,6 +17,8 @@ interface Props {
   onSelect: (projectId: string) => void
   canCreate?: boolean
   onCreate?: () => void
+  canManage?: boolean
+  onManage?: () => void
 }
 
 export function ProjectSwitcher({
@@ -25,6 +27,8 @@ export function ProjectSwitcher({
   onSelect,
   canCreate = false,
   onCreate,
+  canManage = false,
+  onManage,
 }: Props) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -145,19 +149,34 @@ export function ProjectSwitcher({
 
             <div className="project-menu-foot">
               <span>项目之间的需求、运行与缺陷完全隔离</span>
-              {canCreate && onCreate && (
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-xs"
-                  onClick={() => {
-                    setOpen(false)
-                    onCreate()
-                  }}
-                >
-                  <Icon name="plus" size={13} />
-                  新建项目
-                </button>
-              )}
+              <div className="project-menu-actions">
+                {canManage && onManage && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs"
+                    onClick={() => {
+                      setOpen(false)
+                      onManage()
+                    }}
+                  >
+                    <Icon name="server" size={13} />
+                    项目设置
+                  </button>
+                )}
+                {canCreate && onCreate && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs"
+                    onClick={() => {
+                      setOpen(false)
+                      onCreate()
+                    }}
+                  >
+                    <Icon name="plus" size={13} />
+                    新建项目
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </>

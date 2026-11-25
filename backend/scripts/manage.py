@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
+from app.core.deps import KNOWN_TOKEN_SCOPES
 from app.core.security import generate_api_token, hash_password
 from app.db.models.identity import AppUser, ProjectMember
 from app.db.models.project import ApiToken, Project
@@ -81,7 +82,7 @@ def cmd_create_token(args: argparse.Namespace) -> None:
             name=args.name,
             token_prefix=prefix,
             token_hash=digest,
-            scopes=args.scope,
+            scopes=args.scope or ["ingest"],
             expires_at=expires_at,
         )
         db.add(token)
@@ -120,7 +121,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--project", required=True, help="项目 key")
     p.add_argument("--name", required=True, help="Token 用途，如 local-pytest")
     p.add_argument("--expires-days", type=int, default=None)
-    p.add_argument("--scope", action="append", default=["ingest"], help="可重复指定")
+    p.add_argument(
+        "--scope",
+        action="append",
+        choices=KNOWN_TOKEN_SCOPES,
+        default=None,
+        help="可重复指定；默认 ingest（历史全量写权限）。AI 机建议 assets:read + analysis:write",
+    )
     p.set_defaults(func=cmd_create_token)
 
     return parser

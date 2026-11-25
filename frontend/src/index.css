@@ -187,29 +187,6 @@ button:focus:not(:focus-visible) {
   gap: 12px;
 }
 
-.mock-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 22px;
-  padding: 0 7px;
-  border: 1px solid var(--line);
-  border-radius: 2px;
-  background: var(--surface-2);
-  font-family: var(--mono);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-
-.mock-pill i {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--warning);
-}
-
 .sync-state {
   display: inline-flex;
   align-items: center;
@@ -545,53 +522,6 @@ button:focus:not(:focus-visible) {
 
 .nav-spacer {
   flex: 1;
-}
-
-.chain-card {
-  margin-bottom: 8px;
-  padding: 9px;
-  border: 1px solid var(--line);
-  border-radius: 2px;
-  background: var(--surface);
-}
-
-.chain-title {
-  margin-bottom: 6px;
-  font-family: var(--mono);
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-4);
-}
-
-.chain-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 0;
-  font-size: 12.5px;
-  color: var(--ink-2);
-}
-
-.chain-row em {
-  margin-left: auto;
-  padding: 1px 4px;
-  border: 1px solid var(--line);
-  border-radius: 2px;
-  background: var(--surface-2);
-  color: var(--ink-3);
-  font-family: var(--mono);
-  font-style: normal;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-}
-
-.chain-foot {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--line);
-  font-size: 12px;
-  color: var(--ink-3);
 }
 
 .nav-version {
@@ -4337,10 +4267,6 @@ tr:hover .table-action {
 
 /* ---------- Login / live api ---------- */
 
-.mock-pill.is-live i {
-  background: var(--success);
-}
-
 .topbar-user {
   max-width: 160px;
   overflow: hidden;
@@ -4427,4 +4353,109 @@ tr:hover .table-action {
   font-size: 12px;
   line-height: 1.5;
   text-align: center;
+}
+
+/* ---------- 资产导入 / 编辑 ---------- */
+
+.method-head {
+  color: #475467;
+  background: #eef2f6;
+}
+
+.method-options {
+  color: #5b21b6;
+  background: #f3e8ff;
+}
+
+.method-trace {
+  color: #9a3412;
+  background: #ffedd5;
+}
+
+.view-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.doc-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.asset-list-tools {
+  display: flex;
+  gap: 6px;
+  padding: 0 10px 8px;
+}
+
+.empty-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.form-field select {
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12.5px;
+}
+
+.form-field select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-weak);
+}
+
+.file-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file-pick input[type='file'] {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.file-pick em {
+  color: var(--ink-4);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.textarea-code {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.dialog-wide {
+  width: min(760px, 100%);
+  max-height: calc(100vh - 60px);
+  overflow: auto;
+}
+
+.dialog-actions-split {
+  justify-content: space-between;
+}
+
+.dialog-actions-group {
+  display: flex;
+  gap: 8px;
+}
+
+.dialog-note-danger {
+  color: var(--danger);
+}
+
+.project-menu-actions {
+  display: flex;
+  gap: 6px;
 }
