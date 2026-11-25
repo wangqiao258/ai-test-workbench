@@ -1,16 +1,17 @@
 import uuid
-from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError
+from app.core.time import utcnow
 from app.db.models.analysis import Finding
 from app.db.models.asset import CaseOperationMarker, Operation
 from app.db.models.project import Project
-from app.db.models.review import AuditLog, Defect, DefectEvent, Judgment
+from app.db.models.review import Defect, DefectEvent, Judgment
 from app.db.models.run import Exchange, Run, RunCase
 from app.schemas.review import DefectDecisionOut, DefectOut, FindingOut, JudgeOut
+from app.services.audit import record_audit
 from app.services.operations import compile_path
 
 DEFECT_TRANSITIONS: dict[str, set[str]] = {
@@ -28,8 +29,8 @@ VERDICT_STATUS = {
 }
 
 
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+def actor_name(display_name: str | None, email: str | None) -> str:
+    return display_name or email or "系统"
 
 
 def can_transition(from_status: str, to_status: str) -> bool:
@@ -170,16 +171,15 @@ def _change_defect_status(
             actor_user_id=actor_user_id,
         )
     )
-    db.add(
-        AuditLog(
-            project_id=defect.project_id,
-            entity_type="defect",
-            entity_id=defect.number,
-            action="status_change",
-            actor_user_id=actor_user_id,
-            before={"status": from_status, "version": old_version},
-            after={"status": to_status, "version": defect.version, "note": note},
-        )
+    record_audit(
+        db,
+        defect.project_id,
+        actor_user_id,
+        "defect",
+        defect.number,
+        "status_change",
+        before={"status": from_status, "version": old_version},
+        after={"status": to_status, "version": defect.version, "note": note},
     )
 
 
@@ -199,7 +199,7 @@ def judge_finding(
     if finding is None:
         raise ApiError(404, "finding_not_found", "AI finding 不存在")
 
-    now = _utcnow()
+    now = utcnow()
     run = db.get(Run, finding.run_id)
     operations = list(
         db.scalars(select(Operation).where(Operation.project_id == project_id))
@@ -249,16 +249,14 @@ def judge_finding(
                     actor_user_id=actor_user_id,
                 )
             )
-            db.add(
-                AuditLog(
-                    project_id=project_id,
-                    entity_type="defect",
-                    entity_id=defect.number,
-                    action="create",
-                    actor_user_id=actor_user_id,
-                    before=None,
-                    after={"status": "new", "findingId": finding.external_id},
-                )
+            record_audit(
+                db,
+                project_id,
+                actor_user_id,
+                "defect",
+                defect.number,
+                "create",
+                after={"status": "new", "findingId": finding.external_id},
             )
         elif defect.status == "closed":
             _change_defect_status(
@@ -282,21 +280,20 @@ def judge_finding(
             actor_user_id=actor_user_id,
         )
     )
-    db.add(
-        AuditLog(
-            project_id=project_id,
-            entity_type="finding",
-            entity_id=finding.external_id,
-            action="judge",
-            actor_user_id=actor_user_id,
-            before=audit_before,
-            after={
-                "status": finding.status,
-                "note": note,
-                "verdict": verdict,
-                "defectId": defect.number if defect is not None else None,
-            },
-        )
+    record_audit(
+        db,
+        project_id,
+        actor_user_id,
+        "finding",
+        finding.external_id,
+        "judge",
+        before=audit_before,
+        after={
+            "status": finding.status,
+            "note": note,
+            "verdict": verdict,
+            "defectId": defect.number if defect is not None else None,
+        },
     )
     db.flush()
 

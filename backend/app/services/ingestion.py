@@ -1,16 +1,18 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError
+from app.core.time import utcnow
 from app.db.models.analysis import Analysis, Finding
-from app.db.models.case import CaseRequirementMarker, TestCase
+from app.db.models.case import TestCase
 from app.db.models.run import Artifact, Exchange, Run, RunCase
 from app.schemas.ingest import (
     AnalysisIn,
     AnalysisOut,
+    CaseBase,
     CaseIn,
     CatalogIn,
     CatalogOut,
@@ -18,15 +20,12 @@ from app.schemas.ingest import (
     RunIngestIn,
     RunIngestOut,
 )
+from app.services.case_markers import replace_requirement_markers
 from app.services.har import normalized_path
 from app.services.operations import rebuild_case_operation_markers
 from app.services.storage import LocalStorage
 
 BODY_INLINE_LIMIT = 64 * 1024
-
-
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 def ingest_run(
@@ -76,7 +75,7 @@ def ingest_run(
         run_case.logs = case.logs
         db.flush()
 
-        _replace_markers(db, project_id, test_case.id, case.requirements)
+        replace_requirement_markers(db, project_id, test_case.id, case.requirements)
         exchange_count += replace_exchanges(
             db, storage, project_id, run.id, run_case.id, case.exchanges
         )
@@ -101,7 +100,7 @@ def ingest_run(
         finding_count = _upsert_analysis(db, project_id, run, payload.analysis)
     else:
         finding_count = 0
-    run.updated_at = _utcnow()
+    run.updated_at = utcnow()
     db.flush()
 
     return RunIngestOut(
@@ -121,48 +120,14 @@ def ingest_analysis(
     return AnalysisOut(run_id=run.id, finding_count=finding_count)
 
 
-def upsert_catalog(db: Session, project_id: uuid.UUID, payload: CatalogIn) -> CatalogOut:
-    now = _utcnow()
-    marker_count = 0
-    affected_case_ids: list[uuid.UUID] = []
-    for case in payload.cases:
-        test_case = db.scalar(
-            select(TestCase).where(
-                TestCase.project_id == project_id, TestCase.nodeid == case.nodeid
-            )
-        )
-        if test_case is None:
-            test_case = TestCase(
-                project_id=project_id,
-                nodeid=case.nodeid,
-                file=case.file or case.nodeid.split("::", 1)[0],
-                name=case.name or case.nodeid.split("::")[-1],
-                tags=case.tags,
-                first_seen_at=now,
-                last_seen_at=now,
-            )
-            db.add(test_case)
-            db.flush()
-        else:
-            test_case.file = case.file or test_case.file
-            test_case.name = case.name or test_case.name
-            test_case.tags = case.tags
-            test_case.last_seen_at = now
-        affected_case_ids.append(test_case.id)
-        marker_count += _replace_markers(db, project_id, test_case.id, case.requirements)
-    rebuild_case_operation_markers(db, project_id, affected_case_ids)
-    return CatalogOut(case_count=len(payload.cases), marker_count=marker_count)
-
-
-def _upsert_test_case(
-    db: Session, project_id: uuid.UUID, case: CaseIn, run: Run
+def _upsert_case(
+    db: Session, project_id: uuid.UUID, case: CaseBase, now: datetime
 ) -> TestCase:
     test_case = db.scalar(
         select(TestCase).where(
             TestCase.project_id == project_id, TestCase.nodeid == case.nodeid
         )
     )
-    now = _utcnow()
     if test_case is None:
         test_case = TestCase(
             project_id=project_id,
@@ -180,6 +145,27 @@ def _upsert_test_case(
         test_case.name = case.name or test_case.name
         test_case.tags = case.tags
         test_case.last_seen_at = now
+    return test_case
+
+
+def upsert_catalog(db: Session, project_id: uuid.UUID, payload: CatalogIn) -> CatalogOut:
+    now = utcnow()
+    marker_count = 0
+    affected_case_ids: list[uuid.UUID] = []
+    for case in payload.cases:
+        test_case = _upsert_case(db, project_id, case, now)
+        affected_case_ids.append(test_case.id)
+        marker_count += replace_requirement_markers(
+            db, project_id, test_case.id, case.requirements
+        )
+    rebuild_case_operation_markers(db, project_id, affected_case_ids)
+    return CatalogOut(case_count=len(payload.cases), marker_count=marker_count)
+
+
+def _upsert_test_case(
+    db: Session, project_id: uuid.UUID, case: CaseIn, run: Run
+) -> TestCase:
+    test_case = _upsert_case(db, project_id, case, utcnow())
 
     if test_case.last_run_at is None or run.started_at >= test_case.last_run_at:
         test_case.last_run_id = run.id
@@ -187,33 +173,6 @@ def _upsert_test_case(
         test_case.last_duration_ms = case.duration_ms
         test_case.last_run_at = run.started_at
     return test_case
-
-
-def _replace_markers(
-    db: Session, project_id: uuid.UUID, case_id: uuid.UUID, requirements: list[str]
-) -> int:
-    wanted = [item.strip() for item in requirements if item.strip()]
-    wanted_set = set(wanted)
-    existing = {
-        marker.requirement_external_id: marker
-        for marker in db.scalars(
-            select(CaseRequirementMarker).where(CaseRequirementMarker.case_id == case_id)
-        )
-    }
-    for requirement_id in dict.fromkeys(wanted):
-        if requirement_id not in existing:
-            db.add(
-                CaseRequirementMarker(
-                    project_id=project_id,
-                    case_id=case_id,
-                    requirement_external_id=requirement_id,
-                    source="marker",
-                )
-            )
-    for requirement_id, marker in existing.items():
-        if marker.source == "marker" and requirement_id not in wanted_set:
-            db.delete(marker)
-    return len(wanted_set)
 
 
 def replace_exchanges(

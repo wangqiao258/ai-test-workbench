@@ -54,9 +54,7 @@ export function ProjectSwitcher({
   const keyword = query.trim().toLowerCase()
   const visible = items.filter((item) => {
     if (!keyword) return true
-    return `${item.project.name} ${item.project.key} ${item.project.repo}`
-      .toLowerCase()
-      .includes(keyword)
+    return item.project.name.toLowerCase().includes(keyword)
   })
 
   return (
@@ -70,7 +68,6 @@ export function ProjectSwitcher({
       >
         <span className="project-copy">
           <span className="project-name">{active.name}</span>
-          <span className="project-key">{active.key}</span>
         </span>
         <Icon name="chevronDown" size={14} />
       </button>
@@ -94,7 +91,7 @@ export function ProjectSwitcher({
                 autoFocus
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜索项目、KEY 或仓库"
+                placeholder="搜索项目"
                 aria-label="搜索项目"
               />
             </label>
@@ -117,13 +114,7 @@ export function ProjectSwitcher({
                     >
                       <span className="project-option-top">
                         <strong>{item.project.name}</strong>
-                        <span className="project-option-key">
-                          {item.project.key}
-                        </span>
                         {isActive && <Icon name="check" size={13} />}
-                      </span>
-                      <span className="project-option-sub">
-                        {item.project.repo} · {item.project.environment}
                       </span>
                       <span className="project-option-stats">
                         <span

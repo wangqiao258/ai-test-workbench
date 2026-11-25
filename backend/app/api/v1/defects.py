@@ -1,11 +1,12 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_membership
 from app.core.errors import ApiError
+from app.core.pagination import paginate
 from app.db.models.analysis import Finding
 from app.db.models.identity import AppUser, ProjectMember
 from app.db.models.review import Defect, DefectEvent
@@ -19,13 +20,9 @@ from app.schemas.review import (
     DefectPatchIn,
     DefectStatus,
 )
-from app.services.review import build_defect_out, update_defect_status
+from app.services.review import actor_name, build_defect_out, update_defect_status
 
 router = APIRouter(prefix="/projects/{project_id}/defects", tags=["review"])
-
-
-def _actor_name(display_name: str | None, email: str | None) -> str:
-    return display_name or email or "系统"
 
 
 def _load_defect(db: Session, project_id: UUID, defect_id: str) -> Defect:
@@ -68,15 +65,13 @@ def list_defects(
     if status is not None:
         conditions.append(Defect.status == status)
 
-    total = db.scalar(select(func.count(Defect.id)).where(*conditions)) or 0
-    defects = list(
-        db.scalars(
-            select(Defect)
-            .where(*conditions)
-            .order_by(Defect.created_at.desc(), Defect.number)
-            .offset((page - 1) * page_size)
-            .limit(page_size)
-        )
+    defects, total = paginate(
+        db,
+        Defect,
+        conditions,
+        (Defect.created_at.desc(), Defect.number),
+        page,
+        page_size,
     )
 
     finding_ids = {item.finding_id for item in defects if item.finding_id is not None}
@@ -130,7 +125,7 @@ def get_defect(
             from_status=event.from_status,
             to_status=event.to_status,
             note=event.note,
-            actor=_actor_name(display_name, email),
+            actor=actor_name(display_name, email),
             created_at=event.created_at,
         )
         for event, display_name, email in rows

@@ -25,13 +25,23 @@ export type ToastTone = 'success' | 'info' | 'danger'
 export interface Project {
   id: string
   name: string
-  key: string
-  repo: string
-  environment: string
-  owner: string
+  baseUrl: string
   updatedAt: string
   /** 当前用户在该项目中的角色，仅真实后端返回 */
   role?: string
+}
+
+export type ProjectTokenStatus = 'active' | 'revoked' | 'expired'
+
+export interface ProjectToken {
+  id: string
+  name: string
+  prefix: string
+  scopes: string[]
+  status: ProjectTokenStatus
+  lastUsedAt?: string
+  expiresAt?: string
+  createdAt: string
 }
 
 export interface Requirement {
@@ -99,12 +109,14 @@ export interface TestCase {
   nodeid: string
   name: string
   file: string
+  specPath?: string
   tags: string[]
   requirementIds: string[]
   operationIds: string[]
   lastRunId: string
   lastStatus: RunStatus
   lastDurationMs: number
+  archivedAt?: string
 }
 
 export interface HarHeader {
@@ -172,6 +184,7 @@ export interface RunRequest {
   status: RunRequestStatus
   reason: string
   specPaths: string[]
+  caseNodeids: string[]
   yamlHash: string
   runExternalId?: string
   logPath?: string

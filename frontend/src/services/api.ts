@@ -13,6 +13,7 @@ import type {
   OperationParam,
   OperationResponse,
   Project,
+  ProjectToken,
   Requirement,
   Run,
   RunCase,
@@ -43,11 +44,8 @@ export interface Session {
 }
 
 export interface CreateProjectInput {
-  key: string
   name: string
-  repo?: string
-  environment?: string
-  owner?: string
+  baseUrl?: string
 }
 
 interface LoginResponse {
@@ -59,13 +57,39 @@ interface LoginResponse {
 
 interface BackendProject {
   id: string
-  key: string
   name: string
-  repo: string
-  environment: string
-  owner: string
+  baseUrl: string
   updatedAt: string
   role: string
+}
+
+interface BackendToken {
+  id: string
+  name: string
+  prefix: string
+  scopes: string[]
+  status: ProjectToken['status']
+  lastUsedAt?: string | null
+  expiresAt?: string | null
+  createdAt: string
+}
+
+export interface TokenScopeMeta {
+  id: string
+  label: string
+  description: string
+}
+
+export interface TokenPresetMeta {
+  id: string
+  label: string
+  hint: string
+  scopes: string[]
+}
+
+export interface TokenMeta {
+  scopes: TokenScopeMeta[]
+  presets: TokenPresetMeta[]
 }
 
 interface BackendRun {
@@ -145,6 +169,7 @@ interface BackendCase {
   nodeid: string
   name?: string | null
   file?: string | null
+  specPath?: string | null
   tags?: string[]
   requirementIds?: string[]
   operationIds?: string[]
@@ -152,6 +177,7 @@ interface BackendCase {
   lastStatus?: string | null
   lastDurationMs?: number | null
   lastRunAt?: string | null
+  archivedAt?: string | null
 }
 
 interface BackendRequirement {
@@ -218,6 +244,7 @@ interface BackendRunRequest {
   status: string
   reason: string
   specPaths: string[]
+  caseNodeids?: string[]
   yamlHash: string
   requestedBy?: string | null
   runExternalId?: string | null
@@ -316,9 +343,10 @@ async function fetchAllPages<T>(
   maxPages = 20,
 ): Promise<T[]> {
   const items: T[] = []
+  const separator = path.includes('?') ? '&' : '?'
   for (let page = 1; page <= maxPages; page += 1) {
     const data = await fetchJson<Page<T>>(
-      `${path}?page=${page}&page_size=${pageSize}`,
+      `${path}${separator}page=${page}&page_size=${pageSize}`,
     )
     items.push(...data.items)
     if (items.length >= data.total || data.items.length === 0) break
@@ -353,14 +381,60 @@ export async function changePassword(
 function mapProject(project: BackendProject): Project {
   return {
     id: project.id,
-    key: project.key,
     name: project.name,
-    repo: project.repo,
-    environment: project.environment,
-    owner: project.owner,
+    baseUrl: project.baseUrl,
     updatedAt: project.updatedAt,
     role: project.role,
   }
+}
+
+function mapToken(token: BackendToken): ProjectToken {
+  return {
+    id: token.id,
+    name: token.name,
+    prefix: token.prefix,
+    scopes: token.scopes,
+    status: token.status,
+    lastUsedAt: token.lastUsedAt ?? undefined,
+    expiresAt: token.expiresAt ?? undefined,
+    createdAt: token.createdAt,
+  }
+}
+
+export interface CreateTokenInput {
+  name: string
+  scopes: string[]
+}
+
+export async function listProjectTokens(
+  projectId: string,
+): Promise<ProjectToken[]> {
+  const rows = await fetchJson<BackendToken[]>(`/projects/${projectId}/tokens`)
+  return rows.map(mapToken)
+}
+
+export async function fetchTokenMeta(): Promise<TokenMeta> {
+  return fetchJson<TokenMeta>('/meta/token-scopes')
+}
+
+export async function createProjectToken(
+  projectId: string,
+  input: CreateTokenInput,
+): Promise<{ token: ProjectToken; secret: string }> {
+  const result = await fetchJson<BackendToken & { token: string }>(
+    `/projects/${projectId}/tokens`,
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+  return { token: mapToken(result), secret: result.token }
+}
+
+export async function revokeProjectToken(
+  projectId: string,
+  tokenId: string,
+): Promise<void> {
+  await request(`/projects/${projectId}/tokens/${tokenId}`, {
+    method: 'DELETE',
+  })
 }
 
 export async function createProject(input: CreateProjectInput): Promise<Project> {
@@ -373,9 +447,7 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
 
 export interface UpdateProjectInput {
   name?: string
-  repo?: string
-  environment?: string
-  owner?: string
+  baseUrl?: string
 }
 
 export async function updateProject(
@@ -543,12 +615,14 @@ function mapCase(
     nodeid: item.nodeid,
     name: item.name ?? item.nodeid.split('::').pop() ?? item.nodeid,
     file: item.file ?? item.nodeid.split('::')[0],
+    specPath: item.specPath ?? undefined,
     tags: item.tags ?? [],
     requirementIds: item.requirementIds ?? [],
     operationIds: item.operationIds ?? [],
     lastRunId: item.lastRunId ? runIdByUuid.get(item.lastRunId) ?? '' : '',
     lastStatus: (item.lastStatus ?? 'skipped') as RunStatus,
     lastDurationMs: item.lastDurationMs ?? 0,
+    archivedAt: item.archivedAt ?? undefined,
   }
 }
 
@@ -652,6 +726,7 @@ function mapRunRequest(item: BackendRunRequest): RunRequest {
     status: item.status as RunRequestStatus,
     reason: item.reason,
     specPaths: item.specPaths ?? [],
+    caseNodeids: item.caseNodeids ?? [],
     yamlHash: item.yamlHash,
     runExternalId: item.runExternalId ?? undefined,
     logPath: item.logPath ?? undefined,
@@ -666,6 +741,7 @@ function mapRunRequest(item: BackendRunRequest): RunRequest {
 export interface CreateRunRequestInput {
   reason?: string
   specPaths?: string[]
+  caseNodeids?: string[]
 }
 
 export async function createRunRequest(
@@ -701,6 +777,79 @@ export async function fetchRunRequest(
   return mapRunRequest(result)
 }
 
+export interface SpecFile {
+  path: string
+  size: number
+  updatedAt: string
+  sha256: string
+  caseCount: number
+  valid: boolean
+  error?: string | null
+}
+
+export interface SpecContent {
+  path: string
+  content: string
+  sha256: string
+  updatedAt: string
+}
+
+export interface SaveSpecInput {
+  path: string
+  content: string
+  expectedSha256?: string
+}
+
+export interface SpecSaveResult {
+  path: string
+  sha256: string
+  caseCount: number
+}
+
+export async function listSpecs(projectId: string): Promise<SpecFile[]> {
+  return fetchJson<SpecFile[]>(`/projects/${projectId}/specs`)
+}
+
+export async function fetchSpecContent(
+  projectId: string,
+  path: string,
+): Promise<SpecContent> {
+  return fetchJson<SpecContent>(
+    `/projects/${projectId}/specs/content?path=${encodeURIComponent(path)}`,
+  )
+}
+
+export async function saveSpecContent(
+  projectId: string,
+  input: SaveSpecInput,
+): Promise<SpecSaveResult> {
+  return fetchJson<SpecSaveResult>(`/projects/${projectId}/specs/content`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  })
+}
+
+export async function deleteSpec(
+  projectId: string,
+  path: string,
+): Promise<{ path: string; archivedCaseCount: number }> {
+  return fetchJson(
+    `/projects/${projectId}/specs?path=${encodeURIComponent(path)}`,
+    { method: 'DELETE' },
+  )
+}
+
+export async function setCaseArchived(
+  projectId: string,
+  nodeid: string,
+  archived: boolean,
+): Promise<{ nodeid: string; archived: boolean }> {
+  return fetchJson(`/projects/${projectId}/cases`, {
+    method: 'PATCH',
+    body: JSON.stringify({ nodeid, archived }),
+  })
+}
+
 async function loadProject(project: BackendProject): Promise<{
   project: Project
   requirements: Requirement[]
@@ -716,7 +865,9 @@ async function loadProject(project: BackendProject): Promise<{
     [
       fetchJson<BackendRequirement[]>(`/projects/${projectId}/requirements`),
       fetchJson<BackendDoc[]>(`/projects/${projectId}/openapi`),
-      fetchAllPages<BackendCase>(`/projects/${projectId}/cases`),
+      fetchAllPages<BackendCase>(
+        `/projects/${projectId}/cases?includeArchived=true`,
+      ),
       fetchAllPages<BackendRun>(`/projects/${projectId}/runs`, 50, 5),
       fetchAllPages<BackendFinding>(`/projects/${projectId}/findings`),
       fetchAllPages<BackendDefect>(`/projects/${projectId}/defects`),
@@ -870,6 +1021,10 @@ export const api = {
   createProject,
   updateProject,
   deleteProject,
+  listProjectTokens,
+  fetchTokenMeta,
+  createProjectToken,
+  revokeProjectToken,
   upsertRequirement,
   updateRequirement,
   deleteRequirement,
@@ -880,6 +1035,11 @@ export const api = {
   createRunRequest,
   listRunRequests,
   fetchRunRequest,
+  listSpecs,
+  fetchSpecContent,
+  saveSpecContent,
+  deleteSpec,
+  setCaseArchived,
   judgeFinding,
   updateDefectStatus,
 }

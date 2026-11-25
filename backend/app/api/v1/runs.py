@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_membership
 from app.core.errors import ApiError
+from app.core.pagination import paginate
 from app.db.models.analysis import Analysis, Finding
 from app.db.models.case import TestCase
 from app.db.models.identity import ProjectMember
@@ -93,14 +94,14 @@ def list_runs(
     _: ProjectMember = Depends(get_membership),
     db: Session = Depends(get_db),
 ) -> RunListOut:
-    total = db.scalar(select(func.count(Run.id)).where(Run.project_id == project_id)) or 0
-    rows = db.scalars(
-        select(Run)
-        .where(Run.project_id == project_id)
-        .order_by(Run.started_at.desc(), Run.created_at.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-    ).all()
+    rows, total = paginate(
+        db,
+        Run,
+        [Run.project_id == project_id],
+        (Run.started_at.desc(), Run.created_at.desc()),
+        page,
+        page_size,
+    )
     return RunListOut(
         items=[run_out(run) for run in rows],
         page=page,

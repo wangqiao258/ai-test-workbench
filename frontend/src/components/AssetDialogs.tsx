@@ -1,78 +1,11 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type ChangeEvent } from 'react'
 import type { HttpMethod, OpenApiDoc, Operation, Requirement } from '../types'
 import type {
   OpenApiImportInput,
   OperationInput,
   RequirementInput,
 } from '../services/api'
-import { Icon, type IconName } from './ui'
-
-interface ShellProps {
-  open: boolean
-  title: string
-  description: string
-  icon?: IconName
-  wide?: boolean
-  busy?: boolean
-  error?: string
-  submitText: string
-  canSubmit: boolean
-  onCancel: () => void
-  onSubmit: () => void
-  children: ReactNode
-}
-
-function DialogShell({
-  open,
-  title,
-  description,
-  icon = 'plus',
-  wide = false,
-  busy = false,
-  error = '',
-  submitText,
-  canSubmit,
-  onCancel,
-  onSubmit,
-  children,
-}: ShellProps) {
-  if (!open) return null
-  return (
-    <div className="dialog-backdrop" onMouseDown={busy ? undefined : onCancel}>
-      <form
-        className={`dialog dialog-project ${wide ? 'dialog-wide' : ''}`}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        onSubmit={(event: FormEvent<HTMLFormElement>) => {
-          event.preventDefault()
-          if (!busy && canSubmit) onSubmit()
-        }}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="dialog-head">
-          <span className="dialog-icon dialog-icon-primary">
-            <Icon name={icon} size={18} />
-          </span>
-          <div>
-            <h3>{title}</h3>
-            <p>{description}</p>
-          </div>
-        </div>
-        {children}
-        {error && <p className="dialog-error">{error}</p>}
-        <div className="dialog-actions">
-          <button type="button" className="btn" onClick={onCancel} disabled={busy}>
-            取消
-          </button>
-          <button type="submit" className="btn btn-primary" disabled={busy || !canSubmit}>
-            {busy ? '提交中…' : submitText}
-          </button>
-        </div>
-      </form>
-    </div>
-  )
-}
+import { DialogShell } from './ui'
 
 const splitTags = (value: string) =>
   value
@@ -142,6 +75,7 @@ export function RequirementDialog({
   return (
     <DialogShell
       open={open}
+      className="dialog-project"
       title={editing ? '编辑需求' : '导入需求文档'}
       description="需求以 Markdown 正文入库，与接口契约、pytest 用例建立追溯关系。"
       icon="file"
@@ -289,6 +223,7 @@ export function OpenApiImportDialog({
   return (
     <DialogShell
       open={open}
+      className="dialog-project"
       title="导入 OpenAPI 文档"
       description="粘贴或选择 OpenAPI 3.x 文档，支持 JSON / YAML，以及 HEAD / OPTIONS / TRACE 等方法。同一编号再次导入会覆盖原契约。"
       icon="file"
@@ -407,6 +342,7 @@ export function DocSettingsDialog({
   return (
     <DialogShell
       open={open}
+      className="dialog-project"
       title="编辑契约文档"
       description="只修改文档元信息，接口明细请在右侧接口详情里编辑。"
       icon="file"
@@ -427,7 +363,7 @@ export function DocSettingsDialog({
           <input value={version} onChange={(event) => setVersion(event.target.value)} />
         </label>
         <label className="form-field">
-          <span>Base URL</span>
+          <span>契约服务器地址</span>
           <input
             value={baseUrl}
             placeholder="https://api.example.com"
@@ -517,6 +453,7 @@ export function OperationDialog({
   return (
     <DialogShell
       open={open}
+      className="dialog-project"
       title="编辑接口"
       description="调整请求方法、路径与摘要；参数、请求体与响应的结构仍由 OpenAPI 导入维护。"
       icon="layers"

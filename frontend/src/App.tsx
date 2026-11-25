@@ -66,7 +66,7 @@ const MODULES: Array<{
 ]
 
 const INITIAL_NAV: NavState = {
-  projectId: 'shop-api',
+  projectId: '',
   module: 'runs',
   assetTab: 'requirements',
   requirementId: 'REQ-ORDER-01',
@@ -256,8 +256,9 @@ export default function App() {
     if (!data) return []
     return data.projects.map((project) => ({
       project,
-      caseCount: data.cases.filter((item) => item.projectId === project.id)
-        .length,
+      caseCount: data.cases.filter(
+        (item) => item.projectId === project.id && !item.archivedAt,
+      ).length,
       pending: data.findings.filter(
         (item) => item.projectId === project.id && item.status === 'pending',
       ).length,
@@ -466,18 +467,12 @@ export default function App() {
 
         <div className="topbar-route">
           <span className="route-kicker">
-            {activeProject?.key ?? '—'} / {activeMeta.index} {activeMeta.label}
+            {activeProject?.name ?? '—'} / {activeMeta.index} {activeMeta.label}
           </span>
           <span className="route-caption">{activeMeta.caption}</span>
         </div>
 
         <div className="topbar-actions">
-          {activeProject && (
-            <span className="sync-state">
-              <span className="sync-dot" />
-              {activeProject.environment || activeProject.key}
-            </span>
-          )}
           {session && (
             <>
               <span className="topbar-user" title={session.user.email}>
@@ -567,7 +562,13 @@ export default function App() {
                 />
               )}
               {nav.module === 'cases' && (
-                <CasesView data={projectData} nav={nav} navigate={navigate} />
+                <CasesView
+                  data={projectData}
+                  nav={nav}
+                  navigate={navigate}
+                  onToast={notify}
+                  onRefresh={handleRefresh}
+                />
               )}
               {nav.module === 'runs' && (
                 <RunTrialView

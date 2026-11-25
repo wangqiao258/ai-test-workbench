@@ -116,8 +116,9 @@ export function AssetsView({
   )
   const linkedCases = useMemo(
     () =>
-      data.cases.filter((item) =>
-        requirement?.caseNodeids.includes(item.nodeid),
+      data.cases.filter(
+        (item) =>
+          !item.archivedAt && requirement?.caseNodeids.includes(item.nodeid),
       ),
     [data.cases, requirement],
   )
@@ -141,8 +142,9 @@ export function AssetsView({
   const opRequirement = data.requirements.find((item) =>
     operation?.requirementIds.includes(item.id),
   )
-  const opCases = data.cases.filter((item) =>
-    operation?.caseNodeids.includes(item.nodeid),
+  const opCases = data.cases.filter(
+    (item) =>
+      !item.archivedAt && operation?.caseNodeids.includes(item.nodeid),
   )
   const totalOperations = data.openapi.reduce(
     (acc, item) => acc + item.operations.length,
@@ -924,7 +926,7 @@ export function AssetsView({
                   <dd>{doc.version}</dd>
                 </div>
                 <div>
-                  <dt>Base URL</dt>
+                  <dt>契约服务器地址</dt>
                   <dd className="mono-strong">{doc.baseUrl}</dd>
                 </div>
               </dl>

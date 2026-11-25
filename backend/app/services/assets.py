@@ -1,22 +1,30 @@
 import uuid
-from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.errors import ApiError
+from app.core.time import utcnow
 from app.db.models.asset import OpenApiDoc, Operation, Requirement
 from app.schemas.asset import OpenApiBatchIn, OpenApiIngestOut, RequirementBatchIn
 from app.services.operations import rebuild_case_operation_markers
 
 
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+def get_operation(db: Session, project_id: uuid.UUID, external_id: str) -> Operation:
+    operation = db.scalar(
+        select(Operation).where(
+            Operation.project_id == project_id, Operation.external_id == external_id
+        )
+    )
+    if operation is None:
+        raise ApiError(404, "operation_not_found", "接口不存在")
+    return operation
 
 
 def upsert_requirements(
     db: Session, project_id: uuid.UUID, payload: RequirementBatchIn
 ) -> int:
-    now = _utcnow()
+    now = utcnow()
     for item in payload.requirements:
         requirement = db.scalar(
             select(Requirement).where(
@@ -40,7 +48,7 @@ def upsert_requirements(
 def upsert_openapi(
     db: Session, project_id: uuid.UUID, payload: OpenApiBatchIn
 ) -> OpenApiIngestOut:
-    now = _utcnow()
+    now = utcnow()
     operation_count = 0
 
     for doc_in in payload.docs:

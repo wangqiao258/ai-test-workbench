@@ -30,16 +30,19 @@ class ExchangeIn(BaseModel):
     error: str | None = None
 
 
-class CaseIn(BaseModel):
+class CaseBase(BaseModel):
     nodeid: str = Field(min_length=1)
-    status: RunStatus
-    duration_ms: int = 0
-    error: str | None = None
-    logs: list[str] = Field(default_factory=list)
     name: str | None = None
     file: str | None = None
     tags: list[str] = Field(default_factory=list)
     requirements: list[str] = Field(default_factory=list)
+
+
+class CaseIn(CaseBase):
+    status: RunStatus
+    duration_ms: int = 0
+    error: str | None = None
+    logs: list[str] = Field(default_factory=list)
     exchanges: list[ExchangeIn] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -179,12 +182,8 @@ class RunIngestIn(BaseModel):
     analysis: AnalysisIn | None = None
 
 
-class CatalogCaseIn(BaseModel):
-    nodeid: str = Field(min_length=1)
-    name: str | None = None
-    file: str | None = None
-    tags: list[str] = Field(default_factory=list)
-    requirements: list[str] = Field(default_factory=list)
+class CatalogCaseIn(CaseBase):
+    pass
 
 
 class CatalogIn(BaseModel):

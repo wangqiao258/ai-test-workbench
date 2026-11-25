@@ -5,24 +5,31 @@ import type {
   NavState,
   RunStatus,
   TestCase,
+  ToastTone,
 } from '../types'
+import { api, type CreateRunRequestInput } from '../services/api'
 import {
   formatDateTime,
   formatDuration,
   percent,
 } from '../utils/format'
 import {
+  ConfirmDialog,
   EmptyState,
   Icon,
   MethodTag,
   RunStatusBadge,
   type IconName,
 } from './ui'
+import { RunRequestDialog } from './RunRequestDialog'
+import { SpecEditorDialog } from './SpecEditorDialog'
 
 interface Props {
   data: AppData
   nav: NavState
   navigate: Navigate
+  onToast: (text: string, tone?: ToastTone) => void
+  onRefresh: () => Promise<void>
 }
 
 const STATUS_OPTIONS: Array<{ value: 'all' | RunStatus; label: string }> = [
@@ -69,10 +76,20 @@ function CaseDrawer({
   testCase,
   data,
   navigate,
+  canEdit,
+  onRun,
+  onEditSpec,
+  onArchive,
+  onRestore,
 }: {
   testCase: TestCase
   data: AppData
   navigate: Navigate
+  canEdit: boolean
+  onRun: (nodeid: string) => void
+  onEditSpec: (path: string) => void
+  onArchive: (testCase: TestCase) => void
+  onRestore: (nodeid: string) => void
 }) {
   const requirements = data.requirements.filter((item) =>
     testCase.requirementIds.includes(item.id),
@@ -97,6 +114,7 @@ function CaseDrawer({
             <div className="drawer-title-row">
               <RunStatusBadge status={testCase.lastStatus} />
               <h2>{testCase.name}</h2>
+              {testCase.archivedAt && <span className="warn-chip">已归档</span>}
             </div>
           </div>
           <button
@@ -118,7 +136,7 @@ function CaseDrawer({
           <dl className="meta-list meta-list-wide">
             <div>
               <dt>文件</dt>
-              <dd className="mono-strong">{testCase.file}</dd>
+              <dd className="mono-strong">{testCase.specPath ?? testCase.file}</dd>
             </div>
             <div>
               <dt>最近运行</dt>
@@ -228,9 +246,48 @@ function CaseDrawer({
         </div>
 
         <div className="drawer-foot">
+          <div className="drawer-actions">
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={Boolean(testCase.archivedAt)}
+              onClick={() => onRun(testCase.nodeid)}
+            >
+              <Icon name="play" size={14} />
+              运行此用例
+            </button>
+            {canEdit && testCase.specPath && (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => onEditSpec(testCase.specPath!)}
+              >
+                <Icon name="file" size={14} />
+                编辑规格
+              </button>
+            )}
+            {canEdit &&
+              (testCase.archivedAt ? (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => onRestore(testCase.nodeid)}
+                >
+                  恢复用例
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={() => onArchive(testCase)}
+                >
+                  归档用例
+                </button>
+              ))}
+          </div>
           <button
             type="button"
-            className="btn btn-primary btn-block"
+            className="btn btn-block"
             onClick={() =>
               navigate({
                 module: 'runs',
@@ -250,11 +307,29 @@ function CaseDrawer({
   )
 }
 
-export function CasesView({ data, nav, navigate }: Props) {
+export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
   const [keyword, setKeyword] = useState('')
   const [requirementFilter, setRequirementFilter] = useState('all')
   const [operationFilter, setOperationFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<'all' | RunStatus>('all')
+  const [runFilter, setRunFilter] = useState('all')
+  const [includeArchived, setIncludeArchived] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [runDialogOpen, setRunDialogOpen] = useState(false)
+  const [runNodeids, setRunNodeids] = useState<string[]>([])
+  const [specEditor, setSpecEditor] = useState<{ open: boolean; path: string }>({
+    open: false,
+    path: '',
+  })
+  const [archiveTarget, setArchiveTarget] = useState<TestCase | null>(null)
+
+  const project = data.projects.find((item) => item.id === nav.projectId)
+  const canEdit = project?.role === 'admin' || project?.role === 'tester'
+  const activeCases = useMemo(
+    () => data.cases.filter((item) => !item.archivedAt),
+    [data.cases],
+  )
+  const archivedCount = data.cases.length - activeCases.length
 
   const allOperations = useMemo(
     () => data.openapi.flatMap((item) => item.operations),
@@ -262,12 +337,12 @@ export function CasesView({ data, nav, navigate }: Props) {
   )
 
   const requirementsCovered = data.requirements.filter((requirement) =>
-    data.cases.some((testCase) =>
+    activeCases.some((testCase) =>
       testCase.requirementIds.includes(requirement.id),
     ),
   ).length
   const operationsCovered = allOperations.filter((operation) =>
-    data.cases.some((testCase) => testCase.operationIds.includes(operation.id)),
+    activeCases.some((testCase) => testCase.operationIds.includes(operation.id)),
   ).length
   const latestRun = data.runs[0]
   const executed = latestRun
@@ -280,13 +355,23 @@ export function CasesView({ data, nav, navigate }: Props) {
   const operationCoverage = allOperations.length
     ? operationsCovered / allOperations.length
     : 0
-  const unlinkedOperationCases = data.cases.filter(
+  const unlinkedOperationCases = activeCases.filter(
     (item) => item.operationIds.length === 0,
   ).length
 
+  const selectedRun = data.runs.find((item) => item.id === runFilter)
+  const runCaseMap = useMemo(
+    () => new Map((selectedRun?.cases ?? []).map((item) => [item.nodeid, item])),
+    [selectedRun],
+  )
+
   const filtered = useMemo(() => {
+    const pool = includeArchived ? data.cases : activeCases
     const lower = keyword.trim().toLowerCase()
-    return data.cases.filter((testCase) => {
+    return pool.filter((testCase) => {
+      if (runFilter !== 'all' && !runCaseMap.has(testCase.nodeid)) {
+        return false
+      }
       if (
         lower &&
         !`${testCase.nodeid} ${testCase.name} ${testCase.tags.join(' ')}`
@@ -307,16 +392,127 @@ export function CasesView({ data, nav, navigate }: Props) {
       ) {
         return false
       }
-      if (statusFilter !== 'all' && testCase.lastStatus !== statusFilter) {
+      const caseStatus =
+        runFilter !== 'all'
+          ? runCaseMap.get(testCase.nodeid)?.status
+          : testCase.lastStatus
+      if (statusFilter !== 'all' && caseStatus !== statusFilter) {
         return false
       }
       return true
     })
-  }, [data.cases, keyword, requirementFilter, operationFilter, statusFilter])
+  }, [
+    activeCases,
+    data.cases,
+    includeArchived,
+    keyword,
+    operationFilter,
+    requirementFilter,
+    runCaseMap,
+    runFilter,
+    statusFilter,
+  ])
+
+  const selectable = filtered.filter((item) => !item.archivedAt)
+  const allSelected =
+    selectable.length > 0 &&
+    selectable.every((item) => selected.has(item.nodeid))
+  const activeNodeids = useMemo(
+    () => new Set(activeCases.map((item) => item.nodeid)),
+    [activeCases],
+  )
+  const selectedActive = useMemo(
+    () => [...selected].filter((nodeid) => activeNodeids.has(nodeid)),
+    [activeNodeids, selected],
+  )
 
   const selectedCase = nav.caseNodeid
     ? data.cases.find((item) => item.nodeid === nav.caseNodeid)
     : undefined
+
+  const toggleSelected = (nodeid: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(nodeid)) {
+        next.delete(nodeid)
+      } else {
+        next.add(nodeid)
+      }
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allSelected) {
+        selectable.forEach((item) => next.delete(item.nodeid))
+      } else {
+        selectable.forEach((item) => next.add(item.nodeid))
+      }
+      return next
+    })
+  }
+
+  const openRun = (nodeids: string[]) => {
+    if (!nodeids.length) return
+    setRunNodeids(nodeids)
+    setRunDialogOpen(true)
+  }
+
+  const submitRun = async (input: CreateRunRequestInput) => {
+    await api.createRunRequest(nav.projectId, input)
+    setRunDialogOpen(false)
+    setRunNodeids([])
+    setSelected(new Set())
+    onToast('运行任务已创建，等待 Runner 执行', 'info')
+    await onRefresh()
+  }
+
+  const selectFailedInRun = () => {
+    if (!selectedRun) return
+    const failed = selectedRun.cases
+      .filter(
+        (item) =>
+          (item.status === 'failed' || item.status === 'error') &&
+          activeNodeids.has(item.nodeid),
+      )
+      .map((item) => item.nodeid)
+    setSelected(new Set(failed))
+  }
+
+  const handleArchive = async () => {
+    if (!archiveTarget) return
+    try {
+      await api.setCaseArchived(nav.projectId, archiveTarget.nodeid, true)
+      setSelected((prev) => {
+        const next = new Set(prev)
+        next.delete(archiveTarget.nodeid)
+        return next
+      })
+      setArchiveTarget(null)
+      onToast('用例已归档，可随时恢复', 'success')
+      await onRefresh()
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : '归档失败', 'danger')
+    }
+  }
+
+  const handleRestore = async (nodeid: string) => {
+    try {
+      await api.setCaseArchived(nav.projectId, nodeid, false)
+      onToast('用例已恢复', 'success')
+      await onRefresh()
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : '恢复失败', 'danger')
+    }
+  }
+
+  const handleSpecSaved = async (message: string) => {
+    setSpecEditor({ open: false, path: '' })
+    onToast(message, 'success')
+    await onRefresh()
+  }
 
   return (
     <div className="view">
@@ -325,8 +521,8 @@ export function CasesView({ data, nav, navigate }: Props) {
           <div className="view-kicker">COVERAGE / 02</div>
           <h1 className="view-title">用例覆盖</h1>
           <p className="view-desc">
-            pytest 执行后的用例落库，并与需求、OpenAPI operation
-            建立追溯关系；未关联的用例会在 AI 审判时缺少契约依据。
+            用例定义来自项目规格文件；运行结果、需求与接口关联自动回填。
+            勾选后可只重跑需要的用例。
           </p>
         </div>
         <div className="head-tags">
@@ -345,8 +541,12 @@ export function CasesView({ data, nav, navigate }: Props) {
         <div className="stat-grid">
           <StatCard
             label="用例总数"
-            value={String(data.cases.length)}
-            hint={`${unlinkedOperationCases} 条未关联接口`}
+            value={String(activeCases.length)}
+            hint={
+              archivedCount
+                ? `${unlinkedOperationCases} 条未关联接口 · ${archivedCount} 条已归档`
+                : `${unlinkedOperationCases} 条未关联接口`
+            }
             icon="layers"
           />
           <StatCard
@@ -389,6 +589,19 @@ export function CasesView({ data, nav, navigate }: Props) {
             </label>
             <select
               className="select"
+              value={runFilter}
+              onChange={(event) => setRunFilter(event.target.value)}
+              aria-label="按轮次筛选"
+            >
+              <option value="all">全部轮次</option>
+              {data.runs.map((run) => (
+                <option key={run.id} value={run.id}>
+                  {run.id} · {formatDateTime(run.startedAt)}
+                </option>
+              ))}
+            </select>
+            <select
+              className="select"
               value={requirementFilter}
               onChange={(event) => setRequirementFilter(event.target.value)}
               aria-label="按需求筛选"
@@ -419,7 +632,7 @@ export function CasesView({ data, nav, navigate }: Props) {
               onChange={(event) =>
                 setStatusFilter(event.target.value as 'all' | RunStatus)
               }
-              aria-label="按最近状态筛选"
+              aria-label="按状态筛选"
             >
               {STATUS_OPTIONS.map((item) => (
                 <option key={item.value} value={item.value}>
@@ -427,21 +640,72 @@ export function CasesView({ data, nav, navigate }: Props) {
                 </option>
               ))}
             </select>
+            {archivedCount > 0 && (
+              <label className="check-field">
+                <input
+                  type="checkbox"
+                  checked={includeArchived}
+                  onChange={(event) => setIncludeArchived(event.target.checked)}
+                />
+                显示已归档
+              </label>
+            )}
             <div className="toolbar-spacer" />
             <span className="result-count">{filtered.length} 条用例</span>
           </div>
+
+          {selectedActive.length > 0 && (
+            <div className="selection-bar">
+              <span>已选 {selectedActive.length} 条用例</span>
+              <div className="selection-actions">
+                {selectedRun && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={selectFailedInRun}
+                  >
+                    选中本轮失败
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => openRun(selectedActive)}
+                >
+                  <Icon name="play" size={13} />
+                  运行所选
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setSelected(new Set())}
+                >
+                  清空
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="table-scroll">
             {filtered.length ? (
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '29%' }}>用例</th>
-                    <th style={{ width: '17%' }}>关联需求</th>
-                    <th style={{ width: '22%' }}>关联接口</th>
-                    <th style={{ width: '14%' }}>最近状态</th>
-                    <th style={{ width: '10%' }}>耗时</th>
-                    <th style={{ width: '8%' }} />
+                    <th style={{ width: '4%' }}>
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={toggleAll}
+                        aria-label="全选当前筛选"
+                        disabled={!selectable.length}
+                      />
+                    </th>
+                    <th style={{ width: '27%' }}>用例</th>
+                    <th style={{ width: '16%' }}>关联需求</th>
+                    <th style={{ width: '21%' }}>关联接口</th>
+                    <th style={{ width: '13%' }}>状态</th>
+                    <th style={{ width: '9%' }}>耗时</th>
+                    <th style={{ width: '10%' }} />
                   </tr>
                 </thead>
                 <tbody>
@@ -452,17 +716,37 @@ export function CasesView({ data, nav, navigate }: Props) {
                     const operation = allOperations.find((item) =>
                       testCase.operationIds.includes(item.id),
                     )
+                    const runCase =
+                      runFilter !== 'all'
+                        ? runCaseMap.get(testCase.nodeid)
+                        : undefined
+                    const rowStatus = runCase?.status ?? testCase.lastStatus
+                    const rowDuration =
+                      runCase?.durationMs ?? testCase.lastDurationMs
                     return (
                       <tr
                         key={testCase.nodeid}
-                        className="is-clickable"
+                        className={`is-clickable ${testCase.archivedAt ? 'is-archived' : ''}`}
                         onClick={() =>
                           navigate({ caseNodeid: testCase.nodeid })
                         }
                       >
                         <td>
+                          <input
+                            type="checkbox"
+                            checked={selected.has(testCase.nodeid)}
+                            disabled={Boolean(testCase.archivedAt)}
+                            aria-label={`选择 ${testCase.name}`}
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={() => toggleSelected(testCase.nodeid)}
+                          />
+                        </td>
+                        <td>
                           <div className="case-name">{testCase.name}</div>
                           <code className="case-nodeid">{testCase.nodeid}</code>
+                          {testCase.archivedAt && (
+                            <span className="warn-chip">已归档</span>
+                          )}
                         </td>
                         <td>
                           {requirement ? (
@@ -483,14 +767,14 @@ export function CasesView({ data, nav, navigate }: Props) {
                         </td>
                         <td>
                           <div className="status-stack">
-                            <RunStatusBadge status={testCase.lastStatus} />
+                            <RunStatusBadge status={rowStatus} />
                             <span className="cell-sub">
-                              {testCase.lastRunId}
+                              {runCase ? selectedRun?.id : testCase.lastRunId}
                             </span>
                           </div>
                         </td>
                         <td className="num-cell">
-                          {formatDuration(testCase.lastDurationMs)}
+                          {formatDuration(rowDuration)}
                         </td>
                         <td>
                           <button
@@ -524,6 +808,7 @@ export function CasesView({ data, nav, navigate }: Props) {
                       setRequirementFilter('all')
                       setOperationFilter('all')
                       setStatusFilter('all')
+                      setRunFilter('all')
                     }}
                   >
                     清除筛选
@@ -536,8 +821,44 @@ export function CasesView({ data, nav, navigate }: Props) {
       </div>
 
       {selectedCase && (
-        <CaseDrawer testCase={selectedCase} data={data} navigate={navigate} />
+        <CaseDrawer
+          testCase={selectedCase}
+          data={data}
+          navigate={navigate}
+          canEdit={canEdit}
+          onRun={(nodeid) => openRun([nodeid])}
+          onEditSpec={(path) => setSpecEditor({ open: true, path })}
+          onArchive={(testCase) => setArchiveTarget(testCase)}
+          onRestore={handleRestore}
+        />
       )}
+
+      <RunRequestDialog
+        open={runDialogOpen}
+        caseNodeids={runNodeids}
+        onCancel={() => {
+          setRunDialogOpen(false)
+          setRunNodeids([])
+        }}
+        onSubmit={submitRun}
+      />
+
+      <SpecEditorDialog
+        open={specEditor.open}
+        projectId={nav.projectId}
+        path={specEditor.path}
+        onCancel={() => setSpecEditor({ open: false, path: '' })}
+        onSaved={handleSpecSaved}
+      />
+
+      <ConfirmDialog
+        open={Boolean(archiveTarget)}
+        title="归档用例"
+        description={`归档「${archiveTarget?.name ?? ''}」后，默认不再执行，也不会出现在重跑选择中；可随时恢复。`}
+        confirmText="归档"
+        onCancel={() => setArchiveTarget(null)}
+        onConfirm={handleArchive}
+      />
     </div>
   )
 }

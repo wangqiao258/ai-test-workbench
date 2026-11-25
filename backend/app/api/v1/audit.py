@@ -9,12 +9,9 @@ from app.db.models.identity import AppUser, ProjectMember
 from app.db.models.review import AuditLog
 from app.db.session import get_db
 from app.schemas.review import AuditListOut, AuditOut
+from app.services.review import actor_name
 
 router = APIRouter(prefix="/projects/{project_id}/audit", tags=["review"])
-
-
-def _actor_name(display_name: str | None, email: str | None) -> str:
-    return display_name or email or "系统"
 
 
 @router.get("", response_model=AuditListOut)
@@ -49,7 +46,7 @@ def list_audit_logs(
                 entity_type=log.entity_type,
                 entity_id=log.entity_id,
                 action=log.action,
-                actor=_actor_name(display_name, email),
+                actor=actor_name(display_name, email),
                 before=log.before,
                 after=log.after,
                 created_at=log.created_at,

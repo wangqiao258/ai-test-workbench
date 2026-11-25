@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
@@ -46,3 +48,37 @@ class SpecUploadIn(ApiModel):
 class SpecUploadOut(ApiModel):
     saved: list[str]
     root: str
+
+
+class SpecFileOut(ApiModel):
+    path: str
+    size: int
+    updated_at: datetime
+    sha256: str
+    case_count: int
+    valid: bool
+    error: str | None = None
+
+
+class SpecContentOut(ApiModel):
+    path: str
+    content: str
+    sha256: str
+    updated_at: datetime
+
+
+class SpecContentIn(ApiModel):
+    path: str = Field(min_length=1)
+    content: str
+    expected_sha256: str | None = Field(default=None, max_length=64)
+
+
+class SpecSaveOut(ApiModel):
+    path: str
+    sha256: str
+    case_count: int
+
+
+class SpecDeleteOut(ApiModel):
+    path: str
+    archived_case_count: int

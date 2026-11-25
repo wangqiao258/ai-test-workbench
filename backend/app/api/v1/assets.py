@@ -1,16 +1,15 @@
-from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_membership
+from app.core.deps import get_membership, require_role
 from app.core.errors import ApiError
+from app.core.time import utcnow
 from app.db.models.asset import CaseOperationMarker, OpenApiDoc, Operation, Requirement
 from app.db.models.case import CaseRequirementMarker
 from app.db.models.identity import ProjectMember
-from app.db.models.review import AuditLog
 from app.db.session import get_db
 from app.schemas.asset import (
     OpenApiBatchIn,
@@ -28,45 +27,11 @@ from app.services.asset_views import (
     requirement_out_one,
     requirement_outs,
 )
-from app.services.assets import upsert_openapi, upsert_requirements
+from app.services.assets import get_operation, upsert_openapi, upsert_requirements
+from app.services.audit import record_audit
 from app.services.openapi_import import OpenApiParseError, parse_openapi_document
 
 router = APIRouter(prefix="/projects/{project_id}", tags=["assets"])
-
-_EDITOR_ROLES = {"admin", "tester"}
-
-
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _ensure_editor(member: ProjectMember) -> None:
-    if member.role not in _EDITOR_ROLES:
-        raise ApiError(403, "forbidden", "当前角色无权修改需求与接口资产")
-
-
-def _audit(
-    db: Session,
-    project_id: UUID,
-    actor_user_id: UUID | None,
-    entity_type: str,
-    entity_id: str,
-    action: str,
-    *,
-    before: dict | None = None,
-    after: dict | None = None,
-) -> None:
-    db.add(
-        AuditLog(
-            project_id=project_id,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            action=action,
-            actor_user_id=actor_user_id,
-            before=before,
-            after=after,
-        )
-    )
 
 
 def _get_requirement(db: Session, project_id: UUID, requirement_id: str) -> Requirement:
@@ -90,17 +55,6 @@ def _get_doc(db: Session, project_id: UUID, doc_id: str) -> OpenApiDoc:
     if doc is None:
         raise ApiError(404, "openapi_doc_not_found", "OpenAPI 文档不存在")
     return doc
-
-
-def _get_operation(db: Session, project_id: UUID, operation_id: str) -> Operation:
-    operation = db.scalar(
-        select(Operation).where(
-            Operation.project_id == project_id, Operation.external_id == operation_id
-        )
-    )
-    if operation is None:
-        raise ApiError(404, "operation_not_found", "接口不存在")
-    return operation
 
 
 # ---------- 查询 ----------
@@ -151,13 +105,14 @@ def get_openapi_doc(
 def upsert_requirement(
     project_id: UUID,
     payload: RequirementIn,
-    member: ProjectMember = Depends(get_membership),
+    member: ProjectMember = Depends(
+        require_role("admin", "tester", message="当前角色无权修改需求与接口资产")
+    ),
     db: Session = Depends(get_db),
 ) -> RequirementOut:
-    _ensure_editor(member)
     upsert_requirements(db, project_id, RequirementBatchIn(requirements=[payload]))
     requirement = _get_requirement(db, project_id, payload.external_id)
-    _audit(
+    record_audit(
         db,
         project_id,
         member.user_id,
@@ -176,10 +131,11 @@ def update_requirement(
     project_id: UUID,
     requirement_id: str,
     payload: RequirementUpdateIn,
-    member: ProjectMember = Depends(get_membership),
+    member: ProjectMember = Depends(
+        require_role("admin", "tester", message="当前角色无权修改需求与接口资产")
+    ),
     db: Session = Depends(get_db),
 ) -> RequirementOut:
-    _ensure_editor(member)
     requirement = _get_requirement(db, project_id, requirement_id)
     updates = payload.model_dump(exclude_unset=True, exclude_none=True)
     if "title" in updates and not str(updates["title"]).strip():
@@ -187,8 +143,8 @@ def update_requirement(
     before = {key: getattr(requirement, key) for key in updates}
     for key, value in updates.items():
         setattr(requirement, key, value)
-    requirement.updated_at = _utcnow()
-    _audit(
+    requirement.updated_at = utcnow()
+    record_audit(
         db,
         project_id,
         member.user_id,
@@ -207,10 +163,11 @@ def update_requirement(
 def delete_requirement(
     project_id: UUID,
     requirement_id: str,
-    member: ProjectMember = Depends(get_membership),
+    member: ProjectMember = Depends(
+        require_role("admin", "tester", message="当前角色无权修改需求与接口资产")
+    ),
     db: Session = Depends(get_db),
 ) -> None:
-    _ensure_editor(member)
     requirement = _get_requirement(db, project_id, requirement_id)
     db.execute(
         delete(CaseRequirementMarker).where(
@@ -218,7 +175,7 @@ def delete_requirement(
             CaseRequirementMarker.requirement_external_id == requirement.external_id,
         )
     )
-    _audit(
+    record_audit(
         db,
         project_id,
         member.user_id,
@@ -238,16 +195,17 @@ def delete_requirement(
 def upsert_openapi_doc(
     project_id: UUID,
     payload: OpenApiBatchIn,
-    member: ProjectMember = Depends(get_membership),
+    member: ProjectMember = Depends(
+        require_role("admin", "tester", message="当前角色无权修改需求与接口资产")
+    ),
     db: Session = Depends(get_db),
 ) -> OpenApiDocOut:
-    _ensure_editor(member)
     if not payload.docs:
         raise ApiError(422, "empty_docs", "至少导入一份 OpenAPI 文档")
     result = upsert_openapi(db, project_id, payload)
     last = payload.docs[-1].external_id
     doc = _get_doc(db, project_id, last)
-    _audit(
+    record_audit(
         db,
         project_id,
         member.user_id,
@@ -264,10 +222,11 @@ def upsert_openapi_doc(
 def import_openapi_doc(
     project_id: UUID,
     payload: OpenApiImportIn,
-    member: ProjectMember = Depends(get_membership),
+    member: ProjectMember = Depends(
+        require_role("admin", "tester", message="当前角色无权修改需求与接口资产")
+    ),
     db: Session = Depends(get_db),
 ) -> OpenApiDocOut:
-    _ensure_editor(member)
     try:
         doc_in = parse_openapi_document(
             payload.content,
@@ -281,7 +240,7 @@ def import_openapi_doc(
 
     result = upsert_openapi(db, project_id, OpenApiBatchIn(docs=[doc_in]))
     doc = _get_doc(db, project_id, doc_in.external_id)
-    _audit(
+    record_audit(
         db,
         project_id,
         member.user_id,
@@ -299,19 +258,20 @@ def update_operation(
     project_id: UUID,
     operation_id: str,
     payload: OperationUpdateIn,
-    member: ProjectMember = Depends(get_membership),
+    member: ProjectMember = Depends(
+        require_role("admin", "tester", message="当前角色无权修改需求与接口资产")
+    ),
     db: Session = Depends(get_db),
 ) -> OperationOut:
-    _ensure_editor(member)
-    operation = _get_operation(db, project_id, operation_id)
+    operation = get_operation(db, project_id, operation_id)
     updates = payload.model_dump(exclude_unset=True, exclude_none=True)
     if "path" in updates and not str(updates["path"]).strip():
         raise ApiError(422, "invalid_path", "接口 path 不能为空")
     before = {key: getattr(operation, key) for key in updates}
     for key, value in updates.items():
         setattr(operation, key, value)
-    operation.updated_at = _utcnow()
-    _audit(
+    operation.updated_at = utcnow()
+    record_audit(
         db,
         project_id,
         member.user_id,
@@ -338,10 +298,11 @@ def update_openapi_doc(
     project_id: UUID,
     doc_id: str,
     payload: OpenApiDocUpdateIn,
-    member: ProjectMember = Depends(get_membership),
+    member: ProjectMember = Depends(
+        require_role("admin", "tester", message="当前角色无权修改需求与接口资产")
+    ),
     db: Session = Depends(get_db),
 ) -> OpenApiDocOut:
-    _ensure_editor(member)
     doc = _get_doc(db, project_id, doc_id)
     updates = payload.model_dump(exclude_unset=True, exclude_none=True)
     if "title" in updates and not str(updates["title"]).strip():
@@ -349,8 +310,8 @@ def update_openapi_doc(
     before = {key: getattr(doc, key) for key in updates}
     for key, value in updates.items():
         setattr(doc, key, value)
-    doc.updated_at = _utcnow()
-    _audit(
+    doc.updated_at = utcnow()
+    record_audit(
         db,
         project_id,
         member.user_id,
@@ -369,10 +330,11 @@ def update_openapi_doc(
 def delete_openapi_doc(
     project_id: UUID,
     doc_id: str,
-    member: ProjectMember = Depends(get_membership),
+    member: ProjectMember = Depends(
+        require_role("admin", "tester", message="当前角色无权修改需求与接口资产")
+    ),
     db: Session = Depends(get_db),
 ) -> None:
-    _ensure_editor(member)
     doc = _get_doc(db, project_id, doc_id)
     operation_ids = list(
         db.scalars(select(Operation.external_id).where(Operation.doc_id == doc.id))
@@ -384,7 +346,7 @@ def delete_openapi_doc(
                 CaseOperationMarker.operation_external_id.in_(operation_ids),
             )
         )
-    _audit(
+    record_audit(
         db,
         project_id,
         member.user_id,

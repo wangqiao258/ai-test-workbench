@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import type {
   FindingType,
   HttpMethod,
@@ -384,6 +384,83 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+export function DialogShell({
+  open,
+  title,
+  description,
+  icon = 'plus',
+  wide = false,
+  className = '',
+  busy = false,
+  busyText = '提交中…',
+  error = '',
+  submitText,
+  canSubmit = true,
+  onCancel,
+  onSubmit,
+  footer,
+  children,
+}: {
+  open: boolean
+  title: string
+  description: string
+  icon?: IconName
+  wide?: boolean
+  className?: string
+  busy?: boolean
+  busyText?: string
+  error?: string
+  submitText: string
+  canSubmit?: boolean
+  onCancel: () => void
+  onSubmit?: () => void
+  footer?: ReactNode
+  children: ReactNode
+}) {
+  if (!open) return null
+  return (
+    <div className="dialog-backdrop" onMouseDown={busy ? undefined : onCancel}>
+      <form
+        className={`dialog ${wide ? 'dialog-wide' : ''} ${className}`.trim()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onSubmit={(event: FormEvent<HTMLFormElement>) => {
+          event.preventDefault()
+          if (!busy && canSubmit) onSubmit?.()
+        }}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="dialog-head">
+          <span className="dialog-icon dialog-icon-primary">
+            <Icon name={icon} size={18} />
+          </span>
+          <div>
+            <h3>{title}</h3>
+            <p>{description}</p>
+          </div>
+        </div>
+        {children}
+        {error && <p className="dialog-error">{error}</p>}
+        {footer ?? (
+          <div className="dialog-actions">
+            <button type="button" className="btn" onClick={onCancel} disabled={busy}>
+              取消
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={busy || !canSubmit}
+            >
+              {busy ? busyText : submitText}
+            </button>
+          </div>
+        )}
+      </form>
     </div>
   )
 }

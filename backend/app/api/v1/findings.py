@@ -1,12 +1,13 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.v1.runs import resolve_run
 from app.core.deps import get_membership
 from app.core.errors import ApiError
+from app.core.pagination import paginate
 from app.db.models.analysis import Finding
 from app.db.models.asset import Operation
 from app.db.models.identity import AppUser, ProjectMember
@@ -23,16 +24,13 @@ from app.schemas.review import (
 )
 from app.services.idempotency import begin_idempotent, digest_model, finish_idempotent
 from app.services.review import (
+    actor_name,
     build_finding_out,
     judge_finding,
     resolve_finding_operation_id,
 )
 
 router = APIRouter(prefix="/projects/{project_id}/findings", tags=["review"])
-
-
-def _actor_name(display_name: str | None, email: str | None) -> str:
-    return display_name or email or "系统"
 
 
 def _load_finding(db: Session, project_id: UUID, finding_id: str) -> Finding:
@@ -63,15 +61,13 @@ def list_findings(
     if status is not None:
         conditions.append(Finding.status == status)
 
-    total = db.scalar(select(func.count(Finding.id)).where(*conditions)) or 0
-    findings = list(
-        db.scalars(
-            select(Finding)
-            .where(*conditions)
-            .order_by(Finding.created_at.desc(), Finding.external_id)
-            .offset((page - 1) * page_size)
-            .limit(page_size)
-        )
+    findings, total = paginate(
+        db,
+        Finding,
+        conditions,
+        (Finding.created_at.desc(), Finding.external_id),
+        page,
+        page_size,
     )
 
     run_ids = {item.run_id for item in findings}
@@ -143,7 +139,7 @@ def get_finding(
         JudgmentOut(
             verdict=judgment.verdict,
             note=judgment.note,
-            actor=_actor_name(display_name, email),
+            actor=actor_name(display_name, email),
             defect_id=defect.number if judgment.defect_id is not None and defect else None,
             created_at=judgment.created_at,
         )

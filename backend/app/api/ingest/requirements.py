@@ -1,0 +1,72 @@
+"""AI 机需求工作队列：先领小队列，再按需取详情。"""
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.core.defaults import REQUIREMENT_QUEUE_LIMIT
+from app.core.deps import SCOPE_ASSETS_READ, require_token_scope
+from app.core.errors import ApiError
+from app.db.models.asset import Requirement
+from app.db.models.project import Project
+from app.db.session import get_db
+from app.schemas.query import (
+    RequirementAssociationsOut,
+    RequirementOut,
+    RequirementQueueOut,
+)
+from app.services.asset_views import requirement_out_one
+from app.services.associations import requirement_associations
+from app.services.requirement_queue import build_requirement_queue
+
+router = APIRouter(prefix="/requirements", tags=["ingest"])
+
+
+@router.get("/next", response_model=RequirementQueueOut)
+def next_requirements(
+    limit: int = Query(default=REQUIREMENT_QUEUE_LIMIT, ge=1, le=20),
+    offset: int = Query(default=0, ge=0),
+    tag: str | None = Query(default=None),
+    project: Project = Depends(require_token_scope(SCOPE_ASSETS_READ)),
+    db: Session = Depends(get_db),
+) -> RequirementQueueOut:
+    return build_requirement_queue(
+        db, project.id, limit=limit, offset=offset, tag=tag
+    )
+
+
+@router.get("/{requirement_id}/associations", response_model=RequirementAssociationsOut)
+def get_requirement_associations(
+    requirement_id: str,
+    limit: int = Query(default=20, ge=1, le=100),
+    project: Project = Depends(require_token_scope(SCOPE_ASSETS_READ)),
+    db: Session = Depends(get_db),
+) -> RequirementAssociationsOut:
+    exists = db.scalar(
+        select(Requirement.id).where(
+            Requirement.project_id == project.id,
+            Requirement.external_id == requirement_id,
+        )
+    )
+    if exists is None:
+        raise ApiError(404, "requirement_not_found", "需求不存在")
+    return requirement_associations(
+        db, project.id, requirement_id, limit=limit
+    )
+
+
+@router.get("/{requirement_id}", response_model=RequirementOut)
+def get_requirement(
+    requirement_id: str,
+    project: Project = Depends(require_token_scope(SCOPE_ASSETS_READ)),
+    db: Session = Depends(get_db),
+) -> RequirementOut:
+    requirement = db.scalar(
+        select(Requirement).where(
+            Requirement.project_id == project.id,
+            Requirement.external_id == requirement_id,
+        )
+    )
+    if requirement is None:
+        raise ApiError(404, "requirement_not_found", "需求不存在")
+    return requirement_out_one(db, project.id, requirement)

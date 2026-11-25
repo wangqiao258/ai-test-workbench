@@ -1,101 +1,52 @@
-"""供 AI 机 / pytest 插件发现当前 Token 的能力边界。"""
+"""AI 机发现项目、目标地址与动作清单。"""
 
 from typing import Any
 
 from fastapi import APIRouter, Depends
 
-from app.core.deps import SCOPE_LEGACY, TokenContext, get_token_context
+from app.core.agent_actions import ACTIONS, SCOPE_ANY, WORKFLOW_STEPS
+from app.core.deps import TokenContext, get_token_context
 
 router = APIRouter(tags=["ingest"])
 
-CAPABILITIES: tuple[dict[str, str], ...] = (
-    {
-        "method": "GET",
-        "path": "/ingest/v1/assets/requirements",
-        "scope": "assets:read",
-        "description": "读取需求文档列表（含关联接口与用例 nodeid）",
-    },
-    {
-        "method": "GET",
-        "path": "/ingest/v1/assets/openapi",
-        "scope": "assets:read",
-        "description": "读取 OpenAPI 契约与全部接口明细",
-    },
-    {
-        "method": "GET",
-        "path": "/ingest/v1/assets/runs",
-        "scope": "runs:read",
-        "description": "读取最近运行批次及统计",
-    },
-    {
-        "method": "POST",
-        "path": "/ingest/v1/requirements",
-        "scope": "assets:write",
-        "description": "批量写入需求，需 Idempotency-Key 请求头",
-    },
-    {
-        "method": "POST",
-        "path": "/ingest/v1/openapi",
-        "scope": "assets:write",
-        "description": "批量写入结构化接口契约，需 Idempotency-Key 请求头",
-    },
-    {
-        "method": "POST",
-        "path": "/ingest/v1/catalog",
-        "scope": "assets:write",
-        "description": "写入 pytest 用例目录",
-    },
-    {
-        "method": "POST",
-        "path": "/ingest/v1/runs",
-        "scope": "runs:write",
-        "description": "上传运行结果、日志与抓包，需 Idempotency-Key 请求头",
-    },
-    {
-        "method": "POST",
-        "path": "/ingest/v1/runs/{run_id}/artifacts",
-        "scope": "runs:write",
-        "description": "上传 HAR / 截图等证据文件",
-    },
-    {
-        "method": "POST",
-        "path": "/ingest/v1/runs/{run_id}/analysis",
-        "scope": "analysis:write",
-        "description": "写入 AI 分析结果与 finding，需 Idempotency-Key 请求头",
-    },
-    {
-        "method": "POST",
-        "path": "/ingest/v1/specs",
-        "scope": "specs:write",
-        "description": "上传 pytest / Tavern YAML 规格，平台 runner 执行",
-    },
-    {
-        "method": "GET",
-        "path": "/ingest/v1/jobs/{job_id}",
-        "scope": "any",
-        "description": "查询异步入库任务状态",
-    },
+RULES: tuple[str, ...] = (
+    "被测请求 URL = project.baseUrl + operation.path；为空先填项目设置，actions.path 用平台地址",
+    "动作需要参数或请求体时先读 action.detail，不要猜",
+    "按 actions 顺序执行；需求与接口关联由测试请求自动建立",
+    "已测接口优先复用，未覆盖的再按 tag / q 检索",
+    "摘要只用于选接口，生成用例前必须读 /operations/{id} 详情",
+    "Tavern marks 写 workbench:requirement:<需求ID>",
+    "运行串行：上一次运行结束后再触发下一次；AI 只上传规格并触发运行，不执行 pytest",
 )
 
 
 @router.get("/whoami")
 def whoami(context: TokenContext = Depends(get_token_context)) -> dict[str, Any]:
-    """返回当前 Token 所属项目、granted scopes 与可用能力清单。"""
     scopes = sorted(context.scopes)
-    granted_all = SCOPE_LEGACY in context.scopes
-    capabilities = [
-        item
-        for item in CAPABILITIES
-        if granted_all or item["scope"] == "any" or item["scope"] in context.scopes
+    permitted = [
+        action
+        for action in ACTIONS
+        if action["scope"] == SCOPE_ANY or action["scope"] in context.scopes
+    ]
+    by_step = {action["step"]: action for action in permitted}
+    workflow = [by_step[step] for step in WORKFLOW_STEPS if step in by_step]
+    ordered = workflow + [
+        action for action in permitted if action["step"] not in WORKFLOW_STEPS
+    ]
+    actions = [
+        {**action, "detail": f"/ingest/v1/actions/{action['step']}"}
+        for action in ordered
     ]
     return {
         "project": {
             "id": str(context.project.id),
-            "key": context.project.key,
             "name": context.project.name,
+            "baseUrl": context.project.base_url or None,
         },
         "token": {"scopes": scopes},
-        "capabilities": capabilities,
+        "start": workflow[0]["step"] if workflow else None,
+        "actions": actions,
+        "rules": list(RULES),
         "docs": {
             "swagger": "/ingest/docs",
             "openapi": "/ingest/openapi.json",

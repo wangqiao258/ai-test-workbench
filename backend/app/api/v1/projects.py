@@ -5,19 +5,30 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.v1.runs import run_out
-from app.core.deps import get_current_user, get_membership
+from app.core.deps import get_current_user, get_membership, require_role
 from app.core.errors import ApiError
 from app.db.models.analysis import Finding
 from app.db.models.case import TestCase
 from app.db.models.identity import AppUser, ProjectMember
 from app.db.models.project import Project
-from app.db.models.review import AuditLog, Defect
+from app.db.models.review import Defect
 from app.db.models.run import Run
 from app.db.session import get_db
 from app.schemas.project import ProjectCreateIn, ProjectOut, ProjectUpdateIn
 from app.schemas.query import SummaryOut
+from app.services.audit import record_audit
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+
+
+def _project_out(project: Project, role: str) -> ProjectOut:
+    return ProjectOut(
+        id=project.id,
+        name=project.name,
+        base_url=project.base_url,
+        updated_at=project.updated_at,
+        role=role,
+    )
 
 
 def list_project_outs(db: Session, user_id: UUID) -> list[ProjectOut]:
@@ -25,21 +36,9 @@ def list_project_outs(db: Session, user_id: UUID) -> list[ProjectOut]:
         select(Project, ProjectMember.role)
         .join(ProjectMember, ProjectMember.project_id == Project.id)
         .where(ProjectMember.user_id == user_id)
-        .order_by(Project.key)
+        .order_by(Project.name)
     ).all()
-    return [
-        ProjectOut(
-            id=project.id,
-            key=project.key,
-            name=project.name,
-            repo=project.repo,
-            environment=project.environment,
-            owner=project.owner,
-            updated_at=project.updated_at,
-            role=role,
-        )
-        for project, role in rows
-    ]
+    return [_project_out(project, role) for project, role in rows]
 
 
 @router.get("", response_model=list[ProjectOut])
@@ -63,58 +62,37 @@ def create_project(
     )
     if is_admin is None:
         raise ApiError(403, "forbidden", "仅项目管理员可以创建项目")
-    if db.scalar(select(Project).where(Project.key == payload.key)) is not None:
-        raise ApiError(409, "project_exists", f"项目 KEY {payload.key} 已存在")
 
     project = Project(
-        key=payload.key,
         name=payload.name,
-        repo=payload.repo,
-        environment=payload.environment,
-        owner=payload.owner,
+        base_url=payload.base_url,
     )
     db.add(project)
     db.flush()
     db.add(ProjectMember(project_id=project.id, user_id=user.id, role="admin"))
-    db.add(
-        AuditLog(
-            project_id=project.id,
-            entity_type="project",
-            entity_id=str(project.id),
-            action="create",
-            actor_user_id=user.id,
-            after={
-                "key": project.key,
-                "name": project.name,
-                "repo": project.repo,
-                "environment": project.environment,
-                "owner": project.owner,
-            },
-        )
+    record_audit(
+        db,
+        project.id,
+        user.id,
+        "project",
+        str(project.id),
+        "create",
+        after={"name": project.name, "base_url": project.base_url},
     )
     db.commit()
     db.refresh(project)
-    return ProjectOut(
-        id=project.id,
-        key=project.key,
-        name=project.name,
-        repo=project.repo,
-        environment=project.environment,
-        owner=project.owner,
-        updated_at=project.updated_at,
-        role="admin",
-    )
+    return _project_out(project, "admin")
 
 
 @router.patch("/{project_id}", response_model=ProjectOut)
 def update_project(
     project_id: UUID,
     payload: ProjectUpdateIn,
-    member: ProjectMember = Depends(get_membership),
+    member: ProjectMember = Depends(
+        require_role("admin", message="仅项目管理员可以修改项目")
+    ),
     db: Session = Depends(get_db),
 ) -> ProjectOut:
-    if member.role != "admin":
-        raise ApiError(403, "forbidden", "仅项目管理员可以修改项目")
     project = db.get(Project, project_id)
     if project is None:
         raise ApiError(404, "project_not_found", "项目不存在")
@@ -123,39 +101,29 @@ def update_project(
     before = {key: getattr(project, key) for key in updates}
     for key, value in updates.items():
         setattr(project, key, value)
-    db.add(
-        AuditLog(
-            project_id=project.id,
-            entity_type="project",
-            entity_id=str(project.id),
-            action="update",
-            actor_user_id=member.user_id,
-            before=before,
-            after=updates,
-        )
+    record_audit(
+        db,
+        project.id,
+        member.user_id,
+        "project",
+        str(project.id),
+        "update",
+        before=before,
+        after=updates,
     )
     db.commit()
     db.refresh(project)
-    return ProjectOut(
-        id=project.id,
-        key=project.key,
-        name=project.name,
-        repo=project.repo,
-        environment=project.environment,
-        owner=project.owner,
-        updated_at=project.updated_at,
-        role=member.role,
-    )
+    return _project_out(project, member.role)
 
 
 @router.delete("/{project_id}", status_code=204)
 def delete_project(
     project_id: UUID,
-    member: ProjectMember = Depends(get_membership),
+    member: ProjectMember = Depends(
+        require_role("admin", message="仅项目管理员可以删除项目")
+    ),
     db: Session = Depends(get_db),
 ) -> None:
-    if member.role != "admin":
-        raise ApiError(403, "forbidden", "仅项目管理员可以删除项目")
     project = db.get(Project, project_id)
     if project is None:
         raise ApiError(404, "project_not_found", "项目不存在")

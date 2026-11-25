@@ -99,6 +99,7 @@ class CaseOut(ApiModel):
     nodeid: str
     name: str
     file: str
+    spec_path: str | None = None
     tags: list[str]
     requirement_ids: list[str]
     operation_ids: list[str]
@@ -106,6 +107,7 @@ class CaseOut(ApiModel):
     last_status: str | None = None
     last_duration_ms: int | None = None
     last_run_at: datetime | None = None
+    archived_at: datetime | None = None
 
 
 class CaseListOut(ApiModel):
@@ -113,6 +115,16 @@ class CaseListOut(ApiModel):
     page: int
     page_size: int
     total: int
+
+
+class CaseArchiveIn(ApiModel):
+    nodeid: str
+    archived: bool = True
+
+
+class CaseArchiveOut(ApiModel):
+    nodeid: str
+    archived: bool
 
 
 class RequirementOut(ApiModel):
@@ -125,6 +137,45 @@ class RequirementOut(ApiModel):
     content_md: str
     operation_ids: list[str]
     case_nodeids: list[str]
+
+
+class RequirementQueueItem(ApiModel):
+    id: str
+    title: str
+    category: str
+    tags: list[str]
+    priority: str
+    reason: str
+    updated_at: datetime
+    case_count: int
+    last_status: str | None = None
+    last_run_at: datetime | None = None
+    operation_count: int = 0
+    preview: str = ""
+
+
+class RequirementQueueOut(ApiModel):
+    items: list[RequirementQueueItem]
+    total: int
+    next_offset: int | None = None
+
+
+class RequirementOperationOut(ApiModel):
+    id: str
+    method: str
+    path: str
+    summary: str
+    tag: str
+    case_count: int
+    last_status: str | None = None
+    last_run_at: datetime | None = None
+    confidence: str
+
+
+class RequirementAssociationsOut(ApiModel):
+    requirement_id: str
+    operations: list[RequirementOperationOut]
+    total: int
 
 
 class OperationOut(ApiModel):
@@ -140,6 +191,27 @@ class OperationOut(ApiModel):
     responses: list[dict]
     requirement_ids: list[str]
     case_nodeids: list[str]
+
+
+class OperationSummaryOut(ApiModel):
+    id: str
+    doc_id: str
+    method: str
+    path: str
+    summary: str
+    tag: str
+    description_preview: str = ""
+    required_params: list[dict] = []
+    optional_param_count: int = 0
+    request_body_fields: list[dict] = []
+    request_body_field_count: int = 0
+    response_statuses: list[int] = []
+
+
+class OperationSummaryListOut(ApiModel):
+    items: list[OperationSummaryOut]
+    total: int
+    next_offset: int | None = None
 
 
 class OpenApiDocOut(ApiModel):

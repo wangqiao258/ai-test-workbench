@@ -187,23 +187,6 @@ button:focus:not(:focus-visible) {
   gap: 12px;
 }
 
-.sync-state {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-
-.sync-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--success);
-  flex: 0 0 6px;
-}
-
 /* ---------- Project switcher ---------- */
 
 .project-switcher {
@@ -251,14 +234,6 @@ button:focus:not(:focus-visible) {
   font-weight: 600;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.project-key {
-  color: var(--ink-4);
-  font-family: var(--mono);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  white-space: nowrap;
 }
 
 .project-scrim {
@@ -352,22 +327,6 @@ button:focus:not(:focus-visible) {
 .project-option-top svg {
   margin-left: auto;
   color: var(--primary);
-}
-
-.project-option-key {
-  color: var(--ink-4);
-  font-family: var(--mono);
-  font-size: 12px;
-  letter-spacing: 0.05em;
-}
-
-.project-option-sub {
-  overflow: hidden;
-  color: var(--ink-4);
-  font-family: var(--mono);
-  font-size: 12px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .project-option-stats {
@@ -4458,4 +4417,286 @@ tr:hover .table-action {
 .project-menu-actions {
   display: flex;
   gap: 6px;
+}
+
+/* ---------- Project settings: access tokens ---------- */
+
+.dialog-settings {
+  width: min(680px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
+.token-section {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line-strong);
+}
+
+.token-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.token-section-head h4 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.token-section-head p {
+  margin: 4px 0 0;
+  color: var(--ink-4);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.token-section-head code {
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.token-count {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+.token-create {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.token-create input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 12.5px;
+}
+
+.token-create input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-weak);
+}
+
+.token-create select {
+  width: 116px;
+  height: 30px;
+  flex: 0 0 auto;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 12.5px;
+}
+
+.token-create .btn {
+  flex: 0 0 auto;
+  height: 30px;
+}
+
+.token-hint {
+  margin: 6px 0 0;
+  color: var(--ink-4);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.token-secret {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--primary-line);
+  border-radius: var(--radius);
+  background: var(--primary-weak);
+}
+
+.token-secret-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: 12px;
+}
+
+.token-secret-head span {
+  color: var(--ink-3);
+}
+
+.token-secret > code {
+  display: block;
+  margin: 6px 0;
+  padding: 7px 8px;
+  border: 1px solid var(--primary-line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.token-secret-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.token-curl {
+  margin: 6px 0 0;
+  padding: 7px 8px;
+  border-radius: var(--radius);
+  background: rgba(15, 107, 79, 0.07);
+  color: var(--ink-3);
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.token-list {
+  margin-top: 8px;
+}
+
+.token-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+
+.token-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.token-title {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+}
+
+.token-title strong {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.token-title code {
+  color: var(--ink-4);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.token-scopes {
+  color: var(--ink-3);
+  font-size: 11.5px;
+}
+
+.token-dates {
+  color: var(--ink-4);
+  font-size: 11px;
+}
+
+.token-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.token-status {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.token-status-active {
+  background: var(--success-weak);
+  color: var(--success);
+}
+
+.token-status-revoked {
+  background: var(--surface-3);
+  color: var(--ink-4);
+}
+
+.token-status-expired {
+  background: var(--warning-weak);
+  color: var(--warning);
+}
+
+
+/* ---------- Case management ---------- */
+
+.check-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--primary-weak);
+  color: var(--primary-strong);
+  font-size: 12.5px;
+}
+
+.selection-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+
+.drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.drawer-actions .btn {
+  flex: 1 1 auto;
+}
+
+.is-archived {
+  opacity: 0.62;
+}
+
+.spec-editor {
+  min-height: 380px;
+  font-family: var(--mono, monospace);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.dialog-spec {
+  width: min(920px, 100%);
+  max-height: calc(100vh - 40px);
 }

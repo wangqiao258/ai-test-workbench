@@ -1,6 +1,6 @@
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from uuid import UUID
 
 import jwt
@@ -8,6 +8,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
 
 from app.core.config import get_settings
+from app.core.time import utcnow
 
 _hasher = PasswordHasher()
 
@@ -25,7 +26,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 def create_access_token(user_id: UUID) -> str:
     settings = get_settings()
-    now = datetime.now(timezone.utc)
+    now = utcnow()
     payload = {
         "sub": str(user_id),
         "iat": now,

@@ -3,19 +3,31 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_membership
+from app.core.deps import get_membership, require_role
+from app.core.errors import ApiError
+from app.core.pagination import paginate
+from app.core.time import utcnow
 from app.db.models.asset import CaseOperationMarker
 from app.db.models.case import CaseRequirementMarker, TestCase
 from app.db.models.identity import ProjectMember
 from app.db.session import get_db
-from app.schemas.query import CaseListOut, CaseOut
+from app.schemas.query import (
+    CaseArchiveIn,
+    CaseArchiveOut,
+    CaseListOut,
+    CaseOut,
+)
+from app.services.audit import record_audit
+from app.services.specs import relative_spec_path
 
 RunStatus = Literal["passed", "failed", "skipped", "error"]
 
 router = APIRouter(prefix="/projects/{project_id}/cases", tags=["query"])
+
+EDITOR = require_role("admin", "tester", message="当前角色无权修改用例")
 
 
 @router.get("", response_model=CaseListOut)
@@ -25,12 +37,15 @@ def list_cases(
     status: RunStatus | None = None,
     requirement: str | None = None,
     operation: str | None = None,
+    include_archived: bool = Query(default=False, alias="includeArchived"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     _: ProjectMember = Depends(get_membership),
     db: Session = Depends(get_db),
 ) -> CaseListOut:
     conditions = [TestCase.project_id == project_id]
+    if not include_archived:
+        conditions.append(TestCase.archived_at.is_(None))
     if q and q.strip():
         pattern = f"%{q.strip()}%"
         conditions.append(
@@ -61,17 +76,13 @@ def list_cases(
             )
         )
 
-    total = (
-        db.scalar(select(func.count(TestCase.id)).where(*conditions)) or 0
-    )
-    cases = list(
-        db.scalars(
-            select(TestCase)
-            .where(*conditions)
-            .order_by(TestCase.file, TestCase.nodeid)
-            .offset((page - 1) * page_size)
-            .limit(page_size)
-        )
+    cases, total = paginate(
+        db,
+        TestCase,
+        conditions,
+        (TestCase.file, TestCase.nodeid),
+        page,
+        page_size,
     )
 
     case_ids = [case.id for case in cases]
@@ -99,6 +110,11 @@ def list_cases(
                 nodeid=case.nodeid,
                 name=case.name,
                 file=case.file,
+                spec_path=(
+                    relative.as_posix()
+                    if (relative := relative_spec_path(project_id, case.file))
+                    else None
+                ),
                 tags=case.tags,
                 requirement_ids=sorted(requirement_map[case.id]),
                 operation_ids=sorted(operation_map[case.id]),
@@ -106,6 +122,7 @@ def list_cases(
                 last_status=case.last_status,
                 last_duration_ms=case.last_duration_ms,
                 last_run_at=case.last_run_at,
+                archived_at=case.archived_at,
             )
             for case in cases
         ],
@@ -113,3 +130,31 @@ def list_cases(
         page_size=page_size,
         total=total,
     )
+
+
+@router.patch("", response_model=CaseArchiveOut)
+def set_case_archived(
+    project_id: UUID,
+    payload: CaseArchiveIn,
+    member: ProjectMember = Depends(EDITOR),
+    db: Session = Depends(get_db),
+) -> CaseArchiveOut:
+    test_case = db.scalar(
+        select(TestCase).where(
+            TestCase.project_id == project_id, TestCase.nodeid == payload.nodeid
+        )
+    )
+    if test_case is None:
+        raise ApiError(404, "case_not_found", "用例不存在")
+    test_case.archived_at = utcnow() if payload.archived else None
+    record_audit(
+        db,
+        project_id,
+        member.user_id,
+        "case",
+        test_case.nodeid,
+        "archive" if payload.archived else "restore",
+        after={"archived": payload.archived},
+    )
+    db.commit()
+    return CaseArchiveOut(nodeid=test_case.nodeid, archived=payload.archived)

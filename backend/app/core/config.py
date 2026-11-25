@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 720
     cors_origins: str = "http://127.0.0.1:5173,http://localhost:5173"
     storage_dir: str = "storage"
+    access_log_path: str = "logs/access.log"
+    access_log_retention_days: int = 90
 
     @property
     def cors_origin_list(self) -> list[str]:
