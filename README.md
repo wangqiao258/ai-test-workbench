@@ -51,6 +51,8 @@ npm run dev
 
 打开 http://127.0.0.1:5173，`/api` 已代理到 `http://127.0.0.1:8000`。
 
+<img width="1912" height="948" alt="image" src="https://github.com/user-attachments/assets/c71f8e2f-f4a1-4159-a5c3-fc68681fe8d2" />
+
 ### Runner
 
 ```bash
