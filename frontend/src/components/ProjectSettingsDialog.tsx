@@ -13,6 +13,15 @@ interface Props {
   onDelete: (projectId: string) => Promise<void>
 }
 
+type SettingsTab = 'basic' | 'tokens' | 'secrets' | 'danger'
+
+const TABS: { id: SettingsTab; label: string }[] = [
+  { id: 'basic', label: '基本资料' },
+  { id: 'tokens', label: '接入令牌' },
+  { id: 'secrets', label: '测试凭据' },
+  { id: 'danger', label: '危险操作' },
+]
+
 export function ProjectSettingsDialog({
   open,
   project,
@@ -20,6 +29,7 @@ export function ProjectSettingsDialog({
   onSubmit,
   onDelete,
 }: Props) {
+  const [tab, setTab] = useState<SettingsTab>('basic')
   const [name, setName] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
   const [error, setError] = useState('')
@@ -28,12 +38,19 @@ export function ProjectSettingsDialog({
 
   useEffect(() => {
     if (!open) return
+    setTab('basic')
     setName(project.name)
     setBaseUrl(project.baseUrl)
     setError('')
     setBusy(false)
     setConfirmDelete(false)
   }, [open, project])
+
+  const switchTab = (next: SettingsTab) => {
+    setTab(next)
+    setError('')
+    setConfirmDelete(false)
+  }
 
   const submit = async () => {
     if (busy) return
@@ -68,6 +85,40 @@ export function ProjectSettingsDialog({
     }
   }
 
+  const footer =
+    tab === 'basic' ? (
+      <div className="dialog-actions">
+        <button type="button" className="btn" onClick={onCancel} disabled={busy}>
+          取消
+        </button>
+        <button type="submit" className="btn btn-primary" disabled={busy}>
+          {busy ? '保存中…' : '保存修改'}
+        </button>
+      </div>
+    ) : tab === 'danger' ? (
+      <div className="dialog-actions dialog-actions-split">
+        <button
+          type="button"
+          className="btn btn-danger"
+          onClick={remove}
+          disabled={busy}
+        >
+          {confirmDelete ? '确认删除' : '删除项目'}
+        </button>
+        <div className="dialog-actions-group">
+          <button type="button" className="btn" onClick={onCancel} disabled={busy}>
+            关闭
+          </button>
+        </div>
+      </div>
+    ) : (
+      <div className="dialog-actions">
+        <button type="button" className="btn" onClick={onCancel} disabled={busy}>
+          关闭
+        </button>
+      </div>
+    )
+
   return (
     <DialogShell
       open={open}
@@ -79,60 +130,71 @@ export function ProjectSettingsDialog({
       busyText="保存中…"
       error={error}
       submitText="保存修改"
+      canSubmit={tab === 'basic'}
       onCancel={onCancel}
       onSubmit={submit}
-      footer={
-        <div className="dialog-actions dialog-actions-split">
-          <button
-            type="button"
-            className="btn btn-danger"
-            onClick={remove}
-            disabled={busy}
-          >
-            {confirmDelete ? '确认删除' : '删除项目'}
-          </button>
-          <div className="dialog-actions-group">
-            <button type="button" className="btn" onClick={onCancel} disabled={busy}>
-              取消
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? '保存中…' : '保存修改'}
-            </button>
-          </div>
-        </div>
-      }
+      footer={footer}
     >
-      <div className="form-grid">
-        <label className="form-field form-field-wide">
-          <span>项目名称 *</span>
-          <input
-            autoFocus
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
-        <label className="form-field form-field-wide">
-          <span>被测服务地址</span>
-          <input
-            value={baseUrl}
-            placeholder="http://192.168.80.50:8080"
-            spellCheck={false}
-            onChange={(event) => setBaseUrl(event.target.value)}
-          />
-        </label>
+      <div className="settings-tabs" role="tablist" aria-label="项目设置分区">
+        {TABS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === item.id}
+            className={`settings-tab ${tab === item.id ? 'is-active' : ''}`}
+            onClick={() => switchTab(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
       </div>
 
-      <ProjectTokensSection projectId={project.id} />
-      <ProjectSecretsSection
-        projectId={project.id}
-        canEdit={project.role === 'admin'}
-      />
+      <div className="settings-panel">
+        {tab === 'basic' && (
+          <div className="form-grid">
+            <label className="form-field form-field-wide">
+              <span>项目名称 *</span>
+              <input
+                autoFocus
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </label>
+            <label className="form-field form-field-wide">
+              <span>被测服务地址</span>
+              <input
+                value={baseUrl}
+                placeholder="http://192.168.80.50:8080"
+                spellCheck={false}
+                onChange={(event) => setBaseUrl(event.target.value)}
+              />
+            </label>
+          </div>
+        )}
 
-      {confirmDelete && (
-        <p className="dialog-note dialog-note-danger">
-          再次点击「确认删除」将永久删除项目 {project.name}，该操作不可撤销。
-        </p>
-      )}
+        {tab === 'tokens' && <ProjectTokensSection projectId={project.id} />}
+
+        {tab === 'secrets' && (
+          <ProjectSecretsSection
+            projectId={project.id}
+            canEdit={project.role === 'admin'}
+          />
+        )}
+
+        {tab === 'danger' && (
+          <>
+            <p className="dialog-note">
+              删除项目会一并移除其需求、接口、用例、运行、证据与缺陷，且不可恢复。
+            </p>
+            {confirmDelete && (
+              <p className="dialog-note dialog-note-danger">
+                再次点击「确认删除」将永久删除项目 {project.name}，该操作不可撤销。
+              </p>
+            )}
+          </>
+        )}
+      </div>
     </DialogShell>
   )
 }
