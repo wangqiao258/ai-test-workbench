@@ -12,7 +12,12 @@ from app.core.time import utcnow
 from app.db.models.identity import ProjectMember
 from app.db.models.project import ApiToken
 from app.db.session import get_db
-from app.schemas.token import TokenCreatedOut, TokenCreateIn, TokenOut
+from app.schemas.token import (
+    TokenCreatedOut,
+    TokenCreateIn,
+    TokenOut,
+    TokenPurgeOut,
+)
 from app.services.audit import record_audit
 
 router = APIRouter(prefix="/projects/{project_id}/tokens", tags=["tokens"])
@@ -98,6 +103,42 @@ def create_token(
     return TokenCreatedOut(**_token_out(token, now).model_dump(), token=raw)
 
 
+@router.post("/purge-revoked", response_model=TokenPurgeOut)
+def purge_revoked_tokens(
+    project_id: UUID,
+    member: ProjectMember = Depends(ADMIN_ONLY),
+    db: Session = Depends(get_db),
+) -> TokenPurgeOut:
+    now = utcnow()
+    tokens = list(
+        db.scalars(
+            select(ApiToken)
+            .where(
+                ApiToken.project_id == project_id,
+                ApiToken.revoked_at.is_not(None)
+                | (
+                    ApiToken.expires_at.is_not(None)
+                    & (ApiToken.expires_at <= now)
+                ),
+            )
+            .order_by(ApiToken.created_at)
+        )
+    )
+    for token in tokens:
+        db.delete(token)
+    record_audit(
+        db,
+        project_id,
+        member.user_id,
+        "api_token",
+        "purge-revoked",
+        "purge",
+        before={"count": len(tokens)},
+    )
+    db.commit()
+    return TokenPurgeOut(deleted=len(tokens))
+
+
 @router.delete("/{token_id}", status_code=204)
 def revoke_token(
     project_id: UUID,
@@ -125,4 +166,34 @@ def revoke_token(
         "revoke",
         before={"name": token.name, "prefix": token.token_prefix},
     )
+    db.commit()
+
+
+@router.post("/{token_id}/purge", status_code=204)
+def purge_token(
+    project_id: UUID,
+    token_id: UUID,
+    member: ProjectMember = Depends(ADMIN_ONLY),
+    db: Session = Depends(get_db),
+) -> None:
+    token = db.scalar(
+        select(ApiToken).where(
+            ApiToken.id == token_id, ApiToken.project_id == project_id
+        )
+    )
+    if token is None:
+        raise ApiError(404, "token_not_found", "令牌不存在")
+    if _status(token, utcnow()) == "active":
+        raise ApiError(409, "token_active", "有效令牌需先吊销后再删除")
+
+    record_audit(
+        db,
+        project_id,
+        member.user_id,
+        "api_token",
+        str(token.id),
+        "purge",
+        before={"name": token.name, "prefix": token.token_prefix},
+    )
+    db.delete(token)
     db.commit()

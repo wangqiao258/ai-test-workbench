@@ -29,6 +29,10 @@ export function ProjectTokensSection({ projectId }: Props) {
   const [copied, setCopied] = useState<'token' | 'curl' | ''>('')
   const [revokeId, setRevokeId] = useState<string | null>(null)
   const [revoking, setRevoking] = useState(false)
+  const [purgeId, setPurgeId] = useState<string | null>(null)
+  const [purging, setPurging] = useState(false)
+  const [purgeAllArmed, setPurgeAllArmed] = useState(false)
+  const [purgingAll, setPurgingAll] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -63,6 +67,7 @@ export function ProjectTokensSection({ projectId }: Props) {
     (meta?.scopes ?? []).map((scope) => [scope.id, scope.label]),
   )
   const activeCount = tokens.filter((token) => token.status === 'active').length
+  const inactiveCount = tokens.length - activeCount
   const curl = created
     ? `curl -H "X-Project-Token: ${created.secret}" ${window.location.origin}/ingest/v1/whoami`
     : ''
@@ -130,6 +135,46 @@ export function ProjectTokensSection({ projectId }: Props) {
     }
   }
 
+  const purge = async (token: ProjectToken) => {
+    if (purging) return
+    if (purgeId !== token.id) {
+      setPurgeId(token.id)
+      return
+    }
+    setPurging(true)
+    setError('')
+    try {
+      await api.purgeProjectToken(projectId, token.id)
+      setTokens((prev) => prev.filter((item) => item.id !== token.id))
+      if (created?.token.id === token.id) setCreated(null)
+      setPurgeId(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '删除令牌失败')
+    } finally {
+      setPurging(false)
+    }
+  }
+
+  const purgeAll = async () => {
+    if (purgingAll) return
+    if (!purgeAllArmed) {
+      setPurgeAllArmed(true)
+      return
+    }
+    setPurgingAll(true)
+    setError('')
+    try {
+      await api.purgeRevokedProjectTokens(projectId)
+      setTokens((prev) => prev.filter((item) => item.status === 'active'))
+      setPurgeAllArmed(false)
+      setPurgeId(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '清理已失效令牌失败')
+    } finally {
+      setPurgingAll(false)
+    }
+  }
+
   return (
     <section className="token-section" aria-label="AI 接入令牌">
       <div className="token-section-head">
@@ -140,7 +185,21 @@ export function ProjectTokensSection({ projectId }: Props) {
             <code>X-Project-Token</code> 请求头，每个客户端单独一枚。
           </p>
         </div>
-        <span className="token-count">{activeCount} 枚有效</span>
+        <div className="token-head-actions">
+          {inactiveCount > 0 && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs"
+              disabled={purgingAll}
+              onClick={() => void purgeAll()}
+            >
+              {purgeAllArmed
+                ? `确认清理 ${inactiveCount} 枚`
+                : `清理已失效 ${inactiveCount} 枚`}
+            </button>
+          )}
+          <span className="token-count">{activeCount} 枚有效</span>
+        </div>
       </div>
 
       <div className="token-create">
@@ -239,7 +298,7 @@ export function ProjectTokensSection({ projectId }: Props) {
                 <span className={`token-status token-status-${token.status}`}>
                   {STATUS_LABELS[token.status]}
                 </span>
-                {token.status === 'active' && (
+                {token.status === 'active' ? (
                   <button
                     type="button"
                     className="btn btn-ghost btn-xs"
@@ -247,6 +306,15 @@ export function ProjectTokensSection({ projectId }: Props) {
                     onClick={() => void revoke(token)}
                   >
                     {revokeId === token.id ? '确认吊销' : '吊销'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs"
+                    disabled={purging}
+                    onClick={() => void purge(token)}
+                  >
+                    {purgeId === token.id ? '确认删除' : '删除'}
                   </button>
                 )}
               </div>

@@ -44,3 +44,7 @@ class TokenCreatedOut(TokenOut):
     """创建响应额外返回一次明文 Token，之后无法再次获取。"""
 
     token: str
+
+
+class TokenPurgeOut(ApiModel):
+    deleted: int

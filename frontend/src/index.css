@@ -4524,6 +4524,13 @@ tr:hover .table-action {
   font-size: 11.5px;
 }
 
+.token-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
 .token-count {
   flex: 0 0 auto;
   padding: 1px 7px;

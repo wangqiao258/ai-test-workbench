@@ -419,6 +419,24 @@ export async function revokeProjectToken(
   })
 }
 
+export async function purgeProjectToken(
+  projectId: string,
+  tokenId: string,
+): Promise<void> {
+  await request(`/projects/${projectId}/tokens/${tokenId}/purge`, {
+    method: 'POST',
+  })
+}
+
+export async function purgeRevokedProjectTokens(
+  projectId: string,
+): Promise<{ deleted: number }> {
+  return fetchJson<{ deleted: number }>(
+    `/projects/${projectId}/tokens/purge-revoked`,
+    { method: 'POST' },
+  )
+}
+
 interface BackendProjectSecret {
   key: string
   description: string
@@ -1010,6 +1028,8 @@ export const api = {
   fetchTokenMeta,
   createProjectToken,
   revokeProjectToken,
+  purgeProjectToken,
+  purgeRevokedProjectTokens,
   listProjectSecrets,
   upsertProjectSecret,
   deleteProjectSecret,
