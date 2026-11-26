@@ -15,7 +15,7 @@
     right: 0;
     bottom: 0;
     z-index: 60;
-    width: var(--rail-right);
+    width: var(--rail-trial);
     border-left: 1px solid var(--line);
     transform: translateX(104%);
     box-shadow: -10px 0 30px rgba(31, 35, 40, 0.14);

@@ -49,8 +49,8 @@
 }
 
 .pane-right {
-  width: var(--rail-right);
-  flex: 0 0 var(--rail-right);
+  width: var(--rail-trial);
+  flex: 0 0 var(--rail-trial);
   border-left: 1px solid var(--line);
   background: var(--surface-2);
 }
