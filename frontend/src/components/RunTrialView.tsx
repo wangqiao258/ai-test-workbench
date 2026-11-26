@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type {
+  AiSummary,
   AppData,
   Defect,
   Finding,
@@ -89,6 +90,7 @@ export function RunTrialView({
   const [onlyFailed, setOnlyFailed] = useState(false)
   const [trialOpen, setTrialOpen] = useState(false)
   const [caseDetails, setCaseDetails] = useState<Record<string, RunCase>>({})
+  const [summary, setSummary] = useState<AiSummary | undefined>(undefined)
 
   const header = <RunHeader />
 
@@ -120,6 +122,29 @@ export function RunTrialView({
       alive = false
     }
   }, [caseDetails, detailKey, nav.projectId, run, runCase])
+
+  useEffect(() => {
+    if (!run) return
+    if (data.summaries[run.id]) {
+      setSummary(data.summaries[run.id])
+      return
+    }
+    const projectId = nav.projectId
+    const runId = run.id
+    let alive = true
+    setSummary(undefined)
+    api
+      .fetchRunAnalysis(projectId, runId)
+      .then((item) => {
+        if (alive) setSummary(item)
+      })
+      .catch(() => {
+        if (alive) setSummary(undefined)
+      })
+    return () => {
+      alive = false
+    }
+  }, [data.summaries, nav.projectId, run])
 
   if (!run) {
     return (
@@ -325,7 +350,7 @@ export function RunTrialView({
           data={data}
           nav={nav}
           navigate={navigate}
-          summary={data.summaries[run.id]}
+          summary={summary}
           onJudge={onJudge}
           onToast={onToast}
           open={trialOpen}

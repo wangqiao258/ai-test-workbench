@@ -889,7 +889,7 @@ async function loadProject(project: BackendProject): Promise<{
 
   const runIdByUuid = new Map(runs.map((item) => [item.id, item.externalId]))
   const hydrated = await Promise.all(
-    runs.map(async (run) => {
+    runs.map(async (run): Promise<Run> => {
       let runCases: BackendRunCase[] = []
       try {
         runCases = await fetchJson<BackendRunCase[]>(
@@ -899,7 +899,7 @@ async function loadProject(project: BackendProject): Promise<{
         // 单个批次的用例读取失败时不阻塞其他批次
       }
 
-      const mappedRun: Run = {
+      return {
         projectId,
         id: run.externalId,
         startedAt: run.startedAt,
@@ -910,23 +910,6 @@ async function loadProject(project: BackendProject): Promise<{
         stats: run.stats,
         cases: runCases.map(mapRunCaseMeta),
       }
-
-      let summary: AiSummary | undefined
-      try {
-        const analysis = await fetchJson<BackendAnalysis>(
-          `/projects/${projectId}/runs/${run.id}/analysis`,
-        )
-        summary = {
-          runId: run.externalId,
-          text: analysis.summary,
-          generatedAt: analysis.generatedAt,
-          analyzer: analysis.analyzer,
-          model: analysis.model,
-        }
-      } catch {
-        summary = undefined
-      }
-      return { run: mappedRun, summary }
     }),
   )
 
@@ -935,17 +918,26 @@ async function loadProject(project: BackendProject): Promise<{
     requirements: requirements.map((item) => mapRequirement(projectId, item)),
     openapi: docs.map((item) => mapDoc(projectId, item)),
     cases: cases.map((item) => mapCase(projectId, item, runIdByUuid)),
-    runs: hydrated.map((item) => item.run),
+    runs: hydrated,
     findings: findings.map((item) => mapFinding(projectId, item)),
     defects: defects.map((item) => mapDefect(projectId, item)),
-    summaries: Object.fromEntries(
-      hydrated
-        .filter(
-          (item): item is { run: Run; summary: AiSummary } =>
-            item.summary !== undefined,
-        )
-        .map((item) => [item.run.id, item.summary]),
-    ),
+    summaries: {},
+  }
+}
+
+export async function fetchRunAnalysis(
+  projectId: string,
+  runId: string,
+): Promise<AiSummary> {
+  const analysis = await fetchJson<BackendAnalysis>(
+    `/projects/${projectId}/runs/${runId}/analysis`,
+  )
+  return {
+    runId,
+    text: analysis.summary,
+    generatedAt: analysis.generatedAt,
+    analyzer: analysis.analyzer,
+    model: analysis.model,
   }
 }
 
@@ -1005,6 +997,7 @@ export async function updateDefectStatus(
 export const api = {
   bootstrap,
   fetchRunCaseDetail,
+  fetchRunAnalysis,
   login,
   fetchSession,
   hasToken,
