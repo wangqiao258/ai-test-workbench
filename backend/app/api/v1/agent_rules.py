@@ -5,23 +5,16 @@ from sqlalchemy.orm import Session
 
 from app.core.agent_rules import DEFAULT_RULES
 from app.core.deps import get_membership, require_role
-from app.core.errors import ApiError
 from app.db.models.identity import ProjectMember
 from app.db.models.project import Project
 from app.db.session import get_db
 from app.schemas.project import AgentRulesIn, AgentRulesOut
 from app.services.audit import record_audit
+from app.services.projects import get_project_or_404
 
 router = APIRouter(prefix="/projects/{project_id}/agent-rules", tags=["projects"])
 
 ADMIN_ONLY = require_role("admin", message="仅项目管理员可以修改 AI 规则")
-
-
-def _project(db: Session, project_id: UUID) -> Project:
-    project = db.get(Project, project_id)
-    if project is None:
-        raise ApiError(404, "project_not_found", "项目不存在")
-    return project
 
 
 def _out(project: Project) -> AgentRulesOut:
@@ -39,7 +32,7 @@ def get_agent_rules(
     _: ProjectMember = Depends(get_membership),
     db: Session = Depends(get_db),
 ) -> AgentRulesOut:
-    return _out(_project(db, project_id))
+    return _out(get_project_or_404(db, project_id))
 
 
 @router.put("", response_model=AgentRulesOut)
@@ -49,7 +42,7 @@ def save_agent_rules(
     member: ProjectMember = Depends(ADMIN_ONLY),
     db: Session = Depends(get_db),
 ) -> AgentRulesOut:
-    project = _project(db, project_id)
+    project = get_project_or_404(db, project_id)
     before = project.agent_rules
     project.agent_rules = payload.rules
     record_audit(
@@ -72,7 +65,7 @@ def reset_agent_rules(
     member: ProjectMember = Depends(ADMIN_ONLY),
     db: Session = Depends(get_db),
 ) -> AgentRulesOut:
-    project = _project(db, project_id)
+    project = get_project_or_404(db, project_id)
     before = project.agent_rules
     project.agent_rules = None
     record_audit(

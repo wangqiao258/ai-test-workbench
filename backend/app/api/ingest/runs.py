@@ -4,13 +4,12 @@ from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
 from app.core.deps import SCOPE_ANALYSIS_WRITE, SCOPE_RUNS_WRITE, require_token_scope
-from app.core.errors import ApiError
 from app.db.models.project import Project
-from app.db.models.run import Run
 from app.db.session import get_db
 from app.schemas.ingest import AnalysisIn, AnalysisOut, RunIngestIn, RunIngestOut
 from app.services.idempotency import begin_idempotent, digest_model, finish_idempotent
 from app.services.ingestion import ingest_analysis, ingest_run
+from app.services.runs import resolve_run
 from app.services.storage import get_storage
 
 router = APIRouter(prefix="/runs", tags=["ingest"])
@@ -43,9 +42,7 @@ def upload_analysis(
     project: Project = Depends(require_token_scope(SCOPE_ANALYSIS_WRITE)),
     db: Session = Depends(get_db),
 ) -> AnalysisOut:
-    run = db.get(Run, run_id)
-    if run is None or run.project_id != project.id:
-        raise ApiError(404, "run_not_found", "运行不存在")
+    run = resolve_run(db, project.id, str(run_id))
 
     record, replay = begin_idempotent(
         db, project.id, "analysis", idempotency_key, digest_model(payload)

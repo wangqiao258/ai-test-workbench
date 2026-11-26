@@ -23,24 +23,10 @@ from app.schemas.query import (
     RunListOut,
     RunOut,
 )
+from app.services.runs import resolve_run
 from app.services.storage import get_storage
 
 router = APIRouter(prefix="/projects/{project_id}/runs", tags=["query"])
-
-
-def resolve_run(db: Session, project_id: UUID, run_ref: str) -> Run:
-    run: Run | None = None
-    try:
-        run = db.get(Run, UUID(run_ref))
-    except ValueError:
-        pass
-    if run is None:
-        run = db.scalar(
-            select(Run).where(Run.project_id == project_id, Run.external_id == run_ref)
-        )
-    if run is None or run.project_id != project_id:
-        raise ApiError(404, "run_not_found", "运行不存在")
-    return run
 
 
 def run_out(run: Run) -> RunOut:

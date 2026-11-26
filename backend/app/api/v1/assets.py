@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_membership, require_role
 from app.core.errors import ApiError
 from app.core.time import utcnow
-from app.db.models.asset import CaseOperationMarker, OpenApiDoc, Operation, Requirement
+from app.db.models.asset import CaseOperationMarker, OpenApiDoc, Operation
 from app.db.models.case import CaseRequirementMarker
 from app.db.models.identity import ProjectMember
 from app.db.session import get_db
@@ -27,23 +27,16 @@ from app.services.asset_views import (
     requirement_out_one,
     requirement_outs,
 )
-from app.services.assets import get_operation, upsert_openapi, upsert_requirements
+from app.services.assets import (
+    get_operation,
+    load_requirement,
+    upsert_openapi,
+    upsert_requirements,
+)
 from app.services.audit import record_audit
 from app.services.openapi_import import OpenApiParseError, parse_openapi_document
 
 router = APIRouter(prefix="/projects/{project_id}", tags=["assets"])
-
-
-def _get_requirement(db: Session, project_id: UUID, requirement_id: str) -> Requirement:
-    requirement = db.scalar(
-        select(Requirement).where(
-            Requirement.project_id == project_id,
-            Requirement.external_id == requirement_id,
-        )
-    )
-    if requirement is None:
-        raise ApiError(404, "requirement_not_found", "需求不存在")
-    return requirement
 
 
 def _get_doc(db: Session, project_id: UUID, doc_id: str) -> OpenApiDoc:
@@ -76,7 +69,7 @@ def get_requirement(
     _: ProjectMember = Depends(get_membership),
     db: Session = Depends(get_db),
 ) -> RequirementOut:
-    return requirement_out_one(db, project_id, _get_requirement(db, project_id, requirement_id))
+    return requirement_out_one(db, project_id, load_requirement(db, project_id, requirement_id))
 
 
 @router.get("/openapi", response_model=list[OpenApiDocOut])
@@ -111,7 +104,7 @@ def upsert_requirement(
     db: Session = Depends(get_db),
 ) -> RequirementOut:
     upsert_requirements(db, project_id, RequirementBatchIn(requirements=[payload]))
-    requirement = _get_requirement(db, project_id, payload.external_id)
+    requirement = load_requirement(db, project_id, payload.external_id)
     record_audit(
         db,
         project_id,
@@ -136,7 +129,7 @@ def update_requirement(
     ),
     db: Session = Depends(get_db),
 ) -> RequirementOut:
-    requirement = _get_requirement(db, project_id, requirement_id)
+    requirement = load_requirement(db, project_id, requirement_id)
     updates = payload.model_dump(exclude_unset=True, exclude_none=True)
     if "title" in updates and not str(updates["title"]).strip():
         raise ApiError(422, "invalid_title", "需求标题不能为空")
@@ -168,7 +161,7 @@ def delete_requirement(
     ),
     db: Session = Depends(get_db),
 ) -> None:
-    requirement = _get_requirement(db, project_id, requirement_id)
+    requirement = load_requirement(db, project_id, requirement_id)
     db.execute(
         delete(CaseRequirementMarker).where(
             CaseRequirementMarker.project_id == project_id,

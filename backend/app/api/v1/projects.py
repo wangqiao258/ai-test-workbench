@@ -17,6 +17,7 @@ from app.db.session import get_db
 from app.schemas.project import ProjectCreateIn, ProjectOut, ProjectUpdateIn
 from app.schemas.query import SummaryOut
 from app.services.audit import record_audit
+from app.services.projects import get_project_or_404
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -95,9 +96,7 @@ def update_project(
     ),
     db: Session = Depends(get_db),
 ) -> ProjectOut:
-    project = db.get(Project, project_id)
-    if project is None:
-        raise ApiError(404, "project_not_found", "项目不存在")
+    project = get_project_or_404(db, project_id)
 
     updates = payload.model_dump(exclude_unset=True, exclude_none=True)
     before = {key: getattr(project, key) for key in updates}
@@ -126,9 +125,7 @@ def delete_project(
     ),
     db: Session = Depends(get_db),
 ) -> None:
-    project = db.get(Project, project_id)
-    if project is None:
-        raise ApiError(404, "project_not_found", "项目不存在")
+    project = get_project_or_404(db, project_id)
 
     membership_count = (
         db.scalar(

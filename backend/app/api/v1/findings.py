@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.v1.runs import resolve_run
+from app.services.runs import resolve_run
 from app.core.deps import get_membership
 from app.core.errors import ApiError
 from app.core.pagination import paginate

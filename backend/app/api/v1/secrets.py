@@ -14,6 +14,7 @@ from app.db.models.project import ProjectSecret
 from app.db.session import get_db
 from app.schemas.secret import SecretOut, SecretUpsertIn, normalize_secret_key
 from app.services.audit import record_audit
+from app.services.project_secrets import list_project_secrets
 
 router = APIRouter(prefix="/projects/{project_id}/secrets", tags=["secrets"])
 
@@ -38,11 +39,7 @@ def list_secrets(
     _: ProjectMember = Depends(get_membership),
     db: Session = Depends(get_db),
 ) -> list[SecretOut]:
-    items = db.scalars(
-        select(ProjectSecret)
-        .where(ProjectSecret.project_id == project_id)
-        .order_by(ProjectSecret.key)
-    ).all()
+    items = list_project_secrets(db, project_id)
     now = utcnow()
     return [_out(item, now, decrypt_secret(item.value_ciphertext)) for item in items]
 

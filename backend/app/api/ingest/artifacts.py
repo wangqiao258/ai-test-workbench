@@ -8,11 +8,12 @@ from app.core.deps import SCOPE_RUNS_WRITE, require_token_scope
 from app.core.errors import ApiError
 from app.db.models.ingest import IngestionJob
 from app.db.models.project import Project
-from app.db.models.run import Run, RunCase
+from app.db.models.run import RunCase
 from app.db.session import get_db
 from app.schemas.ingest import ArtifactOut
 from app.services.artifacts import process_har_job, store_artifact
 from app.services.idempotency import begin_idempotent, digest_bytes, finish_idempotent
+from app.services.runs import resolve_run
 from app.services.storage import get_storage
 
 router = APIRouter(prefix="/runs", tags=["ingest"])
@@ -45,9 +46,7 @@ async def upload_artifact(
     if replay is not None:
         return replay
 
-    run = db.get(Run, run_id)
-    if run is None or run.project_id != project.id:
-        raise ApiError(404, "run_not_found", "运行不存在")
+    run = resolve_run(db, project.id, str(run_id))
 
     run_case: RunCase | None = None
     if nodeid:

@@ -21,6 +21,18 @@ def get_operation(db: Session, project_id: uuid.UUID, external_id: str) -> Opera
     return operation
 
 
+def load_requirement(db: Session, project_id: uuid.UUID, external_id: str) -> Requirement:
+    requirement = db.scalar(
+        select(Requirement).where(
+            Requirement.project_id == project_id,
+            Requirement.external_id == external_id,
+        )
+    )
+    if requirement is None:
+        raise ApiError(404, "requirement_not_found", "需求不存在")
+    return requirement
+
+
 def upsert_requirements(
     db: Session, project_id: uuid.UUID, payload: RequirementBatchIn
 ) -> int:
