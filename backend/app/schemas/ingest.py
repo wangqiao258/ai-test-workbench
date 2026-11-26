@@ -5,8 +5,8 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.frameworks import (
-    CATALOG_FRAMEWORKS,
-    RUN_FRAMEWORKS,
+    AD_HOC_FRAMEWORK,
+    MAX_FRAMEWORK_LENGTH,
     normalize_framework,
 )
 
@@ -56,8 +56,8 @@ class CaseIn(CaseBase):
     @classmethod
     def _validate_framework(cls, value: str) -> str:
         normalized = normalize_framework(value)
-        if normalized and normalized not in RUN_FRAMEWORKS:
-            raise ValueError("framework 必须是 " + "、".join(RUN_FRAMEWORKS) + " 之一")
+        if len(normalized) > MAX_FRAMEWORK_LENGTH:
+            raise ValueError(f"framework 不能超过 {MAX_FRAMEWORK_LENGTH} 个字符")
         return normalized
 
     @model_validator(mode="after")
@@ -204,10 +204,10 @@ class CatalogCaseIn(CaseBase):
     @classmethod
     def _validate_framework(cls, value: str) -> str:
         normalized = normalize_framework(value) or "pytest"
-        if normalized not in CATALOG_FRAMEWORKS:
-            raise ValueError(
-                "framework 必须是 " + "、".join(CATALOG_FRAMEWORKS) + " 之一"
-            )
+        if len(normalized) > MAX_FRAMEWORK_LENGTH:
+            raise ValueError(f"framework 不能超过 {MAX_FRAMEWORK_LENGTH} 个字符")
+        if normalized == AD_HOC_FRAMEWORK:
+            raise ValueError("临时脚本不要通过 catalog 入库，用 script 上报运行即可")
         return normalized
 
 

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.agent_actions import ACTIONS, SCOPE_ANY, WORKFLOW_STEPS
 from app.core.deps import SCOPE_SECRETS_READ, TokenContext, get_token_context
-from app.core.frameworks import AD_HOC_FRAMEWORK, CATALOG_FRAMEWORKS
+from app.core.frameworks import AD_HOC_FRAMEWORK, KNOWN_FRAMEWORKS
 from app.core.time import utcnow
 from app.db.models.project import ProjectSecret
 from app.db.session import get_db
@@ -26,8 +26,9 @@ RULES: tuple[str, ...] = (
     "生成后 commit 并 push，再上报 catalog；仓库未配置时先在项目设置填写",
     "catalog 只写索引，禁止只上报不落仓库；source(repo/ref/commit) 必须填实际仓库、"
     "分支和提交后的 commit",
-    f"framework 只收 {'、'.join(CATALOG_FRAMEWORKS)}",
-    f"临时脚本或其它框架上报时 framework={AD_HOC_FRAMEWORK}，只留运行与证据，不进入用例库",
+    f"用例库接受任意框架名，建议用规范小写（如 {'、'.join(KNOWN_FRAMEWORKS)}）；"
+    "catalog 不要用 script",
+    f"临时脚本上报时 framework={AD_HOC_FRAMEWORK}，只留运行与证据，不进入用例库",
     "平台不执行测试：AI 自行选择框架（pytest、Tavern、Postman、Playwright、Cypress）"
     "在本机或外部环境执行，执行后通过 /ingest/v1/runs 上传结果与证据",
     "失败用例先归因再回写：随 run 传 analysis，findings 需含 nodeid、type、severity、"

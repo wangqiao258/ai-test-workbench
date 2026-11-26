@@ -1,6 +1,7 @@
-"""用例框架白名单：索引只收这些框架，其余按临时脚本处理。"""
+"""用例框架：索引接受任意框架名，script 专用于临时脚本。"""
 
-CATALOG_FRAMEWORKS: tuple[str, ...] = (
+# 推荐用的规范框架名，仅用于 whoami 提示，不再作为白名单限制。
+KNOWN_FRAMEWORKS: tuple[str, ...] = (
     "pytest",
     "tavern",
     "postman",
@@ -9,8 +10,7 @@ CATALOG_FRAMEWORKS: tuple[str, ...] = (
 )
 
 AD_HOC_FRAMEWORK = "script"
-
-RUN_FRAMEWORKS: tuple[str, ...] = (*CATALOG_FRAMEWORKS, AD_HOC_FRAMEWORK)
+MAX_FRAMEWORK_LENGTH = 32
 
 
 def normalize_framework(value: str | None) -> str:

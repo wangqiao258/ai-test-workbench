@@ -39,16 +39,13 @@ const STATUS_OPTIONS: Array<{ value: 'all' | RunStatus; label: string }> = [
   { value: 'skipped', label: '跳过' },
 ]
 
-const FRAMEWORK_OPTIONS = [
-  { value: 'pytest', label: 'pytest' },
-  { value: 'tavern', label: 'Tavern' },
-  { value: 'postman', label: 'Postman' },
-  { value: 'playwright', label: 'Playwright' },
-  { value: 'cypress', label: 'Cypress' },
-]
-const FRAMEWORK_LABELS: Record<string, string> = Object.fromEntries(
-  FRAMEWORK_OPTIONS.map((item) => [item.value, item.label]),
-)
+const FRAMEWORK_LABELS: Record<string, string> = {
+  pytest: 'pytest',
+  tavern: 'Tavern',
+  postman: 'Postman',
+  playwright: 'Playwright',
+  cypress: 'Cypress',
+}
 
 function StatCard({
   label,
@@ -328,6 +325,15 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
   )
   const archivedCount = data.cases.length - activeCases.length
 
+  const frameworkOptions = useMemo(() => {
+    const values = [
+      ...new Set(activeCases.map((item) => item.framework).filter(Boolean)),
+    ]
+    return values
+      .sort()
+      .map((value) => ({ value, label: FRAMEWORK_LABELS[value] ?? value }))
+  }, [activeCases])
+
   const allOperations = useMemo(
     () => data.openapi.flatMap((item) => item.operations),
     [data.openapi],
@@ -557,7 +563,7 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
               aria-label="按框架筛选"
             >
               <option value="all">全部框架</option>
-              {FRAMEWORK_OPTIONS.map((item) => (
+              {frameworkOptions.map((item) => (
                 <option key={item.value} value={item.value}>
                   {item.label}
                 </option>
