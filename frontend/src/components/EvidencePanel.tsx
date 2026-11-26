@@ -20,6 +20,7 @@ interface Props {
   data: AppData
   nav: NavState
   navigate: Navigate
+  runId: string
   runCase: RunCase
   testCase?: TestCase
   pendingCount: number
@@ -80,6 +81,7 @@ export function EvidencePanel({
   data,
   nav,
   navigate,
+  runId,
   runCase,
   testCase,
   pendingCount,
@@ -105,6 +107,17 @@ export function EvidencePanel({
   return (
     <section className="pane pane-center">
       <div className="evidence-head">
+        <div className="evidence-crumb">
+          <span className="crumb-run">{runId}</span>
+          <Icon name="chevronRight" size={11} />
+          <span className="crumb-case">{runCase.nodeid}</span>
+          {nav.findingId && (
+            <>
+              <Icon name="chevronRight" size={11} />
+              <span className="crumb-finding">{nav.findingId}</span>
+            </>
+          )}
+        </div>
         <div className="evidence-title-row">
           <RunStatusBadge status={runCase.status} />
           <h2 className="evidence-title">

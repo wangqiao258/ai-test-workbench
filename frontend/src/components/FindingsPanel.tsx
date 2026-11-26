@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type {
   AiSummary,
   AppData,
@@ -23,6 +23,7 @@ import {
 
 interface Props {
   run: Run
+  nodeid: string
   data: AppData
   nav: NavState
   navigate: Navigate
@@ -53,6 +54,7 @@ function findingVerdict(status: Finding['status']): Verdict {
 
 export function FindingsPanel({
   run,
+  nodeid,
   data,
   nav,
   navigate,
@@ -66,29 +68,64 @@ export function FindingsPanel({
   const [verdict, setVerdict] = useState<Verdict | null>(null)
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [otherOpen, setOtherOpen] = useState(false)
+  const activeCardRef = useRef<HTMLElement | null>(null)
 
-  const runFindings = data.findings.filter((item) => item.runId === run.id)
-  const pendingCount = runFindings.filter(
+  const caseFindings = data.findings.filter(
+    (item) => item.runId === run.id && item.nodeid === nodeid,
+  )
+  const otherFindings = data.findings
+    .filter((item) => item.runId === run.id && item.nodeid !== nodeid)
+    .sort(
+      (left, right) =>
+        (left.status === 'pending' ? 0 : 1) -
+          (right.status === 'pending' ? 0 : 1) ||
+        severityRank[left.suggestedSeverity] -
+          severityRank[right.suggestedSeverity],
+    )
+  const pendingCount = caseFindings.filter(
     (item) => item.status === 'pending',
   ).length
-  const judgedCount = runFindings.length - pendingCount
-  const filtered = runFindings.filter((item) => {
-    if (filter === 'pending') return item.status === 'pending'
-    if (filter === 'judged') return item.status !== 'pending'
-    return true
-  })
-  const selected = runFindings.find((item) => item.id === nav.findingId)
+  const judgedCount = caseFindings.length - pendingCount
+  const otherPending = otherFindings.filter(
+    (item) => item.status === 'pending',
+  ).length
+  const filtered = caseFindings
+    .filter((item) => {
+      if (filter === 'pending') return item.status === 'pending'
+      if (filter === 'judged') return item.status !== 'pending'
+      return true
+    })
+    .sort(
+      (left, right) =>
+        severityRank[left.suggestedSeverity] -
+          severityRank[right.suggestedSeverity] ||
+        right.createdAt.localeCompare(left.createdAt),
+    )
 
   useEffect(() => {
     setVerdict(null)
     setNote('')
     setFilter('pending')
-  }, [run.id])
+    setOtherOpen(false)
+  }, [run.id, nodeid])
 
   useEffect(() => {
     setVerdict(null)
     setNote('')
   }, [nav.findingId])
+
+  useEffect(() => {
+    if (!nav.findingId) return
+    const target = data.findings.find((item) => item.id === nav.findingId)
+    if (target) {
+      setFilter(target.status === 'pending' ? 'pending' : 'judged')
+    }
+  }, [data.findings, nav.findingId])
+
+  useEffect(() => {
+    activeCardRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [filter, nodeid, nav.findingId, run.id])
 
   const submitJudge = async (finding: Finding) => {
     if (!verdict || submitting) return
@@ -135,7 +172,7 @@ export function FindingsPanel({
         <div>
           <span className="eyebrow">AI ANALYSIS / 裁决</span>
           <h2>AI 审判</h2>
-          <p>分析由外部流水线落库，结论由人落下。</p>
+          <p>审阅左侧选中用例的 AI 发现；批次级分析见上方。</p>
         </div>
         <div className="trial-head-actions">
           <span className="ai-brain-badge">
@@ -189,8 +226,8 @@ export function FindingsPanel({
 
         <div className="findings-head">
           <h3>
-            AI 发现
-            <span className="count-pill">{runFindings.length}</span>
+            本用例 AI 发现
+            <span className="count-pill">{caseFindings.length}</span>
           </h3>
           <Segmented
             size="sm"
@@ -199,7 +236,7 @@ export function FindingsPanel({
             options={[
               { value: 'pending', label: '待审判', count: pendingCount },
               { value: 'judged', label: '已处理', count: judgedCount },
-              { value: 'all', label: '全部', count: runFindings.length },
+              { value: 'all', label: '全部', count: caseFindings.length },
             ]}
           />
         </div>
@@ -212,6 +249,7 @@ export function FindingsPanel({
               return (
                 <article
                   key={finding.id}
+                  ref={active ? activeCardRef : undefined}
                   className={`finding-card ${active ? 'is-active' : ''} ${
                     isPending ? '' : 'is-judged'
                   }`}
@@ -387,14 +425,22 @@ export function FindingsPanel({
           ) : (
             <EmptyState
               icon="shield"
-              title={filter === 'pending' ? '本次运行的发现已全部审判' : '暂无 AI 发现'}
+              title={
+                caseFindings.length === 0
+                  ? '本用例没有 AI 发现'
+                  : filter === 'pending'
+                    ? '本用例的发现已全部审判'
+                    : '本用例暂无已处理发现'
+              }
               description={
-                filter === 'pending'
-                  ? '切换「已处理」回看裁决记录。'
-                  : '外部分析流水线尚未写入发现，可切换其他运行批次查看。'
+                caseFindings.length === 0
+                  ? '展开下方「本批次其他发现」查看其他用例，或切换到有发现的用例。'
+                  : filter === 'pending'
+                    ? '切换「已处理」回看裁决记录。'
+                    : '外部分析流水线尚未写入该用例的发现。'
               }
               action={
-                filter === 'pending' ? (
+                filter === 'pending' && caseFindings.length > 0 ? (
                   <button
                     type="button"
                     className="btn"
@@ -407,6 +453,47 @@ export function FindingsPanel({
             />
           )}
         </div>
+
+        {otherFindings.length > 0 && (
+          <div className="other-findings-block">
+            <button
+              type="button"
+              className="other-findings-toggle"
+              onClick={() => setOtherOpen((prev) => !prev)}
+            >
+              <Icon name={otherOpen ? 'chevronDown' : 'chevronRight'} size={13} />
+              本批次其他发现
+              <span className="count-pill">{otherFindings.length}</span>
+              {otherPending > 0 && (
+                <span className="warn-chip">{otherPending} 待审判</span>
+              )}
+            </button>
+            {otherOpen && (
+              <div className="other-findings">
+                {otherFindings.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="other-finding-row"
+                    onClick={() =>
+                      navigate({
+                        findingId: item.id,
+                        evidenceNodeid: item.nodeid,
+                        exchangeIndex: item.exchangeIndex ?? 0,
+                      })
+                    }
+                  >
+                    <SeverityBadge severity={item.suggestedSeverity} />
+                    <span className="other-title">{item.title}</span>
+                    <span className="other-case">
+                      {item.nodeid.split('::')[1] ?? item.nodeid}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </aside>
   )

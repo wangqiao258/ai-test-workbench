@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type {
   AiSummary,
   AppData,
@@ -12,7 +12,7 @@ import type {
   Verdict,
 } from '../types'
 import { api } from '../services/api'
-import { formatDateTime, formatDuration } from '../utils/format'
+import { formatDateTime, formatDuration, severityRank } from '../utils/format'
 import { EvidencePanel } from './EvidencePanel'
 import { FindingsPanel } from './FindingsPanel'
 import { EmptyState, Icon } from './ui'
@@ -155,6 +155,40 @@ export function RunTrialView({
     return counts
   }, [data.findings])
 
+  const findingCounts = useMemo(() => {
+    const counts = new Map<string, { total: number; pending: number }>()
+    if (!run) return counts
+    for (const item of data.findings) {
+      if (item.runId !== run.id) continue
+      const current = counts.get(item.nodeid) ?? { total: 0, pending: 0 }
+      current.total += 1
+      if (item.status === 'pending') current.pending += 1
+      counts.set(item.nodeid, current)
+    }
+    return counts
+  }, [data.findings, run])
+
+  const activeCaseRef = useRef<HTMLButtonElement | null>(null)
+  const lastNodeidRef = useRef('')
+
+  useEffect(() => {
+    activeCaseRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [onlyFailed, run?.id, runCase?.nodeid])
+
+  useEffect(() => {
+    const nodeid = runCase?.nodeid ?? ''
+    if (nodeid === lastNodeidRef.current) return
+    lastNodeidRef.current = nodeid
+    if (
+      onlyFailed &&
+      runCase &&
+      runCase.status !== 'failed' &&
+      runCase.status !== 'error'
+    ) {
+      setOnlyFailed(false)
+    }
+  }, [onlyFailed, runCase])
+
   if (!run) {
     return (
       <RunEmpty
@@ -176,7 +210,10 @@ export function RunTrialView({
   const activeRunCase = detail ?? runCase
   const testCase = data.cases.find((item) => item.nodeid === runCase.nodeid)
   const runFindings = data.findings.filter((item) => item.runId === run.id)
-  const pendingCount = runFindings.filter(
+  const caseFindings = runFindings.filter(
+    (item) => item.nodeid === runCase.nodeid,
+  )
+  const pendingCount = caseFindings.filter(
     (item) => item.status === 'pending',
   ).length
 
@@ -206,16 +243,15 @@ export function RunTrialView({
   }
 
   const selectCase = (nodeid: string) => {
-    const matchedFinding =
-      data.findings.find(
-        (item) =>
-          item.runId === run.id &&
-          item.nodeid === nodeid &&
-          item.status === 'pending',
-      ) ??
-      data.findings.find(
-        (item) => item.runId === run.id && item.nodeid === nodeid,
-      )
+    const matchedFinding = data.findings
+      .filter((item) => item.runId === run.id && item.nodeid === nodeid)
+      .sort(
+        (left, right) =>
+          (left.status === 'pending' ? 0 : 1) -
+            (right.status === 'pending' ? 0 : 1) ||
+          severityRank[left.suggestedSeverity] -
+            severityRank[right.suggestedSeverity],
+      )[0]
     navigate({
       evidenceNodeid: nodeid,
       exchangeIndex: matchedFinding?.exchangeIndex ?? 0,
@@ -300,10 +336,12 @@ export function RunTrialView({
                   (test) => test.nodeid === item.nodeid,
                 )
                 const active = item.nodeid === runCase.nodeid
+                const findingCount = findingCounts.get(item.nodeid)
                 return (
                   <button
                     key={item.nodeid}
                     type="button"
+                    ref={active ? activeCaseRef : undefined}
                     className={`case-row ${active ? 'is-active' : ''}`}
                     onClick={() => selectCase(item.nodeid)}
                   >
@@ -314,6 +352,19 @@ export function RunTrialView({
                       </div>
                       <div className="case-row-meta">
                         <span>{item.nodeid.split('::')[0]}</span>
+                        {findingCount && (
+                          <span
+                            className={`case-row-finding ${
+                              findingCount.pending > 0 ? 'is-pending' : ''
+                            }`}
+                            title={`本用例 ${findingCount.total} 条 AI 发现，${findingCount.pending} 条待审判`}
+                          >
+                            <Icon name="spark" size={11} />
+                            {findingCount.pending > 0
+                              ? `${findingCount.pending} 待审判`
+                              : `${findingCount.total} 条发现`}
+                          </span>
+                        )}
                         {item.error && (
                           <span className="case-row-error">
                             <Icon name="alert" size={11} />
@@ -342,6 +393,7 @@ export function RunTrialView({
           data={data}
           nav={nav}
           navigate={navigate}
+          runId={run.id}
           runCase={activeRunCase}
           testCase={testCase}
           pendingCount={pendingCount}
@@ -360,6 +412,7 @@ export function RunTrialView({
 
         <FindingsPanel
           run={run}
+          nodeid={runCase.nodeid}
           data={data}
           nav={nav}
           navigate={navigate}
