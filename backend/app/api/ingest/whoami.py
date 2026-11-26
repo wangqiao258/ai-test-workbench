@@ -22,6 +22,9 @@ RULES: tuple[str, ...] = (
     "摘要只用于选接口，生成用例前必须读 /operations/{id} 详情",
     "Tavern marks 写 workbench:requirement:<需求ID>",
     "AI 在本机或外部环境执行 pytest，执行后通过 /ingest/v1/runs 上传运行结果与证据",
+    "证据优先上传原始 HAR（浏览器、Playwright、代理工具导出的均可）；"
+    "无法抓包时随 run 内联 cases[].exchanges",
+    "HAR 需在运行上传后按 nodeid 上传，解析结果会替换该用例已有交换记录",
     "测试凭据只引用名称：pytest 用 os.environ['KEY']，"
     "Tavern 用 {tavern.env_vars.KEY}，值由插件注入，不要写死",
 )
