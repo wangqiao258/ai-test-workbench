@@ -23,6 +23,7 @@ interface Props {
   runCase: RunCase
   testCase?: TestCase
   pendingCount: number
+  loading?: boolean
   onOpenTrial: () => void
   onToast: (text: string, tone?: ToastTone) => void
 }
@@ -82,12 +83,14 @@ export function EvidencePanel({
   runCase,
   testCase,
   pendingCount,
+  loading = false,
   onOpenTrial,
   onToast,
 }: Props) {
   const exchange =
     runCase.exchanges.find((item) => item.index === nav.exchangeIndex) ??
     runCase.exchanges[0]
+  const exchangeTotal = runCase.exchanges.length || runCase.exchangeCount
 
   const requestRaw = exchange ? rawRequest(exchange) : ''
   const responseRaw = exchange ? rawResponse(exchange) : ''
@@ -184,11 +187,13 @@ export function EvidencePanel({
           <div className="panel-head">
             <h3>
               抓包交换
-              <span className="count-pill">{runCase.exchanges.length}</span>
+              <span className="count-pill">{exchangeTotal}</span>
             </h3>
             <span className="panel-hint">pytest-traffic-capture · HAR 1.2</span>
           </div>
-          {runCase.exchanges.length ? (
+          {loading ? (
+            <div className="case-list-empty">正在加载抓包证据…</div>
+          ) : runCase.exchanges.length ? (
             <div className="exchange-list">
               {runCase.exchanges.map((item) => {
                 const active = item.index === exchange?.index
@@ -232,14 +237,16 @@ export function EvidencePanel({
           <div className="panel-head">
             <h3>
               交换详情
-              <span className="count-pill">{runCase.exchanges.length}</span>
+              <span className="count-pill">{exchangeTotal}</span>
             </h3>
             {exchange && (
               <span className="panel-hint">第 {exchange.index + 1} 次交换</span>
             )}
           </div>
 
-          {exchange ? (
+          {loading ? (
+            <div className="case-list-empty">正在加载抓包证据…</div>
+          ) : exchange ? (
             <div className="exchange-detail">
               <div className="detail-part">
                 <div className="detail-part-head">

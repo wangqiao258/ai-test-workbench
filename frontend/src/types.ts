@@ -158,6 +158,7 @@ export interface RunCase {
   error?: string
   logs: string[]
   exchanges: Exchange[]
+  exchangeCount: number
 }
 
 export interface RunStats {

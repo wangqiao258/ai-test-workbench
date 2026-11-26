@@ -640,7 +640,39 @@ function mapRunCase(
     error: detail.error ?? undefined,
     logs: detail.logs,
     exchanges,
+    exchangeCount: exchanges.length,
   }
+}
+
+function mapRunCaseMeta(item: BackendRunCase): RunCase {
+  return {
+    nodeid: item.nodeid,
+    status: item.status as RunStatus,
+    durationMs: item.durationMs,
+    error: item.error ?? undefined,
+    logs: [],
+    exchanges: [],
+    exchangeCount: item.exchangeCount,
+  }
+}
+
+export async function fetchRunCaseDetail(
+  projectId: string,
+  runId: string,
+  nodeid: string,
+): Promise<RunCase> {
+  const detail = await fetchJson<BackendRunCaseDetail>(
+    `/projects/${projectId}/runs/${runId}/cases/${nodeid}`,
+  )
+  const exchanges = await Promise.all(
+    detail.exchanges.map(async (summary) => {
+      const exchange = await fetchJson<BackendExchange>(
+        `/projects/${projectId}/runs/${runId}/cases/${nodeid}/exchanges/${summary.index}`,
+      )
+      return mapExchange(exchange)
+    }),
+  )
+  return mapRunCase(nodeid, detail, exchanges)
 }
 
 function mapCase(
@@ -858,36 +890,14 @@ async function loadProject(project: BackendProject): Promise<{
   const runIdByUuid = new Map(runs.map((item) => [item.id, item.externalId]))
   const hydrated = await Promise.all(
     runs.map(async (run) => {
-      const runCases = await fetchJson<BackendRunCase[]>(
-        `/projects/${projectId}/runs/${run.id}/cases`,
-      )
-      const mappedCases = await Promise.all(
-        runCases.map(async (runCase) => {
-          try {
-            const detail = await fetchJson<BackendRunCaseDetail>(
-              `/projects/${projectId}/runs/${run.id}/cases/${runCase.nodeid}`,
-            )
-            const exchanges = await Promise.all(
-              detail.exchanges.map(async (summary) => {
-                const exchange = await fetchJson<BackendExchange>(
-                  `/projects/${projectId}/runs/${run.id}/cases/${runCase.nodeid}/exchanges/${summary.index}`,
-                )
-                return mapExchange(exchange)
-              }),
-            )
-            return mapRunCase(runCase.nodeid, detail, exchanges)
-          } catch {
-            return {
-              nodeid: runCase.nodeid,
-              status: runCase.status as RunStatus,
-              durationMs: runCase.durationMs,
-              error: runCase.error ?? undefined,
-              logs: [],
-              exchanges: [],
-            } satisfies RunCase
-          }
-        }),
-      )
+      let runCases: BackendRunCase[] = []
+      try {
+        runCases = await fetchJson<BackendRunCase[]>(
+          `/projects/${projectId}/runs/${run.id}/cases`,
+        )
+      } catch {
+        // 单个批次的用例读取失败时不阻塞其他批次
+      }
 
       const mappedRun: Run = {
         projectId,
@@ -898,7 +908,7 @@ async function loadProject(project: BackendProject): Promise<{
         branch: run.branch,
         commit: run.commit,
         stats: run.stats,
-        cases: mappedCases,
+        cases: runCases.map(mapRunCaseMeta),
       }
 
       let summary: AiSummary | undefined
@@ -994,6 +1004,7 @@ export async function updateDefectStatus(
 
 export const api = {
   bootstrap,
+  fetchRunCaseDetail,
   login,
   fetchSession,
   hasToken,

@@ -234,7 +234,7 @@ function CaseDrawer({
                   {formatDateTime(run.startedAt)} · {run.environment}
                 </div>
                 <div className="drawer-run-stats">
-                  <span>{runCase.exchanges.length} 条 HAR 交换</span>
+                  <span>{runCase.exchangeCount} 条 HAR 交换</span>
                   <span>{formatDuration(runCase.durationMs)}</span>
                 </div>
               </div>

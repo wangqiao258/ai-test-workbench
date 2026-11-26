@@ -1,14 +1,16 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type {
   AppData,
   Defect,
   Finding,
   Navigate,
   NavState,
+  RunCase,
   RunStatus,
   ToastTone,
   Verdict,
 } from '../types'
+import { api } from '../services/api'
 import { formatDateTime, formatDuration } from '../utils/format'
 import { EvidencePanel } from './EvidencePanel'
 import { FindingsPanel } from './FindingsPanel'
@@ -86,10 +88,39 @@ export function RunTrialView({
 }: Props) {
   const [onlyFailed, setOnlyFailed] = useState(false)
   const [trialOpen, setTrialOpen] = useState(false)
+  const [caseDetails, setCaseDetails] = useState<Record<string, RunCase>>({})
 
   const header = <RunHeader />
 
   const run = data.runs.find((item) => item.id === nav.runId) ?? data.runs[0]
+  const runCase = run
+    ? run.cases.find((item) => item.nodeid === nav.evidenceNodeid) ??
+      run.cases[0]
+    : undefined
+  const detailKey = run && runCase ? `${run.id}::${runCase.nodeid}` : ''
+  const detail = detailKey ? caseDetails[detailKey] : undefined
+
+  useEffect(() => {
+    if (!run || !runCase || !detailKey || caseDetails[detailKey]) return
+    const projectId = nav.projectId
+    const { id: runId } = run
+    const { nodeid } = runCase
+    let alive = true
+    api
+      .fetchRunCaseDetail(projectId, runId, nodeid)
+      .then((item) => {
+        if (!alive) return
+        setCaseDetails((prev) => ({ ...prev, [detailKey]: item }))
+      })
+      .catch(() => {
+        if (!alive) return
+        setCaseDetails((prev) => ({ ...prev, [detailKey]: runCase }))
+      })
+    return () => {
+      alive = false
+    }
+  }, [caseDetails, detailKey, nav.projectId, run, runCase])
+
   if (!run) {
     return (
       <RunEmpty
@@ -99,8 +130,6 @@ export function RunTrialView({
       />
     )
   }
-  const runCase =
-    run.cases.find((item) => item.nodeid === nav.evidenceNodeid) ?? run.cases[0]
   if (!runCase) {
     return (
       <RunEmpty
@@ -110,6 +139,7 @@ export function RunTrialView({
       />
     )
   }
+  const activeRunCase = detail ?? runCase
   const testCase = data.cases.find((item) => item.nodeid === runCase.nodeid)
   const runFindings = data.findings.filter((item) => item.runId === run.id)
   const pendingCount = runFindings.filter(
@@ -132,7 +162,7 @@ export function RunTrialView({
       nextRun.cases.find(
         (item) => item.status === 'failed' || item.status === 'error',
       ) ?? nextRun.cases[0]
-    const targetNodeid = nextPending?.nodeid ?? fallbackCase.nodeid
+    const targetNodeid = nextPending?.nodeid ?? fallbackCase?.nodeid ?? ''
     navigate({
       runId,
       evidenceNodeid: targetNodeid,
@@ -274,9 +304,10 @@ export function RunTrialView({
           data={data}
           nav={nav}
           navigate={navigate}
-          runCase={runCase}
+          runCase={activeRunCase}
           testCase={testCase}
           pendingCount={pendingCount}
+          loading={!detail}
           onOpenTrial={() => setTrialOpen(true)}
           onToast={onToast}
         />
