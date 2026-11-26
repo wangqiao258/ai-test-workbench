@@ -127,7 +127,8 @@ ACTIONS: tuple[dict[str, Any], ...] = (
         "method": "POST",
         "path": "/ingest/v1/runs",
         "scope": SCOPE_RUNS_WRITE,
-        "description": "上传运行结果与证据，需 Idempotency-Key；临时脚本用 framework=script",
+        "description": "平台不执行测试；AI 在本地或外部执行后上传结果与证据，需 "
+        "Idempotency-Key；其它框架或临时脚本用 framework=script",
     },
     {
         "step": "upload_artifact",
