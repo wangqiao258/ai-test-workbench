@@ -10,7 +10,7 @@ import type {
   ToastTone,
   Verdict,
 } from '../types'
-import { formatDateTime } from '../utils/format'
+import { formatDateTime, severityRank } from '../utils/format'
 import {
   Confidence,
   EmptyState,
@@ -97,16 +97,21 @@ export function FindingsPanel({
       await onJudge(finding.id, verdict, note.trim())
       setVerdict(null)
       setNote('')
-      const next = data.findings.find(
-        (item) =>
-          item.runId === run.id &&
-          item.status === 'pending' &&
-          item.id !== finding.id,
-      )
+      const next = data.findings
+        .filter(
+          (item) => item.status === 'pending' && item.id !== finding.id,
+        )
+        .sort(
+          (left, right) =>
+            severityRank[left.suggestedSeverity] -
+              severityRank[right.suggestedSeverity] ||
+            right.createdAt.localeCompare(left.createdAt),
+        )[0]
       navigate({
         findingId: next?.id ?? '',
         ...(next
           ? {
+              runId: next.runId,
               evidenceNodeid: next.nodeid,
               exchangeIndex: next.exchangeIndex ?? 0,
             }

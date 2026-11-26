@@ -1,4 +1,4 @@
-export type ModuleKey = 'assets' | 'cases' | 'runs' | 'defects'
+export type ModuleKey = 'assets' | 'cases' | 'inbox' | 'runs' | 'defects'
 export type AssetTab = 'requirements' | 'openapi'
 export type RunStatus = 'passed' | 'failed' | 'skipped' | 'error'
 export type Severity = 'blocker' | 'critical' | 'major' | 'minor'

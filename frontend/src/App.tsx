@@ -17,6 +17,7 @@ import {
 import { SkeletonRows, Toast, type IconName } from './components/ui'
 import { AssetsView } from './components/AssetsView'
 import { CasesView } from './components/CasesView'
+import { InboxView } from './components/InboxView'
 import { RunTrialView } from './components/RunTrialView'
 import { DefectsView } from './components/DefectsView'
 import { LoginView } from './components/LoginView'
@@ -50,17 +51,24 @@ const MODULES: Array<{
     caption: '查看 pytest 用例与需求 / 接口的追溯关系',
   },
   {
-    key: 'runs',
-    label: '运行与审判',
-    icon: 'play',
+    key: 'inbox',
+    label: '待审判',
+    icon: 'spark',
     index: '03',
-    caption: '聚合运行结果与抓包证据，由人裁决 AI 发现',
+    caption: '跨批次汇总 AI 发现，逐条审阅并裁决',
+  },
+  {
+    key: 'runs',
+    label: '运行证据',
+    icon: 'play',
+    index: '04',
+    caption: '按批次查看运行结果与抓包证据',
   },
   {
     key: 'defects',
     label: '缺陷库',
     icon: 'bug',
-    index: '04',
+    index: '05',
     caption: '只保留经过人工确认的缺陷与审判记录',
   },
 ]
@@ -92,16 +100,21 @@ function projectNavPatch(data: AppData, projectId: string): Partial<NavState> {
   )
   const docs = data.openapi.filter((item) => item.projectId === projectId)
   const runs = data.runs.filter((item) => item.projectId === projectId)
-  const run = runs[0]
-  const fallbackCase =
-    run?.cases.find(
-      (item) => item.status === 'failed' || item.status === 'error',
-    ) ?? run?.cases[0]
   const findings = data.findings.filter(
     (item) => item.projectId === projectId,
   )
   const finding =
     findings.find((item) => item.status === 'pending') ?? findings[0]
+  const findingRun = finding
+    ? runs.find((run) => run.id === finding.runId)
+    : undefined
+  const run = findingRun ?? runs[0]
+  const fallbackCase =
+    run?.cases.find(
+      (item) => item.status === 'failed' || item.status === 'error',
+    ) ?? run?.cases[0]
+  const focusFinding =
+    finding && run && finding.runId === run.id ? finding : undefined
   const defect = data.defects.find((item) => item.projectId === projectId)
   return {
     projectId,
@@ -110,9 +123,11 @@ function projectNavPatch(data: AppData, projectId: string): Partial<NavState> {
     operationId: docs[0]?.operations[0]?.id ?? '',
     caseNodeid: '',
     runId: run?.id ?? '',
-    evidenceNodeid: finding?.nodeid ?? fallbackCase?.nodeid ?? '',
-    exchangeIndex: finding?.exchangeIndex ?? 0,
-    findingId: finding?.id ?? '',
+    evidenceNodeid: focusFinding
+      ? focusFinding.nodeid
+      : fallbackCase?.nodeid ?? '',
+    exchangeIndex: focusFinding ? focusFinding.exchangeIndex ?? 0 : 0,
+    findingId: focusFinding?.id ?? '',
     defectId: defect?.id ?? '',
   }
 }
@@ -123,7 +138,14 @@ function defaultNav(data: AppData): NavState {
       data.runs.some((run) => run.projectId === item.id),
     ) ?? data.projects[0]
   if (!project) return INITIAL_NAV
-  return { ...INITIAL_NAV, ...projectNavPatch(data, project.id) }
+  const hasPending = data.findings.some(
+    (item) => item.projectId === project.id && item.status === 'pending',
+  )
+  return {
+    ...INITIAL_NAV,
+    module: hasPending ? 'inbox' : 'runs',
+    ...projectNavPatch(data, project.id),
+  }
 }
 
 export default function App() {
@@ -503,7 +525,7 @@ export default function App() {
           <nav className="nav-list">
             {MODULES.map((item) => {
               const badge =
-                item.key === 'runs'
+                item.key === 'inbox'
                   ? pendingCount
                   : item.key === 'defects'
                     ? defectCount
@@ -569,6 +591,9 @@ export default function App() {
                   onToast={notify}
                   onRefresh={handleRefresh}
                 />
+              )}
+              {nav.module === 'inbox' && (
+                <InboxView data={projectData} navigate={navigate} />
               )}
               {nav.module === 'runs' && (
                 <RunTrialView

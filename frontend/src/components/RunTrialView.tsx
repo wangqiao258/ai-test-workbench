@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type {
   AiSummary,
   AppData,
@@ -40,11 +40,11 @@ function RunHeader() {
   return (
     <header className="view-head">
       <div>
-        <div className="view-kicker">RUN TRIAL / 03</div>
-        <h1 className="view-title">运行与审判</h1>
+        <div className="view-kicker">RUN EVIDENCE / 04</div>
+        <h1 className="view-title">运行证据</h1>
         <p className="view-desc">
-          pytest 结果、HAR 证据与人工裁决集中在一处；AI
-          分析由外部流水线落库，平台只负责聚合与裁决。
+          按批次查看 pytest 结果与 HAR 证据；待裁决的 AI
+          发现已集中到「待审判」收件箱。
         </p>
       </div>
       <div className="head-tags">
@@ -146,6 +146,15 @@ export function RunTrialView({
     }
   }, [data.summaries, nav.projectId, run])
 
+  const pendingByRun = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const item of data.findings) {
+      if (item.status !== 'pending') continue
+      counts.set(item.runId, (counts.get(item.runId) ?? 0) + 1)
+    }
+    return counts
+  }, [data.findings])
+
   if (!run) {
     return (
       <RunEmpty
@@ -232,11 +241,15 @@ export function RunTrialView({
                 value={run.id}
                 onChange={(event) => selectRun(event.target.value)}
               >
-                {data.runs.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.id} · {formatDateTime(item.startedAt)}
-                  </option>
-                ))}
+                {data.runs.map((item) => {
+                  const pending = pendingByRun.get(item.id) ?? 0
+                  return (
+                    <option key={item.id} value={item.id}>
+                      {item.id} · {formatDateTime(item.startedAt)}
+                      {pending > 0 ? ` · ${pending} 待审判` : ''}
+                    </option>
+                  )
+                })}
               </select>
               <Icon name="chevronDown" size={14} />
             </div>

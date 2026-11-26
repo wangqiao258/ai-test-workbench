@@ -13,6 +13,13 @@ export const severityLabel: Record<Severity, string> = {
   minor: '轻微',
 }
 
+export const severityRank: Record<Severity, number> = {
+  blocker: 0,
+  critical: 1,
+  major: 2,
+  minor: 3,
+}
+
 export const statusLabel: Record<DefectStatus, string> = {
   new: '待处理',
   confirmed: '已确认',

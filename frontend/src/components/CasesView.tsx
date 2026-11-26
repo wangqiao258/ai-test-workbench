@@ -287,7 +287,7 @@ function CaseDrawer({
             }
           >
             <Icon name="play" size={14} />
-            在运行与审判中查看
+            在运行证据中查看
           </button>
         </div>
       </aside>

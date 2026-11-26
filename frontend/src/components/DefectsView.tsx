@@ -427,14 +427,14 @@ export function DefectsView({
             <EmptyState
               icon="bug"
               title="还没有已确认缺陷"
-              description="在「运行与审判」中确认 AI 发现后，缺陷会出现在这里。"
+              description="在「待审判」中确认 AI 发现后，缺陷会出现在这里。"
               action={
                 <button
                   type="button"
                   className="btn btn-primary"
-                  onClick={() => navigate({ module: 'runs' })}
+                  onClick={() => navigate({ module: 'inbox' })}
                 >
-                  前往审判台
+                  前往待审判
                 </button>
               }
             />
