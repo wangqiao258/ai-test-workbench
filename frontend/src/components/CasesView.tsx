@@ -8,20 +8,14 @@ import type {
   ToastTone,
 } from '../types'
 import { api } from '../services/api'
-import {
-  formatDateTime,
-  formatDuration,
-  percent,
-} from '../utils/format'
-import {
-  ConfirmDialog,
-  EmptyState,
-  Icon,
-  MethodTag,
-  RunStatusBadge,
-  type IconName,
-} from './ui'
+import { percent } from '../utils/format'
+import { ConfirmDialog } from './ui'
 import { SpecEditorDialog } from './SpecEditorDialog'
+import { StatCard } from './cases/StatCard'
+import { CaseDrawer } from './cases/CaseDrawer'
+import { CasesFilters } from './cases/CasesFilters'
+import { CasesTable } from './cases/CasesTable'
+import { FRAMEWORK_LABELS } from './cases/constants'
 
 interface Props {
   data: AppData
@@ -29,278 +23,6 @@ interface Props {
   navigate: Navigate
   onToast: (text: string, tone?: ToastTone) => void
   onRefresh: () => Promise<void>
-}
-
-const STATUS_OPTIONS: Array<{ value: 'all' | RunStatus; label: string }> = [
-  { value: 'all', label: '全部状态' },
-  { value: 'passed', label: '通过' },
-  { value: 'failed', label: '失败' },
-  { value: 'error', label: '错误' },
-  { value: 'skipped', label: '跳过' },
-]
-
-const FRAMEWORK_LABELS: Record<string, string> = {
-  pytest: 'pytest',
-  tavern: 'Tavern',
-  postman: 'Postman',
-  playwright: 'Playwright',
-  cypress: 'Cypress',
-}
-
-function StatCard({
-  label,
-  value,
-  hint,
-  progress,
-  icon,
-}: {
-  label: string
-  value: string
-  hint: string
-  progress?: number
-  icon: IconName
-}) {
-  return (
-    <div className="stat-card">
-      <div className="stat-card-head">
-        <span>{label}</span>
-        <span className="stat-icon">
-          <Icon name={icon} size={15} />
-        </span>
-      </div>
-      <div className="stat-value">{value}</div>
-      <div className="stat-hint">{hint}</div>
-      {typeof progress === 'number' && (
-        <div className="stat-track" aria-hidden="true">
-          <span style={{ width: percent(progress) }} />
-        </div>
-      )}
-    </div>
-  )
-}
-
-function CaseDrawer({
-  testCase,
-  data,
-  navigate,
-  canEdit,
-  onEditSpec,
-  onArchive,
-  onRestore,
-}: {
-  testCase: TestCase
-  data: AppData
-  navigate: Navigate
-  canEdit: boolean
-  onEditSpec: (path: string) => void
-  onArchive: (testCase: TestCase) => void
-  onRestore: (nodeid: string) => void
-}) {
-  const requirements = data.requirements.filter((item) =>
-    testCase.requirementIds.includes(item.id),
-  )
-  const operations = data.openapi
-    .flatMap((item) => item.operations)
-    .filter((item) => testCase.operationIds.includes(item.id))
-  const run = data.runs.find((item) => item.id === testCase.lastRunId)
-  const runCase = run?.cases.find((item) => item.nodeid === testCase.nodeid)
-
-  return (
-    <>
-      <div
-        className="drawer-scrim"
-        onClick={() => navigate({ caseNodeid: '' })}
-        aria-hidden="true"
-      />
-      <aside className="detail-drawer" aria-label="用例详情">
-        <div className="drawer-head">
-          <div className="drawer-heading">
-            <span className="eyebrow">PYTEST CASE</span>
-            <div className="drawer-title-row">
-              <RunStatusBadge status={testCase.lastStatus} />
-              <h2>{testCase.name}</h2>
-              {testCase.archivedAt && <span className="warn-chip">已归档</span>}
-            </div>
-          </div>
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label="关闭用例详情"
-            onClick={() => navigate({ caseNodeid: '' })}
-          >
-            <Icon name="x" size={16} />
-          </button>
-        </div>
-
-        <div className="drawer-body">
-          <div className="drawer-code-block">
-            <span className="drawer-label">nodeid</span>
-            <code>{testCase.nodeid}</code>
-          </div>
-
-          <dl className="meta-list meta-list-wide">
-            <div>
-              <dt>文件</dt>
-              <dd className="mono-strong">{testCase.specPath ?? testCase.file}</dd>
-            </div>
-            <div>
-              <dt>最近运行</dt>
-              <dd>
-                {testCase.lastRunId} · {formatDuration(testCase.lastDurationMs)}
-              </dd>
-            </div>
-            <div>
-              <dt>标签</dt>
-              <dd>
-                <span className="tag-row">
-                  {testCase.tags.map((tag) => (
-                    <span className="tag" key={tag}>
-                      {tag}
-                    </span>
-                  ))}
-                </span>
-              </dd>
-            </div>
-          </dl>
-
-          <section className="drawer-section">
-            <div className="rail-title">
-              关联需求
-              <span className="count-pill">{requirements.length}</span>
-            </div>
-            {requirements.length ? (
-              requirements.map((item) => (
-                <button
-                  type="button"
-                  key={item.id}
-                  className="rail-requirement rail-requirement-inline"
-                  onClick={() =>
-                    navigate({
-                      module: 'assets',
-                      assetTab: 'requirements',
-                      requirementId: item.id,
-                      caseNodeid: '',
-                    })
-                  }
-                >
-                  <span className="mono-id">{item.id}</span>
-                  <strong>{item.title}</strong>
-                  <span className="rail-requirement-version">{item.version}</span>
-                </button>
-              ))
-            ) : (
-              <div className="inline-warning">
-                <Icon name="alert" size={14} />
-                该用例尚未关联需求，AI 很难判断偏差。
-              </div>
-            )}
-          </section>
-
-          <section className="drawer-section">
-            <div className="rail-title">
-              关联接口
-              <span className="count-pill">{operations.length}</span>
-            </div>
-            {operations.length ? (
-              operations.map((item) => (
-                <button
-                  type="button"
-                  key={item.id}
-                  className="rail-link"
-                  onClick={() =>
-                    navigate({
-                      module: 'assets',
-                      assetTab: 'openapi',
-                      docId: item.docId,
-                      operationId: item.id,
-                      caseNodeid: '',
-                    })
-                  }
-                >
-                  <MethodTag method={item.method} />
-                  <code>{item.path}</code>
-                  <Icon name="arrowRight" size={13} />
-                </button>
-              ))
-            ) : (
-              <div className="inline-warning">
-                <Icon name="alert" size={14} />
-                该用例尚未关联 OpenAPI operation。
-              </div>
-            )}
-          </section>
-
-          {run && runCase && (
-            <section className="drawer-section">
-              <div className="rail-title">本次运行证据</div>
-              <div className="drawer-run-card">
-                <div className="drawer-run-head">
-                  <span className="mono-id">{run.id}</span>
-                  <RunStatusBadge status={runCase.status} />
-                </div>
-                <div className="drawer-run-meta">
-                  {formatDateTime(run.startedAt)} · {run.environment}
-                </div>
-                <div className="drawer-run-stats">
-                  <span>{runCase.exchangeCount} 条 HAR 交换</span>
-                  <span>{formatDuration(runCase.durationMs)}</span>
-                </div>
-              </div>
-            </section>
-          )}
-        </div>
-
-        <div className="drawer-foot">
-          <div className="drawer-actions">
-            {canEdit && testCase.specPath && (
-              <button
-                type="button"
-                className="btn"
-                onClick={() => onEditSpec(testCase.specPath!)}
-              >
-                <Icon name="file" size={14} />
-                编辑规格
-              </button>
-            )}
-            {canEdit &&
-              (testCase.archivedAt ? (
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => onRestore(testCase.nodeid)}
-                >
-                  恢复用例
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={() => onArchive(testCase)}
-                >
-                  归档用例
-                </button>
-              ))}
-          </div>
-          <button
-            type="button"
-            className="btn btn-block"
-            onClick={() =>
-              navigate({
-                module: 'runs',
-                runId: testCase.lastRunId,
-                evidenceNodeid: testCase.nodeid,
-                exchangeIndex: 0,
-                caseNodeid: '',
-              })
-            }
-          >
-            <Icon name="play" size={14} />
-            在运行证据中查看
-          </button>
-        </div>
-      </aside>
-    </>
-  )
 }
 
 export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
@@ -507,214 +229,45 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
         </div>
 
         <div className="table-card">
-          <div className="table-toolbar">
-            <label className="search-field">
-              <Icon name="search" size={14} />
-              <input
-                value={keyword}
-                onChange={(event) => setKeyword(event.target.value)}
-                placeholder="搜索用例名、nodeid、标签"
-                aria-label="搜索用例"
-              />
-            </label>
-            <select
-              className="select"
-              value={runFilter}
-              onChange={(event) => setRunFilter(event.target.value)}
-              aria-label="按轮次筛选"
-            >
-              <option value="all">全部轮次</option>
-              {data.runs.map((run) => (
-                <option key={run.id} value={run.id}>
-                  {run.id} · {formatDateTime(run.startedAt)}
-                </option>
-              ))}
-            </select>
-            <select
-              className="select"
-              value={requirementFilter}
-              onChange={(event) => setRequirementFilter(event.target.value)}
-              aria-label="按需求筛选"
-            >
-              <option value="all">全部需求</option>
-              {data.requirements.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.id} · {item.title}
-                </option>
-              ))}
-            </select>
-            <select
-              className="select"
-              value={operationFilter}
-              onChange={(event) => setOperationFilter(event.target.value)}
-              aria-label="按接口筛选"
-            >
-              <option value="all">全部接口</option>
-              {allOperations.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.method} {item.path}
-                </option>
-              ))}
-            </select>
-            <select
-              className="select"
-              value={frameworkFilter}
-              onChange={(event) => setFrameworkFilter(event.target.value)}
-              aria-label="按框架筛选"
-            >
-              <option value="all">全部框架</option>
-              {frameworkOptions.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-            <select
-              className="select"
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as 'all' | RunStatus)
-              }
-              aria-label="按状态筛选"
-            >
-              {STATUS_OPTIONS.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-            {archivedCount > 0 && (
-              <label className="check-field">
-                <input
-                  type="checkbox"
-                  checked={includeArchived}
-                  onChange={(event) => setIncludeArchived(event.target.checked)}
-                />
-                显示已归档
-              </label>
-            )}
-            <div className="toolbar-spacer" />
-            <span className="result-count">{filtered.length} 条用例</span>
-          </div>
+          <CasesFilters
+            keyword={keyword}
+            onKeywordChange={setKeyword}
+            runFilter={runFilter}
+            onRunFilterChange={setRunFilter}
+            requirementFilter={requirementFilter}
+            onRequirementFilterChange={setRequirementFilter}
+            operationFilter={operationFilter}
+            onOperationFilterChange={setOperationFilter}
+            frameworkFilter={frameworkFilter}
+            onFrameworkFilterChange={setFrameworkFilter}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            includeArchived={includeArchived}
+            onIncludeArchivedChange={setIncludeArchived}
+            archivedCount={archivedCount}
+            requirements={data.requirements}
+            runs={data.runs}
+            operations={allOperations}
+            frameworkOptions={frameworkOptions}
+            resultCount={filtered.length}
+          />
 
-          <div className="table-scroll">
-            {filtered.length ? (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '31%' }}>用例</th>
-                    <th style={{ width: '16%' }}>关联需求</th>
-                    <th style={{ width: '21%' }}>关联接口</th>
-                    <th style={{ width: '13%' }}>状态</th>
-                    <th style={{ width: '9%' }}>耗时</th>
-                    <th style={{ width: '10%' }} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((testCase) => {
-                    const requirement = data.requirements.find((item) =>
-                      testCase.requirementIds.includes(item.id),
-                    )
-                    const operation = allOperations.find((item) =>
-                      testCase.operationIds.includes(item.id),
-                    )
-                    const runCase =
-                      runFilter !== 'all'
-                        ? runCaseMap.get(testCase.nodeid)
-                        : undefined
-                    const rowStatus = runCase?.status ?? testCase.lastStatus
-                    const rowDuration =
-                      runCase?.durationMs ?? testCase.lastDurationMs
-                    return (
-                      <tr
-                        key={testCase.nodeid}
-                        className={`is-clickable ${testCase.archivedAt ? 'is-archived' : ''}`}
-                        onClick={() =>
-                          navigate({ caseNodeid: testCase.nodeid })
-                        }
-                      >
-                        <td>
-                          <div className="case-name">{testCase.name}</div>
-                          <code className="case-nodeid">{testCase.nodeid}</code>
-                          {testCase.framework && (
-                            <span className="framework-chip">
-                              {FRAMEWORK_LABELS[testCase.framework] ??
-                                testCase.framework}
-                            </span>
-                          )}
-                          {testCase.archivedAt && (
-                            <span className="warn-chip">已归档</span>
-                          )}
-                        </td>
-                        <td>
-                          {requirement ? (
-                            <span className="link-chip">{requirement.id}</span>
-                          ) : (
-                            <span className="warn-chip">未关联</span>
-                          )}
-                        </td>
-                        <td>
-                          {operation ? (
-                            <span className="op-inline">
-                              <MethodTag method={operation.method} />
-                              <code>{operation.path}</code>
-                            </span>
-                          ) : (
-                            <span className="warn-chip">未关联</span>
-                          )}
-                        </td>
-                        <td>
-                          <div className="status-stack">
-                            <RunStatusBadge status={rowStatus} />
-                            <span className="cell-sub">
-                              {runCase ? selectedRun?.id : testCase.lastRunId}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="num-cell">
-                          {formatDuration(rowDuration)}
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            className="icon-btn table-action"
-                            aria-label="查看用例详情"
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              navigate({ caseNodeid: testCase.nodeid })
-                            }}
-                          >
-                            <Icon name="chevronRight" size={15} />
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            ) : (
-              <EmptyState
-                icon="search"
-                title="没有符合条件的用例"
-                description="调整关键词或筛选条件后再试。"
-                action={
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() => {
-                      setKeyword('')
-                      setRequirementFilter('all')
-                      setOperationFilter('all')
-                      setStatusFilter('all')
-                      setRunFilter('all')
-                    }}
-                  >
-                    清除筛选
-                  </button>
-                }
-              />
-            )}
-          </div>
+          <CasesTable
+            cases={filtered}
+            runFilter={runFilter}
+            runCaseMap={runCaseMap}
+            selectedRunId={selectedRun?.id}
+            requirements={data.requirements}
+            operations={allOperations}
+            navigate={navigate}
+            onResetFilters={() => {
+              setKeyword('')
+              setRequirementFilter('all')
+              setOperationFilter('all')
+              setStatusFilter('all')
+              setRunFilter('all')
+            }}
+          />
         </div>
       </div>
 
