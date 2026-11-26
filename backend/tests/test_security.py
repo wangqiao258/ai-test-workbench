@@ -79,3 +79,8 @@ def test_token_presets_use_issuable_scopes() -> None:
     assert TOKEN_PRESETS
     for preset in TOKEN_PRESETS:
         assert set(preset["scopes"]) <= allowed
+
+
+def test_auto_preset_can_upload_runs() -> None:
+    auto = next(preset for preset in TOKEN_PRESETS if preset["id"] == "auto")
+    assert SCOPE_RUNS_WRITE in auto["scopes"]

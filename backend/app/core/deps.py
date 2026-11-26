@@ -104,11 +104,12 @@ TOKEN_PRESETS: tuple[dict, ...] = (
     {
         "id": "auto",
         "label": "全自动测试",
-        "hint": "读资产、传规格、读凭据、写分析",
+        "hint": "读资产、传规格、读凭据、上传运行与写分析",
         "scopes": [
             SCOPE_ASSETS_READ,
             SCOPE_SPECS_WRITE,
             SCOPE_SECRETS_READ,
+            SCOPE_RUNS_WRITE,
             SCOPE_ANALYSIS_WRITE,
         ],
     },
