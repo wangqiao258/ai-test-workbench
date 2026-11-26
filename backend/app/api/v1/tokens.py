@@ -113,7 +113,9 @@ def create_token(
     )
     db.commit()
     db.refresh(token)
-    return TokenCreatedOut(**_token_out(token, now).model_dump(), token=raw)
+    data = _token_out(token, now).model_dump()
+    data["token"] = raw
+    return TokenCreatedOut(**data)
 
 
 @router.post("/purge-revoked", response_model=TokenPurgeOut)
