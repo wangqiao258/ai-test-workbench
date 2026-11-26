@@ -26,6 +26,8 @@ export interface Project {
   id: string
   name: string
   baseUrl: string
+  testRepoUrl: string
+  testRepoRef: string
   updatedAt: string
   /** 当前用户在该项目中的角色，仅真实后端返回 */
   role?: string

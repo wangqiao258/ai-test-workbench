@@ -58,6 +58,8 @@ interface BackendProject {
   id: string
   name: string
   baseUrl: string
+  testRepoUrl: string
+  testRepoRef: string
   updatedAt: string
   role: string
 }
@@ -366,6 +368,8 @@ function mapProject(project: BackendProject): Project {
     id: project.id,
     name: project.name,
     baseUrl: project.baseUrl,
+    testRepoUrl: project.testRepoUrl ?? '',
+    testRepoRef: project.testRepoRef ?? '',
     updatedAt: project.updatedAt,
     role: project.role,
   }
@@ -505,6 +509,8 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
 export interface UpdateProjectInput {
   name?: string
   baseUrl?: string
+  testRepoUrl?: string
+  testRepoRef?: string
 }
 
 export async function updateProject(

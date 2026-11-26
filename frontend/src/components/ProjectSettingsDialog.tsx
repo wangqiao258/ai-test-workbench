@@ -32,6 +32,8 @@ export function ProjectSettingsDialog({
   const [tab, setTab] = useState<SettingsTab>('basic')
   const [name, setName] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
+  const [testRepoUrl, setTestRepoUrl] = useState('')
+  const [testRepoRef, setTestRepoRef] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -41,6 +43,8 @@ export function ProjectSettingsDialog({
     setTab('basic')
     setName(project.name)
     setBaseUrl(project.baseUrl)
+    setTestRepoUrl(project.testRepoUrl ?? '')
+    setTestRepoRef(project.testRepoRef ?? '')
     setError('')
     setBusy(false)
     setConfirmDelete(false)
@@ -61,7 +65,12 @@ export function ProjectSettingsDialog({
     setBusy(true)
     setError('')
     try {
-      await onSubmit(project.id, { name: name.trim(), baseUrl: baseUrl.trim() })
+      await onSubmit(project.id, {
+        name: name.trim(),
+        baseUrl: baseUrl.trim(),
+        testRepoUrl: testRepoUrl.trim(),
+        testRepoRef: testRepoRef.trim(),
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存项目失败')
       setBusy(false)
@@ -170,6 +179,28 @@ export function ProjectSettingsDialog({
                 onChange={(event) => setBaseUrl(event.target.value)}
               />
             </label>
+            <label className="form-field form-field-wide">
+              <span>测试仓库地址</span>
+              <input
+                value={testRepoUrl}
+                placeholder="git@github.com:acme/qa.git"
+                spellCheck={false}
+                onChange={(event) => setTestRepoUrl(event.target.value)}
+              />
+            </label>
+            <label className="form-field">
+              <span>测试仓库分支</span>
+              <input
+                value={testRepoRef}
+                placeholder="main"
+                spellCheck={false}
+                onChange={(event) => setTestRepoRef(event.target.value)}
+              />
+            </label>
+            <p className="dialog-note form-field-wide">
+              AI 生成用例后先 commit 并 push 到该仓库，再上报用例索引；平台只存索引与证据，
+              不克隆仓库。whoami 会把仓库地址下发给接入方。
+            </p>
           </div>
         )}
 

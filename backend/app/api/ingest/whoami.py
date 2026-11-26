@@ -22,7 +22,10 @@ RULES: tuple[str, ...] = (
     "已测接口优先复用，未覆盖的再按 tag / q 检索",
     "摘要只用于选接口，生成用例前必须读 /operations/{id} 详情",
     "Tavern marks 写 workbench:requirement:<需求ID>",
-    "用例正文在 Git：catalog 只写索引，需带 source(repo/ref/commit) 与 framework；"
+    "用例正文必须沉淀到项目测试仓库（project.testRepo.url，分支 testRepo.ref）："
+    "生成后 commit 并 push，再上报 catalog；仓库未配置时先在项目设置填写",
+    "catalog 只写索引，禁止只上报不落仓库；source(repo/ref/commit) 必须填实际仓库、"
+    "分支和提交后的 commit",
     f"framework 只收 {'、'.join(CATALOG_FRAMEWORKS)}",
     f"临时脚本上报时 framework={AD_HOC_FRAMEWORK}，只留运行与证据，不进入用例库",
     "AI 在本机或外部环境执行 pytest，执行后通过 /ingest/v1/runs 上传运行结果与证据",
@@ -76,6 +79,14 @@ def whoami(
             "id": str(context.project.id),
             "name": context.project.name,
             "baseUrl": context.project.base_url or None,
+            "testRepo": (
+                {
+                    "url": context.project.test_repo_url,
+                    "ref": context.project.test_repo_ref or None,
+                }
+                if context.project.test_repo_url
+                else None
+            ),
         },
         "token": {"scopes": scopes},
         "start": workflow[0]["step"] if workflow else None,

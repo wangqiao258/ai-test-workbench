@@ -119,7 +119,8 @@ ACTIONS: tuple[dict[str, Any], ...] = (
         "method": "POST",
         "path": "/ingest/v1/catalog",
         "scope": SCOPE_ASSETS_WRITE,
-        "description": "写入用例索引，需 source(repo/ref/commit) 与 framework",
+        "description": "写入用例索引；正文先 commit 并 push 到项目测试仓库，再上报实际 "
+        "source(repo/ref/commit) 与 framework",
     },
     {
         "step": "upload_run",

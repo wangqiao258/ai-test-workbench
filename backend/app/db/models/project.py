@@ -15,6 +15,8 @@ class Project(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     base_url: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    test_repo_url: Mapped[str] = mapped_column(String(512), nullable=False, default="")
+    test_repo_ref: Mapped[str] = mapped_column(String(128), nullable=False, default="")
     defect_seq: Mapped[int] = mapped_column(Integer, nullable=False, default=1000)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(

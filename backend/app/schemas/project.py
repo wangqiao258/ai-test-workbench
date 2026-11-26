@@ -26,6 +26,20 @@ def _normalize_base_url(value: str) -> str:
     return value
 
 
+def _normalize_repo_url(value: str) -> str:
+    value = value.strip()
+    if len(value) > 512:
+        raise ValueError("测试仓库地址不能超过 512 个字符")
+    return value
+
+
+def _normalize_repo_ref(value: str) -> str:
+    value = value.strip()
+    if len(value) > 128:
+        raise ValueError("测试仓库分支不能超过 128 个字符")
+    return value
+
+
 class ProjectCreateIn(ApiModel):
     name: str
     base_url: str = ""
@@ -45,6 +59,8 @@ class ProjectOut(ApiModel):
     id: UUID
     name: str
     base_url: str
+    test_repo_url: str
+    test_repo_ref: str
     updated_at: datetime
     role: str
 
@@ -54,6 +70,8 @@ class ProjectUpdateIn(ApiModel):
 
     name: str | None = None
     base_url: str | None = None
+    test_repo_url: str | None = None
+    test_repo_ref: str | None = None
 
     @field_validator("name")
     @classmethod
@@ -64,3 +82,13 @@ class ProjectUpdateIn(ApiModel):
     @classmethod
     def _validate_base_url(cls, value: str | None) -> str | None:
         return None if value is None else _normalize_base_url(value)
+
+    @field_validator("test_repo_url")
+    @classmethod
+    def _validate_repo_url(cls, value: str | None) -> str | None:
+        return None if value is None else _normalize_repo_url(value)
+
+    @field_validator("test_repo_ref")
+    @classmethod
+    def _validate_repo_ref(cls, value: str | None) -> str | None:
+        return None if value is None else _normalize_repo_ref(value)

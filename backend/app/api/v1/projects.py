@@ -26,6 +26,8 @@ def _project_out(project: Project, role: str) -> ProjectOut:
         id=project.id,
         name=project.name,
         base_url=project.base_url,
+        test_repo_url=project.test_repo_url,
+        test_repo_ref=project.test_repo_ref,
         updated_at=project.updated_at,
         role=role,
     )
