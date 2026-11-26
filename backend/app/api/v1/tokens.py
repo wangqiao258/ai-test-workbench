@@ -14,7 +14,6 @@ from app.db.models.identity import ProjectMember
 from app.db.models.project import ApiToken
 from app.db.session import get_db
 from app.schemas.token import (
-    TokenCreatedOut,
     TokenCreateIn,
     TokenOut,
     TokenPurgeOut,
@@ -73,13 +72,13 @@ def list_tokens(
     return [_token_out(token, now) for token in tokens]
 
 
-@router.post("", response_model=TokenCreatedOut, status_code=201)
+@router.post("", response_model=TokenOut, status_code=201)
 def create_token(
     project_id: UUID,
     payload: TokenCreateIn,
     member: ProjectMember = Depends(ADMIN_ONLY),
     db: Session = Depends(get_db),
-) -> TokenCreatedOut:
+) -> TokenOut:
     invalid = sorted(set(payload.scopes) - set(ISSUABLE_TOKEN_SCOPES))
     if invalid:
         raise ApiError(
@@ -113,9 +112,7 @@ def create_token(
     )
     db.commit()
     db.refresh(token)
-    data = _token_out(token, now).model_dump()
-    data["token"] = raw
-    return TokenCreatedOut(**data)
+    return _token_out(token, now)
 
 
 @router.post("/purge-revoked", response_model=TokenPurgeOut)

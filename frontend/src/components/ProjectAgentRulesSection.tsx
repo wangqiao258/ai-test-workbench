@@ -10,6 +10,7 @@ interface Props {
 export function ProjectAgentRulesSection({ projectId, canEdit }: Props) {
   const [text, setText] = useState('')
   const [isCustom, setIsCustom] = useState(false)
+  const [defaultCount, setDefaultCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -19,6 +20,7 @@ export function ProjectAgentRulesSection({ projectId, canEdit }: Props) {
   const apply = (data: AgentRules) => {
     setText(data.rules.join('\n'))
     setIsCustom(data.isCustom)
+    setDefaultCount(data.defaults.length)
   }
 
   useEffect(() => {
@@ -136,7 +138,8 @@ export function ProjectAgentRulesSection({ projectId, canEdit }: Props) {
             </div>
           )}
           <p className="token-hint">
-            共 {lines.length} 条。修改后保存，下一次 AI 调用 whoami 即拿到新规则。
+            共 {lines.length} 条（默认 {defaultCount} 条）。修改后保存，下一次 AI 调用
+            whoami 即拿到新规则。
           </p>
         </>
       )}

@@ -42,7 +42,7 @@ def decode_access_token(token: str) -> UUID:
 
 
 def generate_api_token() -> tuple[str, str, str]:
-    """返回 (明文 token, 展示用前缀, sha256 摘要)。明文只在创建时返回一次。"""
+    """返回 (明文 token, 展示用前缀, sha256 摘要)，明文另加密存库供设置页回看。"""
     raw = "atw_" + secrets.token_urlsafe(32)
     return raw, raw[:12], hash_api_token(raw)
 

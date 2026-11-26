@@ -134,7 +134,7 @@ export function ProjectSettingsDialog({
     <DialogShell
       open={open}
       title="项目设置"
-      description="维护项目资料，管理 AI 接入令牌与测试凭据；删除项目会一并移除其需求、接口、运行与缺陷。"
+      description="维护项目资料与测试仓库，管理 AI 规则、接入令牌与测试凭据；删除项目会一并移除其需求、接口、运行与缺陷。"
       icon="server"
       className="dialog-project dialog-settings"
       busy={busy}

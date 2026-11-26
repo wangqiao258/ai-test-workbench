@@ -25,7 +25,7 @@ AI 生成测试资产、执行 pytest、人工审判缺陷的测试工作台。�
 
 | 机器 | 职责 | 说明 |
 | --- | --- | --- |
-| AI 机 | 读取需求 / 契约 / 历史运行，产出并执行 pytest + Tavern YAML，上传运行结果、证据与分析 | 需要被测系统凭据；平台 Token 用于上传和读取测试凭据 |
+| AI 机 | 读取需求 / 契约 / 历史运行，产出并执行测试用例（pytest、Tavern、Playwright 等），上传运行结果、证据与分析 | 需要被测系统凭据；平台 Token 用于上传和读取测试凭据 |
 | 平台机 | 运行本平台与 PostgreSQL，聚合运行结果与证据 | 不执行用例 |
 | 被测机 | 运行被测试系统（SUT） | 被 AI 机访问 |
 
@@ -42,7 +42,7 @@ marks:
 
 ### 测试凭据
 
-在「项目设置 → 测试凭据」配置 `SUT_TOKEN`、`SUT_USERNAME`、`SUT_PASSWORD` 等名称。值加密保存、保存后不回显；`pytest_workbench` 启动时从平台读取并注入同名环境变量。pytest 用例用 `os.environ["SUT_TOKEN"]`，Tavern 用例用 `{tavern.env_vars.SUT_TOKEN}` 引用，不要把值写进 YAML 或代码。
+在「项目设置 → 测试凭据」配置 `SUT_TOKEN`、`SUT_USERNAME`、`SUT_PASSWORD` 等名称。值加密保存，可在设置页直接查看和复制；`pytest_workbench` 启动时从平台读取并注入同名环境变量。pytest 用例用 `os.environ["SUT_TOKEN"]`，Tavern 用例用 `{tavern.env_vars.SUT_TOKEN}` 引用，不要把值写进 YAML 或代码。
 
 最小提示词：
 
@@ -76,7 +76,7 @@ python -m scripts.manage create-project --name 商城接口 --base-url http://12
 python -m scripts.manage add-member --project 商城接口 --email you@example.com --role admin
 ```
 
-登录后在「项目设置 → AI 接入」创建 Token。scope 与预设由 `GET /api/v1/meta/token-scopes` 提供，写/执行权限包含对应读权限；平台成员用 JWT，Token 只用于 `/ingest/v1/*`。
+登录后在「项目设置 → 接入令牌」创建 Token。scope 与预设由 `GET /api/v1/meta/token-scopes` 提供，写/执行权限包含对应读权限；平台成员用 JWT，Token 只用于 `/ingest/v1/*`。
 
 ### 前端
 
@@ -88,7 +88,7 @@ npm run dev
 
 打开 http://127.0.0.1:5173，`/api` 与 `/ingest` 已代理到 `http://127.0.0.1:8000`。
 
-「01 需求与接口」右上角可直接导入需求 Markdown 与 OpenAPI 文档（JSON / YAML），导入后可在页面内编辑、删除；项目名称、被测服务地址、AI 接入令牌与项目删除在项目下拉菜单的「项目设置」中维护。
+「01 需求与接口」右上角可直接导入需求 Markdown 与 OpenAPI 文档（JSON / YAML），导入后可在页面内编辑、删除；项目名称、被测服务地址、测试仓库、AI 规则、接入令牌、测试凭据与项目删除在项目下拉菜单的「项目设置」中维护。
 
 <img width="1912" height="948" alt="image" src="https://github.com/user-attachments/assets/c71f8e2f-f4a1-4159-a5c3-fc68681fe8d2" />
 

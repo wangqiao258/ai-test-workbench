@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy import select
 
 from app.core.deps import ISSUABLE_TOKEN_SCOPES
+from app.core.secrets import encrypt_secret
 from app.core.security import generate_api_token, hash_password
 from app.db.models.identity import AppUser, ProjectMember
 from app.db.models.project import ApiToken, Project
@@ -89,12 +90,13 @@ def cmd_create_token(args: argparse.Namespace) -> None:
             name=args.name,
             token_prefix=prefix,
             token_hash=digest,
+            token_ciphertext=encrypt_secret(raw),
             scopes=args.scope or list(ISSUABLE_TOKEN_SCOPES),
             expires_at=expires_at,
         )
         db.add(token)
         db.commit()
-        print(f"项目 {project.name} 的 Token 已创建，仅显示一次：")
+        print(f"项目 {project.name} 的 Token 已创建，可在项目设置查看：")
         print(raw)
         if expires_at is not None:
             print(f"过期时间：{expires_at.isoformat()}")
