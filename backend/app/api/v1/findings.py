@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.services.runs import resolve_run
 from app.core.deps import get_membership
 from app.core.errors import ApiError
 from app.core.pagination import paginate
@@ -29,6 +28,7 @@ from app.services.review import (
     judge_finding,
     resolve_finding_operation_id,
 )
+from app.services.runs import resolve_run
 
 router = APIRouter(prefix="/projects/{project_id}/findings", tags=["review"])
 

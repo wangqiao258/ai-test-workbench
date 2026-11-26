@@ -1,11 +1,13 @@
 """AI 机需求工作队列：先领小队列，再按需取详情。"""
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.defaults import REQUIREMENT_QUEUE_LIMIT
 from app.core.deps import SCOPE_ASSETS_READ, require_token_scope
 from app.core.errors import ApiError
+from app.db.models.asset import Requirement
 from app.db.models.project import Project
 from app.db.session import get_db
 from app.schemas.query import (
