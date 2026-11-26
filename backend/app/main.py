@@ -8,6 +8,7 @@ from app.api.ingest import operations as ingest_operations
 from app.api.ingest import requirements as ingest_requirements
 from app.api.ingest import secrets as ingest_secrets
 from app.api.v1 import assets as asset_queries
+from app.api.v1 import agent_rules as project_agent_rules
 from app.api.v1 import audit, auth, cases, defects, findings, meta, projects, tokens
 from app.api.v1 import runs as run_queries
 from app.api.v1 import secrets as project_secrets
@@ -32,6 +33,7 @@ app.add_middleware(AccessLogMiddleware)
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(meta.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
+app.include_router(project_agent_rules.router, prefix="/api/v1")
 app.include_router(tokens.router, prefix="/api/v1")
 app.include_router(project_secrets.router, prefix="/api/v1")
 app.include_router(run_queries.router, prefix="/api/v1")

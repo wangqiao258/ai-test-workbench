@@ -3,6 +3,7 @@ import type { Project } from '../types'
 import type { UpdateProjectInput } from '../services/api'
 import { ProjectTokensSection } from './ProjectTokensSection'
 import { ProjectSecretsSection } from './ProjectSecretsSection'
+import { ProjectAgentRulesSection } from './ProjectAgentRulesSection'
 import { DialogShell } from './ui'
 
 interface Props {
@@ -13,10 +14,11 @@ interface Props {
   onDelete: (projectId: string) => Promise<void>
 }
 
-type SettingsTab = 'basic' | 'tokens' | 'secrets' | 'danger'
+type SettingsTab = 'basic' | 'rules' | 'tokens' | 'secrets' | 'danger'
 
 const TABS: { id: SettingsTab; label: string }[] = [
   { id: 'basic', label: '基本资料' },
+  { id: 'rules', label: 'AI 规则' },
   { id: 'tokens', label: '接入令牌' },
   { id: 'secrets', label: '测试凭据' },
   { id: 'danger', label: '危险操作' },
@@ -202,6 +204,13 @@ export function ProjectSettingsDialog({
               不克隆仓库。whoami 会把仓库地址下发给接入方。
             </p>
           </div>
+        )}
+
+        {tab === 'rules' && (
+          <ProjectAgentRulesSection
+            projectId={project.id}
+            canEdit={project.role === 'admin'}
+          />
         )}
 
         {tab === 'tokens' && <ProjectTokensSection projectId={project.id} />}

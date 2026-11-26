@@ -532,6 +532,32 @@ export async function deleteProject(projectId: string): Promise<void> {
   await request(`/projects/${projectId}`, { method: 'DELETE' })
 }
 
+export interface AgentRules {
+  rules: string[]
+  defaults: string[]
+  isCustom: boolean
+}
+
+export async function fetchAgentRules(projectId: string): Promise<AgentRules> {
+  return fetchJson<AgentRules>(`/projects/${projectId}/agent-rules`)
+}
+
+export async function saveAgentRules(
+  projectId: string,
+  rules: string[],
+): Promise<AgentRules> {
+  return fetchJson<AgentRules>(`/projects/${projectId}/agent-rules`, {
+    method: 'PUT',
+    body: JSON.stringify({ rules }),
+  })
+}
+
+export async function resetAgentRules(projectId: string): Promise<AgentRules> {
+  return fetchJson<AgentRules>(`/projects/${projectId}/agent-rules`, {
+    method: 'DELETE',
+  })
+}
+
 export interface RequirementInput {
   externalId: string
   title?: string
@@ -1036,6 +1062,9 @@ export const api = {
   createProject,
   updateProject,
   deleteProject,
+  fetchAgentRules,
+  saveAgentRules,
+  resetAgentRules,
   listProjectTokens,
   fetchTokenMeta,
   createProjectToken,

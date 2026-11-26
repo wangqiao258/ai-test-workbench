@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from app.schemas.common import ApiModel
 
@@ -92,3 +92,26 @@ class ProjectUpdateIn(ApiModel):
     @classmethod
     def _validate_repo_ref(cls, value: str | None) -> str | None:
         return None if value is None else _normalize_repo_ref(value)
+
+
+class AgentRulesIn(ApiModel):
+    rules: list[str] = Field(default_factory=list, max_length=50)
+
+    @field_validator("rules")
+    @classmethod
+    def _normalize_rules(cls, values: list[str]) -> list[str]:
+        rules: list[str] = []
+        for value in values:
+            text = value.strip()
+            if not text:
+                continue
+            if len(text) > 500:
+                raise ValueError("单条规则不能超过 500 个字符")
+            rules.append(text)
+        return rules
+
+
+class AgentRulesOut(ApiModel):
+    rules: list[str]
+    defaults: list[str]
+    is_custom: bool
