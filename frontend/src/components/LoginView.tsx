@@ -57,10 +57,6 @@ export function LoginView({ loading, error, onSubmit }: Props) {
         >
           {loading ? '登录中…' : '登录'}
         </button>
-
-        <p className="login-hint">
-          联调账号 tester@local，密码由后端管理员设置。
-        </p>
       </form>
     </div>
   )

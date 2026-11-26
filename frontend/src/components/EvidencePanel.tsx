@@ -202,7 +202,6 @@ export function EvidencePanel({
               抓包交换
               <span className="count-pill">{exchangeTotal}</span>
             </h3>
-            <span className="panel-hint">pytest-traffic-capture · HAR 1.2</span>
           </div>
           {loading ? (
             <div className="case-list-empty">正在加载抓包证据…</div>

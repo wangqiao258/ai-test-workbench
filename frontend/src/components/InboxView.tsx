@@ -101,10 +101,6 @@ export function InboxView({ data, navigate }: Props) {
           </p>
         </div>
         <div className="head-tags">
-          <span className="head-tag">
-            <Icon name="spark" size={13} />
-            {pending.length} 条待审判
-          </span>
           <button
             type="button"
             className="btn btn-primary"

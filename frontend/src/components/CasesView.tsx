@@ -440,16 +440,6 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
             用例定义来自项目规格文件；运行结果、需求与接口关联自动回填。
           </p>
         </div>
-        <div className="head-tags">
-          <span className="head-tag">
-            <Icon name="terminal" size={13} />
-            pytest
-          </span>
-          <span className="head-tag">
-            <Icon name="link" size={13} />
-            追溯关系
-          </span>
-        </div>
       </header>
 
       <div className="view-body cases-body">

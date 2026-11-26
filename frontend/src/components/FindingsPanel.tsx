@@ -175,10 +175,6 @@ export function FindingsPanel({
           <p>审阅左侧选中用例的 AI 发现；批次级分析见上方。</p>
         </div>
         <div className="trial-head-actions">
-          <span className="ai-brain-badge">
-            <Icon name="server" size={12} />
-            外部流水线
-          </span>
           {onClose && (
             <button
               type="button"

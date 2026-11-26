@@ -107,22 +107,12 @@ export function DefectsView({
     <div className="view">
       <header className="view-head">
         <div>
-          <div className="view-kicker">VERDICT ARCHIVE / 04</div>
+          <div className="view-kicker">VERDICT ARCHIVE / 05</div>
           <h1 className="view-title">缺陷库</h1>
           <p className="view-desc">
             只收录经过人工确认的缺陷。每条缺陷保留运行证据与审判记录，AI
             判断仅作为历史依据，不再直接展示分析结论。
           </p>
-        </div>
-        <div className="head-tags">
-          <span className="head-tag">
-            <Icon name="shield" size={13} />
-            人工确认 {data.defects.length}
-          </span>
-          <span className="head-tag">
-            <Icon name="spark" size={13} />
-            AI 建议仅留痕
-          </span>
         </div>
       </header>
 

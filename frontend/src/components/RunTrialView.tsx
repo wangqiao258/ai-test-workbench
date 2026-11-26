@@ -47,16 +47,6 @@ function RunHeader() {
           发现已集中到「待审判」收件箱。
         </p>
       </div>
-      <div className="head-tags">
-        <span className="head-tag">
-          <Icon name="server" size={13} />
-          pytest
-        </span>
-        <span className="head-tag">
-          <Icon name="file" size={13} />
-          HAR 证据
-        </span>
-      </div>
     </header>
   )
 }
@@ -384,9 +374,11 @@ export function RunTrialView({
             )}
           </div>
 
-          <div className="pane-left-foot">
-            <span className="mono-id">{run.environment}</span>
-          </div>
+          {run.environment && (
+            <div className="pane-left-foot">
+              <span className="mono-id">{run.environment}</span>
+            </div>
+          )}
         </aside>
 
         <EvidencePanel

@@ -14,7 +14,7 @@ import {
   type Session,
   type UpdateProjectInput,
 } from './services/api'
-import { SkeletonRows, Toast, type IconName } from './components/ui'
+import { SkeletonRows, Toast } from './components/ui'
 import { AssetsView } from './components/AssetsView'
 import { CasesView } from './components/CasesView'
 import { InboxView } from './components/InboxView'
@@ -32,44 +32,32 @@ import {
 const MODULES: Array<{
   key: ModuleKey
   label: string
-  icon: IconName
   index: string
-  caption: string
 }> = [
   {
     key: 'assets',
     label: '需求与接口',
-    icon: 'book',
     index: '01',
-    caption: '阅读需求原文，核对 OpenAPI 契约',
   },
   {
     key: 'cases',
     label: '用例覆盖',
-    icon: 'layers',
     index: '02',
-    caption: '查看 pytest 用例与需求 / 接口的追溯关系',
   },
   {
     key: 'inbox',
     label: '待审判',
-    icon: 'spark',
     index: '03',
-    caption: '跨批次汇总 AI 发现，逐条审阅并裁决',
   },
   {
     key: 'runs',
     label: '运行证据',
-    icon: 'play',
     index: '04',
-    caption: '按批次查看运行结果与抓包证据',
   },
   {
     key: 'defects',
     label: '缺陷库',
-    icon: 'bug',
     index: '05',
-    caption: '只保留经过人工确认的缺陷与审判记录',
   },
 ]
 
@@ -77,15 +65,15 @@ const INITIAL_NAV: NavState = {
   projectId: '',
   module: 'runs',
   assetTab: 'requirements',
-  requirementId: 'REQ-ORDER-01',
-  docId: 'DOC-ORDER',
-  operationId: 'op-create-order',
+  requirementId: '',
+  docId: '',
+  operationId: '',
   caseNodeid: '',
-  runId: 'RUN-1124-0912',
-  evidenceNodeid: 'tests/test_inventory.py::test_lock_inventory_concurrent',
-  exchangeIndex: 1,
-  findingId: 'FND-001',
-  defectId: 'DEF-1007',
+  runId: '',
+  evidenceNodeid: '',
+  exchangeIndex: 0,
+  findingId: '',
+  defectId: '',
 }
 
 interface ToastState {
@@ -491,7 +479,6 @@ export default function App() {
           <span className="route-kicker">
             {activeProject?.name ?? '—'} / {activeMeta.index} {activeMeta.label}
           </span>
-          <span className="route-caption">{activeMeta.caption}</span>
         </div>
 
         <div className="topbar-actions">
