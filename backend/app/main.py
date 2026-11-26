@@ -7,8 +7,8 @@ from app.api.ingest import artifacts, assets, assets_read, catalog, docs, jobs, 
 from app.api.ingest import operations as ingest_operations
 from app.api.ingest import requirements as ingest_requirements
 from app.api.ingest import secrets as ingest_secrets
-from app.api.v1 import assets as asset_queries
 from app.api.v1 import agent_rules as project_agent_rules
+from app.api.v1 import assets as asset_queries
 from app.api.v1 import audit, auth, cases, defects, findings, meta, projects, tokens
 from app.api.v1 import runs as run_queries
 from app.api.v1 import secrets as project_secrets
