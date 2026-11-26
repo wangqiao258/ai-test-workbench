@@ -34,6 +34,7 @@ class ApiToken(Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     token_prefix: Mapped[str] = mapped_column(String(16), unique=True, nullable=False)
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    token_ciphertext: Mapped[str] = mapped_column(Text, nullable=False, default="")
     scopes: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

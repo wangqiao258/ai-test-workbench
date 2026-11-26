@@ -27,6 +27,7 @@ export function ProjectTokensSection({ projectId }: Props) {
     secret: string
   } | null>(null)
   const [copied, setCopied] = useState<'token' | 'curl' | ''>('')
+  const [copiedRow, setCopiedRow] = useState('')
   const [revokeId, setRevokeId] = useState<string | null>(null)
   const [revoking, setRevoking] = useState(false)
   const [purgeId, setPurgeId] = useState<string | null>(null)
@@ -111,6 +112,17 @@ export function ProjectTokensSection({ projectId }: Props) {
     }
   }
 
+  const copyRow = async (token: ProjectToken) => {
+    if (!token.token) return
+    const ok = await copyText(token.token)
+    if (ok) {
+      setCopiedRow(token.id)
+      setError('')
+    } else {
+      setError('复制失败，请手动选择令牌明文')
+    }
+  }
+
   const revoke = async (token: ProjectToken) => {
     if (revoking) return
     if (revokeId !== token.id) {
@@ -182,7 +194,8 @@ export function ProjectTokensSection({ projectId }: Props) {
           <h4>AI 接入令牌</h4>
           <p>
             调用 <code>/ingest/v1</code> 时放入{' '}
-            <code>X-Project-Token</code> 请求头，每个客户端单独一枚。
+            <code>X-Project-Token</code> 请求头，每个客户端单独一枚；
+            令牌明文保存在设置页，可随时查看复制。
           </p>
         </div>
         <div className="token-head-actions">
@@ -239,7 +252,7 @@ export function ProjectTokensSection({ projectId }: Props) {
       {created && (
         <div className="token-secret">
           <div className="token-secret-head">
-            <strong>令牌已生成，仅显示一次</strong>
+            <strong>令牌已生成，列表可随时查看</strong>
             <span>{created.token.name}</span>
           </div>
           <code>{created.secret}</code>
@@ -280,7 +293,11 @@ export function ProjectTokensSection({ projectId }: Props) {
               <div className="token-meta">
                 <span className="token-title">
                   <strong>{token.name}</strong>
-                  <code>{token.prefix}…</code>
+                  {token.token ? (
+                    <code className="token-plain">{token.token}</code>
+                  ) : (
+                    <code>{token.prefix}…（历史令牌不可查看）</code>
+                  )}
                 </span>
                 <span className="token-scopes">
                   {token.scopes
@@ -295,6 +312,16 @@ export function ProjectTokensSection({ projectId }: Props) {
                 </span>
               </div>
               <div className="token-row-actions">
+                {token.token && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs"
+                    onClick={() => void copyRow(token)}
+                  >
+                    <Icon name={copiedRow === token.id ? 'check' : 'copy'} size={13} />
+                    {copiedRow === token.id ? '已复制' : '复制'}
+                  </button>
+                )}
                 <span className={`token-status token-status-${token.status}`}>
                   {STATUS_LABELS[token.status]}
                 </span>

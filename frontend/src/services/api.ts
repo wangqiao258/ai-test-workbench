@@ -68,6 +68,7 @@ interface BackendToken {
   id: string
   name: string
   prefix: string
+  token?: string | null
   scopes: string[]
   status: ProjectToken['status']
   lastUsedAt?: string | null
@@ -380,6 +381,7 @@ function mapToken(token: BackendToken): ProjectToken {
     id: token.id,
     name: token.name,
     prefix: token.prefix,
+    token: token.token ?? null,
     scopes: token.scopes,
     status: token.status,
     lastUsedAt: token.lastUsedAt ?? undefined,
@@ -445,6 +447,7 @@ export async function purgeRevokedProjectTokens(
 interface BackendProjectSecret {
   key: string
   description: string
+  value?: string | null
   expiresAt?: string | null
   lastUsedAt?: string | null
   updatedAt: string
@@ -455,6 +458,7 @@ function mapSecret(item: BackendProjectSecret): ProjectSecret {
   return {
     key: item.key,
     description: item.description,
+    value: item.value ?? null,
     expiresAt: item.expiresAt ?? undefined,
     lastUsedAt: item.lastUsedAt ?? undefined,
     updatedAt: item.updatedAt,

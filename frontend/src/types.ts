@@ -39,6 +39,8 @@ export interface ProjectToken {
   id: string
   name: string
   prefix: string
+  /** 明文令牌，历史令牌或密钥变更后为空 */
+  token?: string | null
   scopes: string[]
   status: ProjectTokenStatus
   lastUsedAt?: string
@@ -49,6 +51,8 @@ export interface ProjectToken {
 export interface ProjectSecret {
   key: string
   description: string
+  /** 明文凭据值，仅设置页返回 */
+  value?: string | null
   expiresAt?: string
   lastUsedAt?: string
   updatedAt: string

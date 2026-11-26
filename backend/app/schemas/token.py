@@ -38,10 +38,11 @@ class TokenOut(ApiModel):
     last_used_at: datetime | None
     expires_at: datetime | None
     created_at: datetime
+    token: str | None = None
 
 
 class TokenCreatedOut(TokenOut):
-    """创建响应额外返回一次明文 Token，之后无法再次获取。"""
+    """创建响应额外返回明文 Token 与创建时一致，之后可在列表查看。"""
 
     token: str
 

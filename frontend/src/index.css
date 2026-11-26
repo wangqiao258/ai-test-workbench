@@ -4783,6 +4783,14 @@ tr:hover .table-action {
   word-break: break-all;
 }
 
+.token-plain,
+.secret-value {
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  word-break: break-all;
+}
+
 .token-status {
   padding: 1px 6px;
   border-radius: 999px;

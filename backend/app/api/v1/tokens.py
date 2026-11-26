@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import ISSUABLE_TOKEN_SCOPES, require_role
 from app.core.errors import ApiError
+from app.core.secrets import decrypt_secret, encrypt_secret
 from app.core.security import generate_api_token
 from app.core.time import utcnow
 from app.db.models.identity import ProjectMember
@@ -33,6 +34,16 @@ def _status(token: ApiToken, now: datetime) -> str:
     return "active"
 
 
+def _token_value(token: ApiToken) -> str | None:
+    if not token.token_ciphertext:
+        return None
+    try:
+        return decrypt_secret(token.token_ciphertext)
+    except ApiError:
+        # 加密密钥变更后旧令牌不可解密，鉴权仍可用哈希校验。
+        return None
+
+
 def _token_out(token: ApiToken, now: datetime) -> TokenOut:
     return TokenOut(
         id=token.id,
@@ -43,6 +54,7 @@ def _token_out(token: ApiToken, now: datetime) -> TokenOut:
         last_used_at=token.last_used_at,
         expires_at=token.expires_at,
         created_at=token.created_at,
+        token=_token_value(token),
     )
 
 
@@ -84,6 +96,7 @@ def create_token(
         name=payload.name,
         token_prefix=prefix,
         token_hash=digest,
+        token_ciphertext=encrypt_secret(raw),
         scopes=payload.scopes,
         created_at=now,
     )

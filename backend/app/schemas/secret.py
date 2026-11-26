@@ -35,6 +35,7 @@ class SecretOut(ApiModel):
     last_used_at: datetime | None
     updated_at: datetime
     expired: bool = False
+    value: str | None = None
 
 
 class SecretResolveIn(ApiModel):

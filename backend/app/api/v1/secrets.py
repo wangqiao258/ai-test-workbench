@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_membership, require_role
 from app.core.errors import ApiError
-from app.core.secrets import encrypt_secret
+from app.core.secrets import decrypt_secret, encrypt_secret
 from app.core.time import utcnow
 from app.db.models.identity import ProjectMember
 from app.db.models.project import ProjectSecret
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/projects/{project_id}/secrets", tags=["secrets"])
 ADMIN_ONLY = require_role("admin", message="仅项目管理员可以管理测试凭据")
 
 
-def _out(item: ProjectSecret, now: datetime) -> SecretOut:
+def _out(item: ProjectSecret, now: datetime, value: str | None = None) -> SecretOut:
     return SecretOut(
         key=item.key,
         description=item.description,
@@ -28,6 +28,7 @@ def _out(item: ProjectSecret, now: datetime) -> SecretOut:
         last_used_at=item.last_used_at,
         updated_at=item.updated_at,
         expired=item.expires_at is not None and item.expires_at <= now,
+        value=value,
     )
 
 
@@ -43,7 +44,7 @@ def list_secrets(
         .order_by(ProjectSecret.key)
     ).all()
     now = utcnow()
-    return [_out(item, now) for item in items]
+    return [_out(item, now, decrypt_secret(item.value_ciphertext)) for item in items]
 
 
 @router.put("/{key}", response_model=SecretOut)
@@ -99,7 +100,7 @@ def upsert_secret(
     )
     db.commit()
     db.refresh(item)
-    return _out(item, utcnow())
+    return _out(item, utcnow(), payload.value)
 
 
 @router.delete("/{key}", status_code=204)

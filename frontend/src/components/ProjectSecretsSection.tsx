@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ProjectSecret } from '../types'
 import { api } from '../services/api'
-import { formatDateTime } from '../utils/format'
+import { copyText, formatDateTime } from '../utils/format'
 import { Icon } from './ui'
 
 interface Props {
@@ -82,6 +82,7 @@ export function ProjectSecretsSection({ projectId, canEdit }: Props) {
   const [saving, setSaving] = useState(false)
   const [deleteCard, setDeleteCard] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [copiedKey, setCopiedKey] = useState('')
 
   useEffect(() => {
     let alive = true
@@ -214,14 +215,24 @@ export function ProjectSecretsSection({ projectId, canEdit }: Props) {
     }
   }
 
+  const copyValue = async (key: string, value: string) => {
+    const ok = await copyText(value)
+    if (ok) {
+      setCopiedKey(key)
+      setError('')
+    } else {
+      setError('复制失败，请手动选择凭据值')
+    }
+  }
+
   return (
     <section className="token-section" aria-label="测试凭据">
       <div className="token-section-head">
         <div>
           <h4>测试凭据</h4>
           <p>
-            被测系统的账号、密码或 Token。按凭据卡片录入，值加密保存、不回显；
-            pytest 插件运行时注入环境变量。
+            被测系统的账号、密码或 Token。按凭据卡片录入，值加密保存，
+            卡片内直接显示并可复制；pytest 插件运行时注入环境变量。
           </p>
         </div>
         <span className="token-count">{cards.length} 项</span>
@@ -397,6 +408,26 @@ export function ProjectSecretsSection({ projectId, canEdit }: Props) {
                     <div className="secret-field" key={field.secret.key}>
                       <span className="secret-field-label">{field.label}</span>
                       <code>{field.secret.key}</code>
+                      {field.secret.value ? (
+                        <>
+                          <code className="secret-value">{field.secret.value}</code>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-xs"
+                            onClick={() =>
+                              void copyValue(field.secret.key, field.secret.value ?? '')
+                            }
+                          >
+                            <Icon
+                              name={copiedKey === field.secret.key ? 'check' : 'copy'}
+                              size={12}
+                            />
+                            {copiedKey === field.secret.key ? '已复制' : '复制'}
+                          </button>
+                        </>
+                      ) : (
+                        <span className="token-hint">值不可查看</span>
+                      )}
                     </div>
                   ))}
                 </div>
