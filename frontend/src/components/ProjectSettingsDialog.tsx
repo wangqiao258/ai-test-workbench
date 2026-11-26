@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Project } from '../types'
 import type { UpdateProjectInput } from '../services/api'
 import { ProjectTokensSection } from './ProjectTokensSection'
+import { ProjectSecretsSection } from './ProjectSecretsSection'
 import { DialogShell } from './ui'
 
 interface Props {
@@ -71,7 +72,7 @@ export function ProjectSettingsDialog({
     <DialogShell
       open={open}
       title="项目设置"
-      description="维护项目资料，管理 AI 接入令牌；删除项目会一并移除其需求、接口、运行与缺陷。"
+      description="维护项目资料，管理 AI 接入令牌与测试凭据；删除项目会一并移除其需求、接口、运行与缺陷。"
       icon="server"
       className="dialog-project dialog-settings"
       busy={busy}
@@ -122,6 +123,10 @@ export function ProjectSettingsDialog({
       </div>
 
       <ProjectTokensSection projectId={project.id} />
+      <ProjectSecretsSection
+        projectId={project.id}
+        canEdit={project.role === 'admin'}
+      />
 
       {confirmDelete && (
         <p className="dialog-note dialog-note-danger">

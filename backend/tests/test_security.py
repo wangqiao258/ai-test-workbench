@@ -9,7 +9,6 @@ from app.core.deps import (
     SCOPE_ASSETS_READ,
     SCOPE_ASSETS_WRITE,
     SCOPE_LEGACY,
-    SCOPE_RUNS_EXECUTE,
     SCOPE_RUNS_READ,
     SCOPE_RUNS_WRITE,
     TOKEN_PRESETS,
@@ -57,9 +56,6 @@ def test_write_scope_implies_corresponding_read() -> None:
     assert expand_token_scopes({SCOPE_RUNS_WRITE}) == frozenset(
         {SCOPE_RUNS_WRITE, SCOPE_RUNS_READ}
     )
-    assert expand_token_scopes({SCOPE_RUNS_EXECUTE}) == frozenset(
-        {SCOPE_RUNS_EXECUTE, SCOPE_RUNS_READ}
-    )
     assert expand_token_scopes({SCOPE_ANALYSIS_WRITE}) == frozenset(
         {SCOPE_ANALYSIS_WRITE, SCOPE_RUNS_READ}
     )
@@ -68,7 +64,7 @@ def test_write_scope_implies_corresponding_read() -> None:
 def test_read_scope_does_not_imply_write() -> None:
     assert expand_token_scopes({SCOPE_ASSETS_READ}) == frozenset({SCOPE_ASSETS_READ})
     assert expand_token_scopes({SCOPE_RUNS_READ}) == frozenset({SCOPE_RUNS_READ})
-    assert SCOPE_RUNS_WRITE not in expand_token_scopes({SCOPE_RUNS_EXECUTE})
+    assert SCOPE_RUNS_WRITE not in expand_token_scopes({SCOPE_ANALYSIS_WRITE})
 
 
 def test_legacy_scope_expands_to_all_issuable_scopes() -> None:

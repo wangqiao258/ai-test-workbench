@@ -28,9 +28,9 @@ SCOPE_ASSETS_READ = "assets:read"
 SCOPE_ASSETS_WRITE = "assets:write"
 SCOPE_RUNS_READ = "runs:read"
 SCOPE_RUNS_WRITE = "runs:write"
-SCOPE_RUNS_EXECUTE = "runs:execute"
 SCOPE_ANALYSIS_WRITE = "analysis:write"
 SCOPE_SPECS_WRITE = "specs:write"
+SCOPE_SECRETS_READ = "secrets:read"
 
 KNOWN_TOKEN_SCOPES = (
     SCOPE_LEGACY,
@@ -38,9 +38,9 @@ KNOWN_TOKEN_SCOPES = (
     SCOPE_ASSETS_WRITE,
     SCOPE_RUNS_READ,
     SCOPE_RUNS_WRITE,
-    SCOPE_RUNS_EXECUTE,
     SCOPE_ANALYSIS_WRITE,
     SCOPE_SPECS_WRITE,
+    SCOPE_SECRETS_READ,
 )
 
 # 新建令牌只发放细分 scope；历史 ingest 仅用于兼容既有 Token。
@@ -52,7 +52,6 @@ ISSUABLE_TOKEN_SCOPES = tuple(
 SCOPE_IMPLICATIONS: dict[str, frozenset[str]] = {
     SCOPE_ASSETS_WRITE: frozenset({SCOPE_ASSETS_READ}),
     SCOPE_RUNS_WRITE: frozenset({SCOPE_RUNS_READ}),
-    SCOPE_RUNS_EXECUTE: frozenset({SCOPE_RUNS_READ}),
     SCOPE_ANALYSIS_WRITE: frozenset({SCOPE_RUNS_READ}),
 }
 
@@ -70,16 +69,16 @@ SCOPE_CATALOG: tuple[dict[str, str], ...] = (
         "description": "上传运行结果与证据，含读取",
     },
     {
-        "id": SCOPE_RUNS_EXECUTE,
-        "label": "触发运行",
-        "description": "触发运行，含读取",
-    },
-    {
         "id": SCOPE_ANALYSIS_WRITE,
         "label": "分析回写",
         "description": "写入分析结果，含读取运行",
     },
     {"id": SCOPE_SPECS_WRITE, "label": "传规格", "description": "上传 YAML 规格"},
+    {
+        "id": SCOPE_SECRETS_READ,
+        "label": "读测试凭据",
+        "description": "读取项目测试账号与 Token",
+    },
     {"id": SCOPE_LEGACY, "label": "历史全量", "description": "兼容旧令牌"},
 )
 
@@ -105,11 +104,11 @@ TOKEN_PRESETS: tuple[dict, ...] = (
     {
         "id": "auto",
         "label": "全自动测试",
-        "hint": "读资产、传规格、触发运行、写分析",
+        "hint": "读资产、传规格、读凭据、写分析",
         "scopes": [
             SCOPE_ASSETS_READ,
             SCOPE_SPECS_WRITE,
-            SCOPE_RUNS_EXECUTE,
+            SCOPE_SECRETS_READ,
             SCOPE_ANALYSIS_WRITE,
         ],
     },

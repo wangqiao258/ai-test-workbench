@@ -66,7 +66,7 @@ def normalize_spec_path(raw: str) -> Path:
     if "\\" in value:
         raise ApiError(422, "invalid_spec_path", "spec 路径使用 / 分隔")
     path = Path(value)
-    if path.is_absolute() or ".." in path.parts:
+    if value.startswith("/") or path.is_absolute() or path.drive or ".." in path.parts:
         raise ApiError(422, "invalid_spec_path", "spec 路径必须是相对路径且不能包含 ..")
     if path.suffix.lower() not in _ALLOWED_SUFFIXES:
         raise ApiError(422, "invalid_spec_suffix", "只接受 .yaml / .yml 文件")

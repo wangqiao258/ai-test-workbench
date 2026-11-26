@@ -212,7 +212,7 @@ export function ProjectTokensSection({ projectId }: Props) {
         <p className="token-hint">正在读取接入令牌…</p>
       ) : tokens.length === 0 ? (
         <p className="token-hint">
-          还没有接入令牌，生成后把明文交给对应的 AI、Runner 或 CI。
+          还没有接入令牌，生成后把明文交给对应的 AI 或 CI。
         </p>
       ) : (
         <div className="token-list">

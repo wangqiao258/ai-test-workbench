@@ -577,7 +577,6 @@ export default function App() {
                   navigate={navigate}
                   onJudge={handleJudge}
                   onToast={notify}
-                  onRefresh={handleRefresh}
                 />
               )}
               {nav.module === 'defects' && (

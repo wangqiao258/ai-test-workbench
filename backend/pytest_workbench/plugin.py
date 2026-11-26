@@ -74,6 +74,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=float(os.environ.get("WORKBENCH_TIMEOUT", "30")),
         help="单次 HTTP 请求超时秒数",
     )
+    group.addoption(
+        "--workbench-no-secrets",
+        action="store_true",
+        default=False,
+        help="不自动从平台加载项目测试凭据",
+    )
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -117,9 +123,24 @@ class WorkbenchPlugin:
         self.har_dir = _resolve_path(self.root, config.getoption("workbench_har_dir"))
         self.capture_enabled = bool(config.getoption("capture_traffic", False))
         self.job_timeout = float(config.getoption("workbench_job_timeout"))
+        self.load_secrets = not bool(config.getoption("workbench_no_secrets"))
         self.report: dict[str, Any] | None = None
         self.collected_cases: list[dict[str, Any]] = []
         self.case_metadata: dict[str, dict[str, Any]] = {}
+
+    def pytest_sessionstart(self, session: pytest.Session) -> None:
+        if not self.load_secrets:
+            return
+        try:
+            items = self.client.list_secrets()
+            keys = [str(item["key"]) for item in items if item.get("key")]
+            if not keys:
+                return
+            resolved = self.client.resolve_secrets(keys)
+            for key, value in (resolved.get("values") or {}).items():
+                os.environ.setdefault(str(key), str(value))
+        except WorkbenchError as exc:
+            warnings.warn(f"读取项目测试凭据失败：{exc}", RuntimeWarning, stacklevel=2)
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_collection_modifyitems(self, items: list[pytest.Item]) -> None:
@@ -299,8 +320,15 @@ class WorkbenchClient:
         }
         return self._send("POST", path, data=body, headers=headers)
 
-    def get_json(self, path: str) -> dict[str, Any]:
+    def get_json(self, path: str) -> Any:
         return self._send("GET", path)
+
+    def list_secrets(self) -> list[dict[str, Any]]:
+        items = self.get_json("/ingest/v1/secrets")
+        return items if isinstance(items, list) else []
+
+    def resolve_secrets(self, keys: list[str]) -> dict[str, Any]:
+        return self.post_json("/ingest/v1/secrets/resolve", {"keys": keys})
 
     def post_har(self, run_id: str, nodeid: str, har_path: Path) -> dict[str, Any]:
         data = har_path.read_bytes()

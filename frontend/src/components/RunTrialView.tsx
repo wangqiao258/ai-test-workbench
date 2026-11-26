@@ -1,21 +1,17 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type {
   AppData,
   Defect,
   Finding,
   Navigate,
   NavState,
-  RunRequest,
-  RunRequestStatus,
   RunStatus,
   ToastTone,
   Verdict,
 } from '../types'
-import { api, type CreateRunRequestInput } from '../services/api'
 import { formatDateTime, formatDuration } from '../utils/format'
 import { EvidencePanel } from './EvidencePanel'
 import { FindingsPanel } from './FindingsPanel'
-import { RunRequestDialog } from './RunRequestDialog'
 import { EmptyState, Icon } from './ui'
 
 interface Props {
@@ -28,7 +24,6 @@ interface Props {
     note: string,
   ) => Promise<{ finding: Finding; defect?: Defect }>
   onToast: (text: string, tone?: ToastTone) => void
-  onRefresh: () => Promise<void>
 }
 
 const STAT_ITEMS: Array<{ key: RunStatus; label: string }> = [
@@ -38,22 +33,7 @@ const STAT_ITEMS: Array<{ key: RunStatus; label: string }> = [
   { key: 'skipped', label: '跳过' },
 ]
 
-const REQUEST_STATUS_LABEL: Record<RunRequestStatus, string> = {
-  queued: '排队中',
-  running: '执行中',
-  succeeded: '运行完成',
-  failed: '运行失败',
-  canceled: '已取消',
-}
-
-function RunHeader({
-  request,
-  onOpen,
-}: {
-  request: RunRequest | null
-  onOpen: () => void
-}) {
-  const busy = request?.status === 'queued' || request?.status === 'running'
+function RunHeader() {
   return (
     <header className="view-head">
       <div>
@@ -73,21 +53,6 @@ function RunHeader({
           <Icon name="file" size={13} />
           HAR 证据
         </span>
-        {request && (
-          <span className="head-tag" title={request.error ?? undefined}>
-            {REQUEST_STATUS_LABEL[request.status]}
-            {request.runExternalId ? ` · ${request.runExternalId}` : ''}
-          </span>
-        )}
-        <button
-          type="button"
-          className="btn btn-primary btn-xs"
-          disabled={busy}
-          onClick={onOpen}
-        >
-          <Icon name="play" size={12} />
-          {busy ? '执行中…' : '运行测试'}
-        </button>
       </div>
     </header>
   )
@@ -95,12 +60,10 @@ function RunHeader({
 
 function RunEmpty({
   header,
-  dialog,
   title,
   description,
 }: {
   header: ReactNode
-  dialog: ReactNode
   title: string
   description: string
 }) {
@@ -110,7 +73,6 @@ function RunEmpty({
       <div className="view-body">
         <EmptyState icon="play" title={title} description={description} />
       </div>
-      {dialog}
     </div>
   )
 }
@@ -121,103 +83,19 @@ export function RunTrialView({
   navigate,
   onJudge,
   onToast,
-  onRefresh,
 }: Props) {
   const [onlyFailed, setOnlyFailed] = useState(false)
   const [trialOpen, setTrialOpen] = useState(false)
-  const [requestOpen, setRequestOpen] = useState(false)
-  const [request, setRequest] = useState<RunRequest | null>(null)
 
-  const projectId = nav.projectId
-  const requestId = request?.id
-  const requestStatus = request?.status
-
-  useEffect(() => {
-    let alive = true
-    setRequest(null)
-    api
-      .listRunRequests(projectId)
-      .then((items) => {
-        if (!alive) return
-        const active = items.find(
-          (item) => item.status === 'queued' || item.status === 'running',
-        )
-        if (active) setRequest(active)
-      })
-      .catch(() => {
-        // 运行任务列表不可用时不影响运行结果展示。
-      })
-    return () => {
-      alive = false
-    }
-  }, [projectId])
-
-  useEffect(() => {
-    if (
-      !requestId ||
-      (requestStatus !== 'queued' && requestStatus !== 'running')
-    ) {
-      return
-    }
-    let alive = true
-    const timer = window.setInterval(() => {
-      api
-        .fetchRunRequest(projectId, requestId)
-        .then(async (next) => {
-          if (!alive) return
-          setRequest(next)
-          if (next.status === 'queued' || next.status === 'running') return
-          window.clearInterval(timer)
-          if (next.status === 'succeeded') {
-            onToast(
-              next.runExternalId
-                ? `运行完成：${next.runExternalId}`
-                : '运行完成',
-              'success',
-            )
-          } else {
-            const detail = next.error?.split('\n')[0] ?? ''
-            onToast(`运行失败${detail ? `：${detail}` : ''}`, 'danger')
-          }
-          await onRefresh()
-        })
-        .catch(() => {
-          // 单次轮询失败不终止，等待下一次。
-        })
-    }, 3000)
-    return () => {
-      alive = false
-      window.clearInterval(timer)
-    }
-  }, [projectId, requestId, requestStatus, onToast, onRefresh])
-
-  const submitRequest = async (input: CreateRunRequestInput) => {
-    const created = await api.createRunRequest(projectId, input)
-    setRequest(created)
-    setRequestOpen(false)
-    onToast('运行任务已创建，等待 Runner 执行', 'info')
-  }
-
-  const header = (
-    <RunHeader request={request} onOpen={() => setRequestOpen(true)} />
-  )
-
-  const requestDialog = (
-    <RunRequestDialog
-      open={requestOpen}
-      onCancel={() => setRequestOpen(false)}
-      onSubmit={submitRequest}
-    />
-  )
+  const header = <RunHeader />
 
   const run = data.runs.find((item) => item.id === nav.runId) ?? data.runs[0]
   if (!run) {
     return (
       <RunEmpty
         header={header}
-        dialog={requestDialog}
         title="还没有运行批次"
-        description="点击「运行测试」创建任务，Runner 执行后这里会显示批次、用例与证据。"
+        description="AI 执行 pytest 并通过插件上传结果后，这里会显示批次、用例与证据。"
       />
     )
   }
@@ -227,7 +105,6 @@ export function RunTrialView({
     return (
       <RunEmpty
         header={header}
-        dialog={requestDialog}
         title="本次运行没有用例"
         description="重新上传运行结果后再查看证据与 AI 发现。"
       />
@@ -425,8 +302,6 @@ export function RunTrialView({
         />
         </div>
       </div>
-
-      {requestDialog}
     </div>
   )
 }

@@ -13,12 +13,11 @@ import type {
   OperationParam,
   OperationResponse,
   Project,
+  ProjectSecret,
   ProjectToken,
   Requirement,
   Run,
   RunCase,
-  RunRequest,
-  RunRequestStatus,
   RunStatus,
   SchemaField,
   Severity,
@@ -239,23 +238,6 @@ interface BackendFinding {
   createdAt: string
 }
 
-interface BackendRunRequest {
-  id: string
-  status: string
-  reason: string
-  specPaths: string[]
-  caseNodeids?: string[]
-  yamlHash: string
-  requestedBy?: string | null
-  runExternalId?: string | null
-  logPath?: string | null
-  exitCode?: number | null
-  error?: string | null
-  createdAt: string
-  startedAt?: string | null
-  finishedAt?: string | null
-}
-
 interface BackendDefect {
   id: string
   title: string
@@ -433,6 +415,62 @@ export async function revokeProjectToken(
   tokenId: string,
 ): Promise<void> {
   await request(`/projects/${projectId}/tokens/${tokenId}`, {
+    method: 'DELETE',
+  })
+}
+
+interface BackendProjectSecret {
+  key: string
+  description: string
+  expiresAt?: string | null
+  lastUsedAt?: string | null
+  updatedAt: string
+  expired: boolean
+}
+
+function mapSecret(item: BackendProjectSecret): ProjectSecret {
+  return {
+    key: item.key,
+    description: item.description,
+    expiresAt: item.expiresAt ?? undefined,
+    lastUsedAt: item.lastUsedAt ?? undefined,
+    updatedAt: item.updatedAt,
+    expired: item.expired,
+  }
+}
+
+export interface UpsertSecretInput {
+  value: string
+  description?: string
+  expiresAt?: string | null
+}
+
+export async function listProjectSecrets(
+  projectId: string,
+): Promise<ProjectSecret[]> {
+  const rows = await fetchJson<BackendProjectSecret[]>(
+    `/projects/${projectId}/secrets`,
+  )
+  return rows.map(mapSecret)
+}
+
+export async function upsertProjectSecret(
+  projectId: string,
+  key: string,
+  input: UpsertSecretInput,
+): Promise<ProjectSecret> {
+  const result = await fetchJson<BackendProjectSecret>(
+    `/projects/${projectId}/secrets/${encodeURIComponent(key)}`,
+    { method: 'PUT', body: JSON.stringify(input) },
+  )
+  return mapSecret(result)
+}
+
+export async function deleteProjectSecret(
+  projectId: string,
+  key: string,
+): Promise<void> {
+  await request(`/projects/${projectId}/secrets/${encodeURIComponent(key)}`, {
     method: 'DELETE',
   })
 }
@@ -720,63 +758,6 @@ function mapDefect(projectId: string, item: BackendDefect): Defect {
   }
 }
 
-function mapRunRequest(item: BackendRunRequest): RunRequest {
-  return {
-    id: item.id,
-    status: item.status as RunRequestStatus,
-    reason: item.reason,
-    specPaths: item.specPaths ?? [],
-    caseNodeids: item.caseNodeids ?? [],
-    yamlHash: item.yamlHash,
-    runExternalId: item.runExternalId ?? undefined,
-    logPath: item.logPath ?? undefined,
-    exitCode: item.exitCode ?? undefined,
-    error: item.error ?? undefined,
-    createdAt: item.createdAt,
-    startedAt: item.startedAt ?? undefined,
-    finishedAt: item.finishedAt ?? undefined,
-  }
-}
-
-export interface CreateRunRequestInput {
-  reason?: string
-  specPaths?: string[]
-  caseNodeids?: string[]
-}
-
-export async function createRunRequest(
-  projectId: string,
-  input: CreateRunRequestInput,
-): Promise<RunRequest> {
-  const result = await fetchJson<BackendRunRequest>(
-    `/projects/${projectId}/run-requests`,
-    {
-      method: 'POST',
-      body: JSON.stringify(input),
-    },
-  )
-  return mapRunRequest(result)
-}
-
-export async function listRunRequests(
-  projectId: string,
-): Promise<RunRequest[]> {
-  const page = await fetchJson<Page<BackendRunRequest>>(
-    `/projects/${projectId}/run-requests?page=1&page_size=10`,
-  )
-  return page.items.map(mapRunRequest)
-}
-
-export async function fetchRunRequest(
-  projectId: string,
-  id: string,
-): Promise<RunRequest> {
-  const result = await fetchJson<BackendRunRequest>(
-    `/projects/${projectId}/run-requests/${id}`,
-  )
-  return mapRunRequest(result)
-}
-
 export interface SpecFile {
   path: string
   size: number
@@ -1025,6 +1006,9 @@ export const api = {
   fetchTokenMeta,
   createProjectToken,
   revokeProjectToken,
+  listProjectSecrets,
+  upsertProjectSecret,
+  deleteProjectSecret,
   upsertRequirement,
   updateRequirement,
   deleteRequirement,
@@ -1032,9 +1016,6 @@ export const api = {
   updateOpenApiDoc,
   deleteOpenApiDoc,
   updateOperation,
-  createRunRequest,
-  listRunRequests,
-  fetchRunRequest,
   listSpecs,
   fetchSpecContent,
   saveSpecContent,

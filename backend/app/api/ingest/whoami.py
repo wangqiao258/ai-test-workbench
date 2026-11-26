@@ -3,9 +3,14 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.core.agent_actions import ACTIONS, SCOPE_ANY, WORKFLOW_STEPS
-from app.core.deps import TokenContext, get_token_context
+from app.core.deps import SCOPE_SECRETS_READ, TokenContext, get_token_context
+from app.core.time import utcnow
+from app.db.models.project import ProjectSecret
+from app.db.session import get_db
 
 router = APIRouter(tags=["ingest"])
 
@@ -16,12 +21,17 @@ RULES: tuple[str, ...] = (
     "已测接口优先复用，未覆盖的再按 tag / q 检索",
     "摘要只用于选接口，生成用例前必须读 /operations/{id} 详情",
     "Tavern marks 写 workbench:requirement:<需求ID>",
-    "运行串行：上一次运行结束后再触发下一次；AI 只上传规格并触发运行，不执行 pytest",
+    "AI 在本机或外部环境执行 pytest，执行后通过 /ingest/v1/runs 上传运行结果与证据",
+    "测试凭据只引用名称：pytest 用 os.environ['KEY']，"
+    "Tavern 用 {tavern.env_vars.KEY}，值由插件注入，不要写死",
 )
 
 
 @router.get("/whoami")
-def whoami(context: TokenContext = Depends(get_token_context)) -> dict[str, Any]:
+def whoami(
+    context: TokenContext = Depends(get_token_context),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
     scopes = sorted(context.scopes)
     permitted = [
         action
@@ -37,6 +47,23 @@ def whoami(context: TokenContext = Depends(get_token_context)) -> dict[str, Any]
         {**action, "detail": f"/ingest/v1/actions/{action['step']}"}
         for action in ordered
     ]
+    secrets: list[dict[str, Any]] = []
+    if SCOPE_SECRETS_READ in context.scopes:
+        now = utcnow()
+        items = db.scalars(
+            select(ProjectSecret)
+            .where(ProjectSecret.project_id == context.project.id)
+            .order_by(ProjectSecret.key)
+        ).all()
+        secrets = [
+            {
+                "key": item.key,
+                "description": item.description,
+                "expiresAt": item.expires_at.isoformat() if item.expires_at else None,
+                "expired": item.expires_at is not None and item.expires_at <= now,
+            }
+            for item in items
+        ]
     return {
         "project": {
             "id": str(context.project.id),
@@ -47,6 +74,7 @@ def whoami(context: TokenContext = Depends(get_token_context)) -> dict[str, Any]
         "start": workflow[0]["step"] if workflow else None,
         "actions": actions,
         "rules": list(RULES),
+        "secrets": secrets,
         "docs": {
             "swagger": "/ingest/docs",
             "openapi": "/ingest/openapi.json",

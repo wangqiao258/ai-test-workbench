@@ -44,6 +44,15 @@ export interface ProjectToken {
   createdAt: string
 }
 
+export interface ProjectSecret {
+  key: string
+  description: string
+  expiresAt?: string
+  lastUsedAt?: string
+  updatedAt: string
+  expired: boolean
+}
+
 export interface Requirement {
   projectId: string
   id: string
@@ -169,30 +178,6 @@ export interface Run {
   commit: string
   stats: RunStats
   cases: RunCase[]
-}
-
-export type RunRequestStatus =
-  | 'queued'
-  | 'running'
-  | 'succeeded'
-  | 'failed'
-  | 'canceled'
-
-/** Runner 任务：平台只创建任务，由独立进程拉取执行 pytest 并回传结果。 */
-export interface RunRequest {
-  id: string
-  status: RunRequestStatus
-  reason: string
-  specPaths: string[]
-  caseNodeids: string[]
-  yamlHash: string
-  runExternalId?: string
-  logPath?: string
-  exitCode?: number
-  error?: string
-  createdAt: string
-  startedAt?: string
-  finishedAt?: string
 }
 
 export interface Finding {

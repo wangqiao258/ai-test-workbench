@@ -2,19 +2,20 @@
 
 [![CI](https://github.com/wangqiao258/ai-test-workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/wangqiao258/ai-test-workbench/actions/workflows/ci.yml)
 
-AI 生成测试资产、runner 执行、人工审判缺陷的测试工作台。接口用例由 pytest + Tavern 驱动，运行结果与真实请求响应作为证据留档，人只负责审 Bug 和管理项目。
+AI 生成测试资产、执行 pytest、人工审判缺陷的测试工作台。接口用例由 pytest + Tavern 驱动，运行结果与真实请求响应作为证据留档，人只负责审 Bug 和管理项目。
 
 ## 组成
 
 - `frontend/`：React 18 + TypeScript + Vite 单页应用
-- `backend/`：FastAPI 服务、Alembic 迁移、pytest 插件 `pytest_workbench`、执行器 `workbench_runner`
+- `backend/`：FastAPI 服务、Alembic 迁移、pytest 插件 `pytest_workbench`
 
 ## 能力
 
 - 项目、成员角色和项目级 API Token（按 scope 划分读写权限）
+- 项目级测试凭据（加密存储，pytest 插件运行时注入环境变量）
 - 前端导入 / 编辑 / 删除需求文档与 OpenAPI 契约（OpenAPI 3.x，JSON 或 YAML，支持 HEAD / OPTIONS / TRACE）
 - 用例 / 需求 / OpenAPI 资产导入与追溯
-- 用例规格在线编辑与删除、用例归档，按需求 / 接口 / 轮次 / 状态筛选后只重跑选中用例
+- 用例规格在线编辑与删除、用例归档
 - 运行结果、日志、请求响应、HAR 证据的接入与查询
 - 外部 AI 分析结果落库，finding 人工审判
 - 缺陷流转（`new → confirmed → fixing → fixed → closed`）与审计日志
@@ -24,9 +25,9 @@ AI 生成测试资产、runner 执行、人工审判缺陷的测试工作台。�
 
 | 机器 | 职责 | 说明 |
 | --- | --- | --- |
-| AI 机 | 读取需求 / 契约 / 历史运行，产出 pytest + Tavern YAML，可触发平台执行并回写分析 | 不安装 pytest 插件、不执行用例；执行由平台 Runner 完成 |
-| 平台机 | 运行本平台、PostgreSQL 与 pytest runner，执行用例并归档证据 | 唯一写入运行结果与证据的机器 |
-| 被测机 | 运行被测试系统（SUT） | 只被平台机访问 |
+| AI 机 | 读取需求 / 契约 / 历史运行，产出并执行 pytest + Tavern YAML，上传运行结果、证据与分析 | 需要被测系统凭据；平台 Token 用于上传和读取测试凭据 |
+| 平台机 | 运行本平台与 PostgreSQL，聚合运行结果与证据 | 不执行用例 |
+| 被测机 | 运行被测试系统（SUT） | 被 AI 机访问 |
 
 AI 机先调 `GET /ingest/v1/whoami`，按返回的 `project.baseUrl`、`start`、`actions` 执行；接口和 scope 细节见 `/ingest/docs`。每个 action 带 `detail`，参数、请求体和示例从 `/ingest/v1/actions/{step}` 取，不手写说明。
 
@@ -38,6 +39,10 @@ marks:
 ```
 
 运行后平台按真实请求自动建立关联，`associations` 返回已测接口和置信度。不要读取全量 OpenAPI 或全量需求：摘要选接口，生成用例前取 `/operations/{id}` 详情。单轮通常 5-15K tokens。
+
+### 测试凭据
+
+在「项目设置 → 测试凭据」配置 `SUT_TOKEN`、`SUT_USERNAME`、`SUT_PASSWORD` 等名称。值加密保存、保存后不回显；`pytest_workbench` 启动时从平台读取并注入同名环境变量。pytest 用例用 `os.environ["SUT_TOKEN"]`，Tavern 用例用 `{tavern.env_vars.SUT_TOKEN}` 引用，不要把值写进 YAML 或代码。
 
 最小提示词：
 
@@ -58,7 +63,7 @@ python -m venv .venv
 # Windows: .venv\Scripts\activate
 # macOS/Linux: source .venv/bin/activate
 pip install -e ".[dev]"
-cp .env.example .env   # 修改 DATABASE_URL、JWT_SECRET
+cp .env.example .env   # 修改 DATABASE_URL、JWT_SECRET；生产环境同时配置 SECRETS_KEY
 alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
@@ -87,19 +92,10 @@ npm run dev
 
 <img width="1912" height="948" alt="image" src="https://github.com/user-attachments/assets/c71f8e2f-f4a1-4159-a5c3-fc68681fe8d2" />
 
-### Runner
-
-```bash
-cd backend
-python -m workbench_runner
-```
-
-配置见 `backend/.env.example` 中的 `WORKBENCH_RUNNER_*` 和 `WORKBENCH_PROJECT_TOKENS`（projectId → Token）。`WORKBENCH_RUNNER_SPEC_DIR` 是项目规格根目录，实际执行时使用 `<SPEC_DIR>/<projectId>/`；Runner Token 需要 `runs:write`。
-
 ## 接口分区
 
 - `/api/v1/*`：登录、项目、运行与证据、资产、finding / defect 查询与审判
-- `/ingest/v1/*`：pytest 插件与 AI 机的读写通道，使用项目 Token；AI 可通过 `run-requests` 触发平台 Runner 执行
+- `/ingest/v1/*`：pytest 插件与 AI 机的读写通道，使用项目 Token；AI 通过 `/ingest/v1/runs` 上传运行结果
 - `/healthz`：健康检查
 
 ## 访问日志

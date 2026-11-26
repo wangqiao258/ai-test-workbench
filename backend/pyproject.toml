@@ -17,6 +17,7 @@ dependencies = [
     "pydantic-settings>=2.4",
     "PyJWT>=2.9",
     "argon2-cffi>=23.1",
+    "cryptography>=42",
     "python-multipart>=0.0.9",
     "PyYAML>=6",
     "pytest>=8.2,<9",
@@ -36,7 +37,7 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["app*", "scripts*", "pytest_workbench*", "workbench_runner*"]
+include = ["app*", "scripts*", "pytest_workbench*"]
 
 [tool.setuptools_scm]
 # 版本号来自 git tag（如 v0.2.0）；仓库根在上一级目录

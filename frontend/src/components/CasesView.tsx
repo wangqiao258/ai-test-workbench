@@ -7,7 +7,7 @@ import type {
   TestCase,
   ToastTone,
 } from '../types'
-import { api, type CreateRunRequestInput } from '../services/api'
+import { api } from '../services/api'
 import {
   formatDateTime,
   formatDuration,
@@ -21,7 +21,6 @@ import {
   RunStatusBadge,
   type IconName,
 } from './ui'
-import { RunRequestDialog } from './RunRequestDialog'
 import { SpecEditorDialog } from './SpecEditorDialog'
 
 interface Props {
@@ -77,7 +76,6 @@ function CaseDrawer({
   data,
   navigate,
   canEdit,
-  onRun,
   onEditSpec,
   onArchive,
   onRestore,
@@ -86,7 +84,6 @@ function CaseDrawer({
   data: AppData
   navigate: Navigate
   canEdit: boolean
-  onRun: (nodeid: string) => void
   onEditSpec: (path: string) => void
   onArchive: (testCase: TestCase) => void
   onRestore: (nodeid: string) => void
@@ -247,15 +244,6 @@ function CaseDrawer({
 
         <div className="drawer-foot">
           <div className="drawer-actions">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={Boolean(testCase.archivedAt)}
-              onClick={() => onRun(testCase.nodeid)}
-            >
-              <Icon name="play" size={14} />
-              运行此用例
-            </button>
             {canEdit && testCase.specPath && (
               <button
                 type="button"
@@ -314,9 +302,6 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
   const [statusFilter, setStatusFilter] = useState<'all' | RunStatus>('all')
   const [runFilter, setRunFilter] = useState('all')
   const [includeArchived, setIncludeArchived] = useState(false)
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [runDialogOpen, setRunDialogOpen] = useState(false)
-  const [runNodeids, setRunNodeids] = useState<string[]>([])
   const [specEditor, setSpecEditor] = useState<{ open: boolean; path: string }>({
     open: false,
     path: '',
@@ -413,83 +398,14 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
     statusFilter,
   ])
 
-  const selectable = filtered.filter((item) => !item.archivedAt)
-  const allSelected =
-    selectable.length > 0 &&
-    selectable.every((item) => selected.has(item.nodeid))
-  const activeNodeids = useMemo(
-    () => new Set(activeCases.map((item) => item.nodeid)),
-    [activeCases],
-  )
-  const selectedActive = useMemo(
-    () => [...selected].filter((nodeid) => activeNodeids.has(nodeid)),
-    [activeNodeids, selected],
-  )
-
   const selectedCase = nav.caseNodeid
     ? data.cases.find((item) => item.nodeid === nav.caseNodeid)
     : undefined
-
-  const toggleSelected = (nodeid: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(nodeid)) {
-        next.delete(nodeid)
-      } else {
-        next.add(nodeid)
-      }
-      return next
-    })
-  }
-
-  const toggleAll = () => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (allSelected) {
-        selectable.forEach((item) => next.delete(item.nodeid))
-      } else {
-        selectable.forEach((item) => next.add(item.nodeid))
-      }
-      return next
-    })
-  }
-
-  const openRun = (nodeids: string[]) => {
-    if (!nodeids.length) return
-    setRunNodeids(nodeids)
-    setRunDialogOpen(true)
-  }
-
-  const submitRun = async (input: CreateRunRequestInput) => {
-    await api.createRunRequest(nav.projectId, input)
-    setRunDialogOpen(false)
-    setRunNodeids([])
-    setSelected(new Set())
-    onToast('运行任务已创建，等待 Runner 执行', 'info')
-    await onRefresh()
-  }
-
-  const selectFailedInRun = () => {
-    if (!selectedRun) return
-    const failed = selectedRun.cases
-      .filter(
-        (item) =>
-          (item.status === 'failed' || item.status === 'error') &&
-          activeNodeids.has(item.nodeid),
-      )
-      .map((item) => item.nodeid)
-    setSelected(new Set(failed))
-  }
 
   const handleArchive = async () => {
     if (!archiveTarget) return
     try {
       await api.setCaseArchived(nav.projectId, archiveTarget.nodeid, true)
-      setSelected((prev) => {
-        const next = new Set(prev)
-        next.delete(archiveTarget.nodeid)
-        return next
-      })
       setArchiveTarget(null)
       onToast('用例已归档，可随时恢复', 'success')
       await onRefresh()
@@ -522,7 +438,6 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
           <h1 className="view-title">用例覆盖</h1>
           <p className="view-desc">
             用例定义来自项目规格文件；运行结果、需求与接口关联自动回填。
-            勾选后可只重跑需要的用例。
           </p>
         </div>
         <div className="head-tags">
@@ -654,53 +569,12 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
             <span className="result-count">{filtered.length} 条用例</span>
           </div>
 
-          {selectedActive.length > 0 && (
-            <div className="selection-bar">
-              <span>已选 {selectedActive.length} 条用例</span>
-              <div className="selection-actions">
-                {selectedRun && (
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={selectFailedInRun}
-                  >
-                    选中本轮失败
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={() => openRun(selectedActive)}
-                >
-                  <Icon name="play" size={13} />
-                  运行所选
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setSelected(new Set())}
-                >
-                  清空
-                </button>
-              </div>
-            </div>
-          )}
-
           <div className="table-scroll">
             {filtered.length ? (
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '4%' }}>
-                      <input
-                        type="checkbox"
-                        checked={allSelected}
-                        onChange={toggleAll}
-                        aria-label="全选当前筛选"
-                        disabled={!selectable.length}
-                      />
-                    </th>
-                    <th style={{ width: '27%' }}>用例</th>
+                    <th style={{ width: '31%' }}>用例</th>
                     <th style={{ width: '16%' }}>关联需求</th>
                     <th style={{ width: '21%' }}>关联接口</th>
                     <th style={{ width: '13%' }}>状态</th>
@@ -731,16 +605,6 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
                           navigate({ caseNodeid: testCase.nodeid })
                         }
                       >
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selected.has(testCase.nodeid)}
-                            disabled={Boolean(testCase.archivedAt)}
-                            aria-label={`选择 ${testCase.name}`}
-                            onClick={(event) => event.stopPropagation()}
-                            onChange={() => toggleSelected(testCase.nodeid)}
-                          />
-                        </td>
                         <td>
                           <div className="case-name">{testCase.name}</div>
                           <code className="case-nodeid">{testCase.nodeid}</code>
@@ -826,22 +690,11 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
           data={data}
           navigate={navigate}
           canEdit={canEdit}
-          onRun={(nodeid) => openRun([nodeid])}
           onEditSpec={(path) => setSpecEditor({ open: true, path })}
           onArchive={(testCase) => setArchiveTarget(testCase)}
           onRestore={handleRestore}
         />
       )}
-
-      <RunRequestDialog
-        open={runDialogOpen}
-        caseNodeids={runNodeids}
-        onCancel={() => {
-          setRunDialogOpen(false)
-          setRunNodeids([])
-        }}
-        onSubmit={submitRun}
-      />
 
       <SpecEditorDialog
         open={specEditor.open}
@@ -854,7 +707,7 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
       <ConfirmDialog
         open={Boolean(archiveTarget)}
         title="归档用例"
-        description={`归档「${archiveTarget?.name ?? ''}」后，默认不再执行，也不会出现在重跑选择中；可随时恢复。`}
+        description={`归档「${archiveTarget?.name ?? ''}」后，默认不再执行；可随时恢复。`}
         confirmText="归档"
         onCancel={() => setArchiveTarget(null)}
         onConfirm={handleArchive}

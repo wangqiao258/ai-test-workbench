@@ -7,7 +7,6 @@ from app.core.deps import (
     SCOPE_ANALYSIS_WRITE,
     SCOPE_ASSETS_READ,
     SCOPE_ASSETS_WRITE,
-    SCOPE_RUNS_EXECUTE,
     SCOPE_RUNS_READ,
     SCOPE_RUNS_WRITE,
     SCOPE_SPECS_WRITE,
@@ -22,8 +21,7 @@ WORKFLOW_STEPS = (
     "find_operations",
     "operation_detail",
     "upload_specs",
-    "trigger_run",
-    "poll_run",
+    "upload_run",
     "read_run_stats",
     "write_analysis",
 )
@@ -72,20 +70,6 @@ ACTIONS: tuple[dict[str, Any], ...] = (
         "path": "/ingest/v1/specs",
         "scope": SCOPE_SPECS_WRITE,
         "description": "上传 Tavern / pytest YAML，path 相对项目 specs 目录",
-    },
-    {
-        "step": "trigger_run",
-        "method": "POST",
-        "path": "/ingest/v1/run-requests",
-        "scope": SCOPE_RUNS_EXECUTE,
-        "description": "触发运行，spec_paths 使用刚上传的相对路径",
-    },
-    {
-        "step": "poll_run",
-        "method": "GET",
-        "path": "/ingest/v1/run-requests/{request_id}",
-        "scope": SCOPE_RUNS_READ,
-        "description": "轮询到 succeeded / failed",
     },
     {
         "step": "read_run_stats",

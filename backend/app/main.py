@@ -6,10 +6,11 @@ from app.api.ingest import actions as ingest_actions
 from app.api.ingest import artifacts, assets, assets_read, catalog, docs, jobs, runs, specs, whoami
 from app.api.ingest import operations as ingest_operations
 from app.api.ingest import requirements as ingest_requirements
-from app.api.ingest import run_requests as ingest_run_requests
+from app.api.ingest import secrets as ingest_secrets
 from app.api.v1 import assets as asset_queries
-from app.api.v1 import audit, auth, cases, defects, findings, meta, projects, run_requests, tokens
+from app.api.v1 import audit, auth, cases, defects, findings, meta, projects, tokens
 from app.api.v1 import runs as run_queries
+from app.api.v1 import secrets as project_secrets
 from app.api.v1 import specs as spec_management
 from app.core.access_log import AccessLogMiddleware
 from app.core.config import get_settings
@@ -32,7 +33,7 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(meta.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
 app.include_router(tokens.router, prefix="/api/v1")
-app.include_router(run_requests.router, prefix="/api/v1")
+app.include_router(project_secrets.router, prefix="/api/v1")
 app.include_router(run_queries.router, prefix="/api/v1")
 app.include_router(cases.router, prefix="/api/v1")
 app.include_router(spec_management.router, prefix="/api/v1")
@@ -50,7 +51,7 @@ app.include_router(assets_read.router, prefix="/ingest/v1")
 app.include_router(ingest_requirements.router, prefix="/ingest/v1")
 app.include_router(ingest_operations.router, prefix="/ingest/v1")
 app.include_router(specs.router, prefix="/ingest/v1")
-app.include_router(ingest_run_requests.router, prefix="/ingest/v1")
+app.include_router(ingest_secrets.router, prefix="/ingest/v1")
 app.include_router(jobs.router, prefix="/ingest/v1")
 app.include_router(docs.router)
 
