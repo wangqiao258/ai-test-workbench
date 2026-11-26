@@ -230,6 +230,8 @@ def sync_spec_cases(
         test_case.file = file_ref
         test_case.name = item.test_name
         test_case.tags = list(item.tags)
+        test_case.framework = "tavern"
+        test_case.metadata_source = "spec"
         test_case.last_seen_at = now
         db.flush()
         replace_requirement_markers(

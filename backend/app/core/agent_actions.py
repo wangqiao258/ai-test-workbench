@@ -119,14 +119,14 @@ ACTIONS: tuple[dict[str, Any], ...] = (
         "method": "POST",
         "path": "/ingest/v1/catalog",
         "scope": SCOPE_ASSETS_WRITE,
-        "description": "写入用例目录",
+        "description": "写入用例索引，需 source(repo/ref/commit) 与 framework",
     },
     {
         "step": "upload_run",
         "method": "POST",
         "path": "/ingest/v1/runs",
         "scope": SCOPE_RUNS_WRITE,
-        "description": "上传运行结果与证据，需 Idempotency-Key",
+        "description": "上传运行结果与证据，需 Idempotency-Key；临时脚本用 framework=script",
     },
     {
         "step": "upload_artifact",

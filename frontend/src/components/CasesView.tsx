@@ -39,6 +39,17 @@ const STATUS_OPTIONS: Array<{ value: 'all' | RunStatus; label: string }> = [
   { value: 'skipped', label: '跳过' },
 ]
 
+const FRAMEWORK_OPTIONS = [
+  { value: 'pytest', label: 'pytest' },
+  { value: 'tavern', label: 'Tavern' },
+  { value: 'postman', label: 'Postman' },
+  { value: 'playwright', label: 'Playwright' },
+  { value: 'cypress', label: 'Cypress' },
+]
+const FRAMEWORK_LABELS: Record<string, string> = Object.fromEntries(
+  FRAMEWORK_OPTIONS.map((item) => [item.value, item.label]),
+)
+
 function StatCard({
   label,
   value,
@@ -299,6 +310,7 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
   const [keyword, setKeyword] = useState('')
   const [requirementFilter, setRequirementFilter] = useState('all')
   const [operationFilter, setOperationFilter] = useState('all')
+  const [frameworkFilter, setFrameworkFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<'all' | RunStatus>('all')
   const [runFilter, setRunFilter] = useState('all')
   const [includeArchived, setIncludeArchived] = useState(false)
@@ -377,6 +389,12 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
       ) {
         return false
       }
+      if (
+        frameworkFilter !== 'all' &&
+        testCase.framework !== frameworkFilter
+      ) {
+        return false
+      }
       const caseStatus =
         runFilter !== 'all'
           ? runCaseMap.get(testCase.nodeid)?.status
@@ -389,6 +407,7 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
   }, [
     activeCases,
     data.cases,
+    frameworkFilter,
     includeArchived,
     keyword,
     operationFilter,
@@ -437,7 +456,7 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
           <div className="view-kicker">COVERAGE / 02</div>
           <h1 className="view-title">用例覆盖</h1>
           <p className="view-desc">
-            用例定义来自项目规格文件；运行结果、需求与接口关联自动回填。
+            用例定义来自 Git 与项目规格文件；运行结果、需求与接口关联自动回填。
           </p>
         </div>
       </header>
@@ -533,6 +552,19 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
             </select>
             <select
               className="select"
+              value={frameworkFilter}
+              onChange={(event) => setFrameworkFilter(event.target.value)}
+              aria-label="按框架筛选"
+            >
+              <option value="all">全部框架</option>
+              {FRAMEWORK_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+            <select
+              className="select"
               value={statusFilter}
               onChange={(event) =>
                 setStatusFilter(event.target.value as 'all' | RunStatus)
@@ -598,6 +630,12 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
                         <td>
                           <div className="case-name">{testCase.name}</div>
                           <code className="case-nodeid">{testCase.nodeid}</code>
+                          {testCase.framework && (
+                            <span className="framework-chip">
+                              {FRAMEWORK_LABELS[testCase.framework] ??
+                                testCase.framework}
+                            </span>
+                          )}
                           {testCase.archivedAt && (
                             <span className="warn-chip">已归档</span>
                           )}

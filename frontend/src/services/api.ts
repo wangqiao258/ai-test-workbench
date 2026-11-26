@@ -169,6 +169,7 @@ interface BackendCase {
   name?: string | null
   file?: string | null
   specPath?: string | null
+  framework?: string
   tags?: string[]
   requirementIds?: string[]
   operationIds?: string[]
@@ -704,6 +705,7 @@ function mapCase(
     name: item.name ?? item.nodeid.split('::').pop() ?? item.nodeid,
     file: item.file ?? item.nodeid.split('::')[0],
     specPath: item.specPath ?? undefined,
+    framework: item.framework ?? '',
     tags: item.tags ?? [],
     requirementIds: item.requirementIds ?? [],
     operationIds: item.operationIds ?? [],

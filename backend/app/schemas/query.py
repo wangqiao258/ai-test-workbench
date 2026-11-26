@@ -100,6 +100,7 @@ class CaseOut(ApiModel):
     name: str
     file: str
     spec_path: str | None = None
+    framework: str = ""
     tags: list[str]
     requirement_ids: list[str]
     operation_ids: list[str]

@@ -119,6 +119,7 @@ export interface TestCase {
   name: string
   file: string
   specPath?: string
+  framework: string
   tags: string[]
   requirementIds: string[]
   operationIds: string[]

@@ -5,6 +5,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError
+from app.core.frameworks import AD_HOC_FRAMEWORK
 from app.core.time import utcnow
 from app.db.models.analysis import Analysis, Finding
 from app.db.models.case import TestCase
@@ -60,22 +61,27 @@ def ingest_run(
     affected_case_ids: list[uuid.UUID] = []
 
     for case in payload.cases:
-        test_case = _upsert_test_case(db, project_id, case, run)
-        affected_case_ids.append(test_case.id)
+        ad_hoc = case.framework == AD_HOC_FRAMEWORK
+        test_case = None if ad_hoc else _upsert_test_case(db, project_id, case, run)
+        if test_case is not None:
+            if case.framework:
+                test_case.framework = case.framework
+            affected_case_ids.append(test_case.id)
         run_case = db.scalar(
             select(RunCase).where(RunCase.run_id == run.id, RunCase.nodeid == case.nodeid)
         )
         if run_case is None:
             run_case = RunCase(run_id=run.id, project_id=project_id, nodeid=case.nodeid)
             db.add(run_case)
-        run_case.case_id = test_case.id
+        run_case.case_id = test_case.id if test_case is not None else None
         run_case.status = case.status
         run_case.duration_ms = case.duration_ms
         run_case.error_text = case.error
         run_case.logs = case.logs
         db.flush()
 
-        replace_requirement_markers(db, project_id, test_case.id, case.requirements)
+        if test_case is not None:
+            replace_requirement_markers(db, project_id, test_case.id, case.requirements)
         exchange_count += replace_exchanges(
             db, storage, project_id, run.id, run_case.id, case.exchanges
         )
@@ -152,8 +158,15 @@ def upsert_catalog(db: Session, project_id: uuid.UUID, payload: CatalogIn) -> Ca
     now = utcnow()
     marker_count = 0
     affected_case_ids: list[uuid.UUID] = []
+    source = payload.source
     for case in payload.cases:
         test_case = _upsert_case(db, project_id, case, now)
+        test_case.framework = case.framework
+        test_case.metadata_source = "catalog"
+        if source is not None:
+            test_case.source_repo = source.repo
+            test_case.source_ref = source.ref
+            test_case.source_commit = source.commit
         affected_case_ids.append(test_case.id)
         marker_count += replace_requirement_markers(
             db, project_id, test_case.id, case.requirements

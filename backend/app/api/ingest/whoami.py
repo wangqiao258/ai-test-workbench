@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.agent_actions import ACTIONS, SCOPE_ANY, WORKFLOW_STEPS
 from app.core.deps import SCOPE_SECRETS_READ, TokenContext, get_token_context
+from app.core.frameworks import AD_HOC_FRAMEWORK, CATALOG_FRAMEWORKS
 from app.core.time import utcnow
 from app.db.models.project import ProjectSecret
 from app.db.session import get_db
@@ -21,6 +22,9 @@ RULES: tuple[str, ...] = (
     "已测接口优先复用，未覆盖的再按 tag / q 检索",
     "摘要只用于选接口，生成用例前必须读 /operations/{id} 详情",
     "Tavern marks 写 workbench:requirement:<需求ID>",
+    "用例正文在 Git：catalog 只写索引，需带 source(repo/ref/commit) 与 framework；"
+    f"framework 只收 {'、'.join(CATALOG_FRAMEWORKS)}",
+    f"临时脚本上报时 framework={AD_HOC_FRAMEWORK}，只留运行与证据，不进入用例库",
     "AI 在本机或外部环境执行 pytest，执行后通过 /ingest/v1/runs 上传运行结果与证据",
     "证据优先上传原始 HAR（浏览器、Playwright、代理工具导出的均可）；"
     "无法抓包时随 run 内联 cases[].exchanges",

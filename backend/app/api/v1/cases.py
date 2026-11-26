@@ -115,6 +115,7 @@ def list_cases(
                     if (relative := relative_spec_path(project_id, case.file))
                     else None
                 ),
+                framework=case.framework,
                 tags=case.tags,
                 requirement_ids=sorted(requirement_map[case.id]),
                 operation_ids=sorted(operation_map[case.id]),

@@ -4,6 +4,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.core.frameworks import (
+    CATALOG_FRAMEWORKS,
+    RUN_FRAMEWORKS,
+    normalize_framework,
+)
+
 RunStatus = Literal["passed", "failed", "skipped", "error"]
 Severity = Literal["blocker", "critical", "major", "minor"]
 FindingType = Literal["regression", "spec-mismatch", "contract", "duplicate", "flaky"]
@@ -39,11 +45,20 @@ class CaseBase(BaseModel):
 
 
 class CaseIn(CaseBase):
+    framework: str = Field(default="", max_length=32)
     status: RunStatus
     duration_ms: int = 0
     error: str | None = None
     logs: list[str] = Field(default_factory=list)
     exchanges: list[ExchangeIn] = Field(default_factory=list)
+
+    @field_validator("framework")
+    @classmethod
+    def _validate_framework(cls, value: str) -> str:
+        normalized = normalize_framework(value)
+        if normalized and normalized not in RUN_FRAMEWORKS:
+            raise ValueError("framework 必须是 " + "、".join(RUN_FRAMEWORKS) + " 之一")
+        return normalized
 
     @model_validator(mode="after")
     def _unique_exchange_index(self) -> "CaseIn":
@@ -183,10 +198,32 @@ class RunIngestIn(BaseModel):
 
 
 class CatalogCaseIn(CaseBase):
-    pass
+    framework: str = Field(default="pytest", max_length=32)
+
+    @field_validator("framework")
+    @classmethod
+    def _validate_framework(cls, value: str) -> str:
+        normalized = normalize_framework(value) or "pytest"
+        if normalized not in CATALOG_FRAMEWORKS:
+            raise ValueError(
+                "framework 必须是 " + "、".join(CATALOG_FRAMEWORKS) + " 之一"
+            )
+        return normalized
+
+
+class CatalogSource(BaseModel):
+    repo: str = Field(default="", max_length=512)
+    ref: str = Field(default="", max_length=128)
+    commit: str = Field(default="", max_length=64)
+
+    @field_validator("repo", "ref", "commit")
+    @classmethod
+    def _strip(cls, value: str) -> str:
+        return value.strip()
 
 
 class CatalogIn(BaseModel):
+    source: CatalogSource | None = None
     cases: list[CatalogCaseIn] = Field(default_factory=list)
 
 
