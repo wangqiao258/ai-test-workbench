@@ -176,7 +176,7 @@ export function ProjectSettingsDialog({
               <span>被测服务地址</span>
               <input
                 value={baseUrl}
-                placeholder="http://192.168.80.50:8080"
+                placeholder="http://127.0.0.1:8080"
                 spellCheck={false}
                 onChange={(event) => setBaseUrl(event.target.value)}
               />

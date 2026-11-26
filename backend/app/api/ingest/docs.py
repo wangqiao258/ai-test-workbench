@@ -24,7 +24,7 @@ def ingest_openapi(request: Request) -> dict[str, Any]:
             "version": spec.get("info", {}).get("version", "0.1.0"),
             "description": (
                 "AI 机与 pytest 执行器使用的项目 Token 接口。"
-                "所有请求需带 X-Project-Token 请求头，写接口需要 Idempotency-Key；"
+                "所有请求需带 X-Project-Token 请求头，批量写入需要 Idempotency-Key；"
                 "权限按 scope 划分，写权限自动包含对应读权限；"
                 "先调用 GET /ingest/v1/whoami 获取当前 Token 的 scopes 与 actions。"
             ),
