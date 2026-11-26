@@ -1,19 +1,28 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   AppData,
   Exchange,
+  Finding,
   Navigate,
   NavState,
   RunCase,
   TestCase,
   ToastTone,
 } from '../types'
-import { formatDuration, logLevel } from '../utils/format'
 import {
+  formatDuration,
+  logLevel,
+  severityLabel,
+  severityRank,
+} from '../utils/format'
+import {
+  Confidence,
   CopyButton,
   EmptyState,
   Icon,
   MethodTag,
   RunStatusBadge,
+  SeverityBadge,
 } from './ui'
 
 interface Props {
@@ -94,6 +103,56 @@ export function EvidencePanel({
     runCase.exchanges[0]
   const exchangeTotal = runCase.exchanges.length || runCase.exchangeCount
 
+  const [focusFlash, setFocusFlash] = useState(false)
+  const detailRef = useRef<HTMLElement | null>(null)
+  const manualExchangeRef = useRef(false)
+  const lastFocusRef = useRef('')
+
+  const activeFinding = nav.findingId
+    ? data.findings.find(
+        (item) =>
+          item.id === nav.findingId &&
+          item.runId === runId &&
+          item.nodeid === runCase.nodeid,
+      )
+    : undefined
+  const findingExchangeIndex = activeFinding?.exchangeIndex
+
+  const findingsByExchange = useMemo(() => {
+    const map = new Map<number, Finding[]>()
+    for (const item of data.findings) {
+      if (item.runId !== runId || item.nodeid !== runCase.nodeid) continue
+      if (typeof item.exchangeIndex !== 'number') continue
+      const bucket = map.get(item.exchangeIndex)
+      if (bucket) bucket.push(item)
+      else map.set(item.exchangeIndex, [item])
+    }
+    for (const bucket of map.values()) {
+      bucket.sort(
+        (left, right) =>
+          severityRank[left.suggestedSeverity] -
+          severityRank[right.suggestedSeverity],
+      )
+    }
+    return map
+  }, [data.findings, runCase.nodeid, runId])
+
+  useEffect(() => {
+    const manual = manualExchangeRef.current
+    manualExchangeRef.current = false
+    if (manual || !nav.findingId || loading || !exchange) {
+      lastFocusRef.current = ''
+      return
+    }
+    const key = `${nav.findingId}::${nav.exchangeIndex}::${runCase.nodeid}`
+    if (lastFocusRef.current === key) return
+    lastFocusRef.current = key
+    detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setFocusFlash(true)
+    const timer = window.setTimeout(() => setFocusFlash(false), 1500)
+    return () => window.clearTimeout(timer)
+  }, [exchange, loading, nav.exchangeIndex, nav.findingId, runCase.nodeid])
+
   const requestRaw = exchange ? rawRequest(exchange) : ''
   const responseRaw = exchange ? rawResponse(exchange) : ''
 
@@ -114,7 +173,13 @@ export function EvidencePanel({
           {nav.findingId && (
             <>
               <Icon name="chevronRight" size={11} />
-              <span className="crumb-finding">{nav.findingId}</span>
+              <span className="crumb-finding" title={activeFinding?.title}>
+                {activeFinding
+                  ? `${severityLabel[activeFinding.suggestedSeverity]} · ${
+                      activeFinding.title
+                    }`
+                  : nav.findingId}
+              </span>
             </>
           )}
         </div>
@@ -209,18 +274,39 @@ export function EvidencePanel({
             <div className="exchange-list">
               {runCase.exchanges.map((item) => {
                 const active = item.index === exchange?.index
+                const aiFindings = findingsByExchange.get(item.index)
+                const aiPending = aiFindings?.some(
+                  (finding) => finding.status === 'pending',
+                )
                 return (
                   <button
                     key={item.index}
                     type="button"
                     className={`exchange-row ${active ? 'is-active' : ''}`}
-                    onClick={() => navigate({ exchangeIndex: item.index })}
+                    onClick={() => {
+                      if (active) return
+                      manualExchangeRef.current = true
+                      navigate({ exchangeIndex: item.index })
+                    }}
                   >
                     <span className="exchange-index">#{item.index + 1}</span>
                     <MethodTag method={item.method} />
                     <span className="exchange-path">
                       {shortUrl(item.url)}
                     </span>
+                    {aiFindings && (
+                      <span
+                        className={`exchange-ai ${
+                          aiPending ? 'is-pending' : ''
+                        }`}
+                        title={`${aiFindings.length} 条 AI 发现：${
+                          aiFindings[0]?.title ?? ''
+                        }`}
+                      >
+                        <Icon name="spark" size={11} />
+                        {aiFindings.length}
+                      </span>
+                    )}
                     <span className={`http-status ${statusClass(item.status)}`}>
                       {item.status}
                     </span>
@@ -245,7 +331,10 @@ export function EvidencePanel({
           )}
         </section>
 
-        <section className="panel">
+        <section
+          className={`panel ${focusFlash ? 'is-focus' : ''}`}
+          ref={detailRef}
+        >
           <div className="panel-head">
             <h3>
               交换详情
@@ -255,6 +344,37 @@ export function EvidencePanel({
               <span className="panel-hint">第 {exchange.index + 1} 次交换</span>
             )}
           </div>
+
+          {activeFinding && (
+            <div className="evidence-finding-bar">
+              <span className="evidence-finding-label">
+                <Icon name="spark" size={12} />
+                当前发现
+              </span>
+              <span
+                className="evidence-finding-title"
+                title={activeFinding.title}
+              >
+                {activeFinding.title}
+              </span>
+              <span className="evidence-finding-meta">
+                <SeverityBadge severity={activeFinding.suggestedSeverity} />
+                <Confidence value={activeFinding.confidence} />
+                {typeof findingExchangeIndex === 'number' &&
+                  findingExchangeIndex !== exchange?.index && (
+                    <button
+                      type="button"
+                      className="inline-link"
+                      onClick={() =>
+                        navigate({ exchangeIndex: findingExchangeIndex })
+                      }
+                    >
+                      定位第 {findingExchangeIndex + 1} 次交换
+                    </button>
+                  )}
+              </span>
+            </div>
+          )}
 
           {loading ? (
             <div className="case-list-empty">正在加载抓包证据…</div>

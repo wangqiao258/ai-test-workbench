@@ -213,6 +213,30 @@ export function RunTrialView({
       )
     : run.cases
 
+  const openTrial = () => {
+    const casePending = data.findings.filter(
+      (item) =>
+        item.runId === run.id &&
+        item.nodeid === runCase.nodeid &&
+        item.status === 'pending',
+    )
+    const target =
+      casePending.find((item) => item.id === nav.findingId) ??
+      casePending.sort(
+        (left, right) =>
+          severityRank[left.suggestedSeverity] -
+            severityRank[right.suggestedSeverity] ||
+          right.createdAt.localeCompare(left.createdAt),
+      )[0]
+    if (target && target.id !== nav.findingId) {
+      navigate({
+        findingId: target.id,
+        exchangeIndex: target.exchangeIndex ?? 0,
+      })
+    }
+    setTrialOpen(true)
+  }
+
   const selectRun = (runId: string) => {
     const nextRun = data.runs.find((item) => item.id === runId)
     if (!nextRun) return
@@ -390,7 +414,7 @@ export function RunTrialView({
           testCase={testCase}
           pendingCount={pendingCount}
           loading={!detail}
-          onOpenTrial={() => setTrialOpen(true)}
+          onOpenTrial={openTrial}
           onToast={onToast}
         />
 
