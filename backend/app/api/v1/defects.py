@@ -1,9 +1,11 @@
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.deps import get_membership
 from app.core.errors import ApiError
 from app.core.pagination import paginate
@@ -12,6 +14,8 @@ from app.db.models.identity import AppUser, ProjectMember
 from app.db.models.review import Defect, DefectEvent
 from app.db.models.run import Run
 from app.db.session import get_db
+from app.core.security import create_ai_ticket
+from app.schemas.agent import AiTicketOut
 from app.schemas.review import (
     DefectDetailOut,
     DefectEventOut,
@@ -131,6 +135,33 @@ def get_defect(
         for event, display_name, email in rows
     ]
     return DefectDetailOut(**base.model_dump(), events=events)
+
+
+@router.post("/{defect_id}/ai-ticket", response_model=AiTicketOut)
+def create_defect_ai_ticket(
+    project_id: UUID,
+    defect_id: str,
+    _: ProjectMember = Depends(get_membership),
+    db: Session = Depends(get_db),
+) -> AiTicketOut:
+    defect = _load_defect(db, project_id, defect_id)
+    run = db.get(Run, defect.run_id) if defect.run_id is not None else None
+    ttl = get_settings().ai_ticket_ttl_minutes
+    ticket, expires_at = create_ai_ticket(
+        project_id=project_id,
+        resource=f"defect:{defect.number}",
+        run_ref=run.external_id if run is not None else None,
+        nodeid=defect.nodeid or None,
+        ttl_minutes=ttl,
+    )
+    return AiTicketOut(
+        url=(
+            f"/ingest/v1/defects/{quote(defect.number, safe='')}"
+            f"?ticket={quote(ticket, safe='')}"
+        ),
+        expires_at=expires_at,
+        ttl_seconds=ttl * 60,
+    )
 
 
 @router.patch("/{defect_id}", response_model=DefectOut)

@@ -1,6 +1,7 @@
 import hashlib
+import hmac
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta
 from uuid import UUID
 
 import jwt
@@ -39,6 +40,54 @@ def decode_access_token(token: str) -> UUID:
     settings = get_settings()
     payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
     return UUID(payload["sub"])
+
+
+AI_TICKET_AUDIENCE = "workbench-ai-ticket"
+AI_TICKET_TYPE = "ai-ticket"
+
+
+def _ai_ticket_key() -> bytes:
+    """从 JWT 密钥派生独立密钥，避免票据与用户登录令牌互相冒用。"""
+    settings = get_settings()
+    return hmac.new(
+        settings.jwt_secret.encode("utf-8"), b"ai-read-ticket", hashlib.sha256
+    ).digest()
+
+
+def create_ai_ticket(
+    *,
+    project_id: UUID,
+    resource: str,
+    run_ref: str | None,
+    nodeid: str | None,
+    ttl_minutes: int,
+) -> tuple[str, datetime]:
+    now = utcnow()
+    expires_at = now + timedelta(minutes=ttl_minutes)
+    payload = {
+        "aud": AI_TICKET_AUDIENCE,
+        "typ": AI_TICKET_TYPE,
+        "pid": str(project_id),
+        "res": resource,
+        "run": run_ref,
+        "node": nodeid,
+        "iat": now,
+        "exp": expires_at,
+    }
+    token = jwt.encode(payload, _ai_ticket_key(), algorithm="HS256")
+    return token, expires_at
+
+
+def decode_ai_ticket(ticket: str) -> dict:
+    payload = jwt.decode(
+        ticket,
+        _ai_ticket_key(),
+        algorithms=["HS256"],
+        audience=AI_TICKET_AUDIENCE,
+    )
+    if payload.get("typ") != AI_TICKET_TYPE:
+        raise jwt.InvalidTokenError("invalid ai ticket type")
+    return payload
 
 
 def generate_api_token() -> tuple[str, str, str]:

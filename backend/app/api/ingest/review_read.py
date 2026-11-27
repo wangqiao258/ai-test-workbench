@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 from app.core.deps import (
     SCOPE_ASSETS_READ,
     SCOPE_RUNS_READ,
-    TokenContext,
-    require_token_context,
+    ReadContext,
+    require_read_context,
 )
 from app.core.errors import ApiError
 from app.db.models.analysis import Finding
@@ -57,6 +57,23 @@ def _load_finding(db: Session, project_id, finding_id: str) -> Finding:
     return finding
 
 
+def _ensure_ticket(context: ReadContext, resource: str) -> None:
+    if context.ticket_resource is not None and context.ticket_resource != resource:
+        raise ApiError(403, "ticket_scope_limited", "票据只能读取指定的发现或缺陷")
+
+
+def _ensure_list_allowed(context: ReadContext) -> None:
+    if context.ticket_resource is not None:
+        raise ApiError(403, "ticket_scope_limited", "票据不能用于列表查询")
+
+
+def _ensure_case_ticket(context: ReadContext, run: Run, nodeid: str) -> None:
+    if context.ticket_resource is None:
+        return
+    if context.ticket_run != run.external_id or context.ticket_nodeid != nodeid:
+        raise ApiError(403, "ticket_scope_limited", "票据只能读取该发现关联的用例")
+
+
 def _load_defect(db: Session, project_id, defect_id: str) -> Defect:
     defect = db.scalar(
         select(Defect).where(
@@ -73,9 +90,10 @@ def list_findings(
     status: FindingStatus | None = None,
     run_filter: str | None = Query(default=None, alias="run"),
     limit: int = Query(default=20, ge=1, le=100),
-    context: TokenContext = Depends(require_token_context(SCOPE_RUNS_READ)),
+    context: ReadContext = Depends(require_read_context(SCOPE_RUNS_READ)),
     db: Session = Depends(get_db),
 ) -> FindingListOut:
+    _ensure_list_allowed(context)
     project_id = context.project.id
     conditions = [Finding.project_id == project_id]
     if status is not None:
@@ -142,9 +160,10 @@ def get_finding(
         le=200000,
         description="请求/响应 body 的最大字符数；0 表示不截断",
     ),
-    context: TokenContext = Depends(require_token_context(SCOPE_RUNS_READ)),
+    context: ReadContext = Depends(require_read_context(SCOPE_RUNS_READ)),
     db: Session = Depends(get_db),
 ) -> FindingBundleOut:
+    _ensure_ticket(context, f"finding:{finding_id}")
     finding = _load_finding(db, context.project.id, finding_id)
     return finding_bundle(
         db,
@@ -159,9 +178,10 @@ def get_finding(
 def list_defects(
     status: DefectStatus | None = None,
     limit: int = Query(default=20, ge=1, le=100),
-    context: TokenContext = Depends(require_token_context(SCOPE_RUNS_READ)),
+    context: ReadContext = Depends(require_read_context(SCOPE_RUNS_READ)),
     db: Session = Depends(get_db),
 ) -> DefectListOut:
+    _ensure_list_allowed(context)
     project_id = context.project.id
     conditions = [Defect.project_id == project_id]
     if status is not None:
@@ -218,9 +238,10 @@ def get_defect(
         le=200000,
         description="请求/响应 body 的最大字符数；0 表示不截断",
     ),
-    context: TokenContext = Depends(require_token_context(SCOPE_RUNS_READ)),
+    context: ReadContext = Depends(require_read_context(SCOPE_RUNS_READ)),
     db: Session = Depends(get_db),
 ) -> DefectBundleOut:
+    _ensure_ticket(context, f"defect:{defect_id}")
     defect = _load_defect(db, context.project.id, defect_id)
     return defect_bundle(
         db,
@@ -245,10 +266,11 @@ def get_exchange(
         le=200000,
         description="请求/响应 body 的最大字符数；0 表示不截断",
     ),
-    context: TokenContext = Depends(require_token_context(SCOPE_RUNS_READ)),
+    context: ReadContext = Depends(require_read_context(SCOPE_RUNS_READ)),
     db: Session = Depends(get_db),
 ) -> ExchangeDetailOut:
     run = resolve_run(db, context.project.id, run_ref)
+    _ensure_case_ticket(context, run, nodeid)
     run_case = resolve_run_case(db, run, nodeid)
     exchange = db.scalar(
         select(Exchange).where(
@@ -271,9 +293,10 @@ def get_run_case(
         le=200000,
         description="日志与错误的最大字符数；0 表示不截断",
     ),
-    context: TokenContext = Depends(require_token_context(SCOPE_RUNS_READ)),
+    context: ReadContext = Depends(require_read_context(SCOPE_RUNS_READ)),
     db: Session = Depends(get_db),
 ) -> RunCaseDetailOut:
     run = resolve_run(db, context.project.id, run_ref)
+    _ensure_case_ticket(context, run, nodeid)
     run_case = resolve_run_case(db, run, nodeid)
     return run_case_detail(db, run_case, body_limit)

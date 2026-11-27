@@ -16,13 +16,14 @@ import {
 } from '../utils/format'
 import {
   Confidence,
-  CopyButton,
   EmptyState,
   Icon,
   MethodTag,
   SeverityBadge,
+  TicketCopyButton,
   VerdictStamp,
 } from './ui'
+import { api } from '../services/api'
 
 interface Props {
   data: AppData
@@ -219,12 +220,30 @@ export function DefectsView({
                   <span className="mono-id defect-id">{selected.id}</span>
                   <SeverityBadge severity={selected.severity} />
                   <div className="toolbar-spacer" />
-                  <CopyButton
-                    text={`请分析工作台缺陷 ${selected.id}：\ncurl -s -H "X-Project-Token: $WORKBENCH_TOKEN" ${window.location.origin}/ingest/v1/defects/${selected.id}`}
+                  <TicketCopyButton
+                    build={async () => {
+                      const ticket = await api.createDefectTicket(
+                        selected.projectId,
+                        selected.id,
+                      )
+                      const expires = new Date(
+                        ticket.expiresAt,
+                      ).toLocaleTimeString('zh-CN', { hour12: false })
+                      return [
+                        `请分析工作台缺陷 ${selected.id}：`,
+                        `curl -s '${window.location.origin}${ticket.url}'`,
+                        `# 票据有效至 ${expires}`,
+                      ].join('\n')
+                    }}
                     onCopied={() =>
                       onToast(`已复制 ${selected.id} 查询指令`, 'success')
                     }
-                    label="复制给 AI"
+                    onError={(error) =>
+                      onToast(
+                        error instanceof Error ? error.message : '票据生成失败',
+                        'danger',
+                      )
+                    }
                   />
                   <label className="status-select-wrap">
                     <span>状态</span>

@@ -18,6 +18,7 @@ from app.core.time import utcnow
 
 _SENSITIVE_KEYS = (
     "token",
+    "ticket",
     "secret",
     "password",
     "authorization",
@@ -63,6 +64,8 @@ def _auth_label(request: Request) -> str | None:
     token = request.headers.get("x-project-token")
     if token:
         return f"project:{token[:12]}"
+    if request.query_params.get("ticket"):
+        return "ticket"
     if request.headers.get("authorization"):
         return "user"
     return None

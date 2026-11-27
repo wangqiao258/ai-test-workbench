@@ -288,6 +288,54 @@ export function CopyButton({
   )
 }
 
+export function TicketCopyButton({
+  build,
+  onCopied,
+  onError,
+  label = '复制给 AI',
+}: {
+  build: () => Promise<string>
+  onCopied?: (text: string) => void
+  onError?: (error: unknown) => void
+  label?: string
+}) {
+  const [state, setState] = useState<'idle' | 'loading' | 'copied'>('idle')
+
+  useEffect(() => {
+    if (state !== 'copied') return
+    const timer = window.setTimeout(() => setState('idle'), 1600)
+    return () => window.clearTimeout(timer)
+  }, [state])
+
+  return (
+    <button
+      type="button"
+      className="btn btn-ghost btn-xs"
+      disabled={state === 'loading'}
+      onClick={async () => {
+        setState('loading')
+        try {
+          const text = await build()
+          const ok = await copyText(text)
+          if (!ok) {
+            setState('idle')
+            onError?.(new Error('复制失败'))
+            return
+          }
+          setState('copied')
+          onCopied?.(text)
+        } catch (error) {
+          setState('idle')
+          onError?.(error)
+        }
+      }}
+    >
+      <Icon name={state === 'copied' ? 'check' : 'copy'} size={13} />
+      {state === 'loading' ? '生成中…' : state === 'copied' ? '已复制' : label}
+    </button>
+  )
+}
+
 export function EmptyState({
   icon = 'layers',
   title,

@@ -25,6 +25,7 @@ def ingest_openapi(request: Request) -> dict[str, Any]:
             "description": (
                 "AI 机与 pytest 执行器使用的项目 Token 接口。"
                 "所有请求需带 X-Project-Token 请求头，批量写入需要 Idempotency-Key；"
+                "发现/缺陷详情也接受工作台签发的短时效 ticket 查询参数（只读、按单条资源绑定）；"
                 "权限按 scope 划分，写权限自动包含对应读权限；"
                 "先调用 GET /ingest/v1/whoami 获取当前 Token 的 scopes 与 actions。"
             ),

@@ -38,6 +38,8 @@ import {
   upsertRequirement,
 } from './api/assets'
 import {
+  createDefectTicket,
+  createFindingTicket,
   fetchRunAnalysis,
   fetchRunCaseDetail,
   judgeFinding,
@@ -105,6 +107,8 @@ export type {
 } from './api/assets'
 
 export {
+  createDefectTicket,
+  createFindingTicket,
   fetchRunCaseDetail,
   fetchRunAnalysis,
   setCaseArchived,
@@ -114,6 +118,7 @@ export {
 
 export { bootstrap, refreshProject }
 export type { ProjectBundle } from './api/workspace'
+export type { AiTicket } from './api/runs'
 
 export const api = {
   bootstrap,
@@ -154,4 +159,6 @@ export const api = {
   setCaseArchived,
   judgeFinding,
   updateDefectStatus,
+  createFindingTicket,
+  createDefectTicket,
 }

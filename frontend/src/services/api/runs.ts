@@ -28,6 +28,12 @@ import type {
  * 运行、用例、证据交换、finding、defect 与分析。
  */
 
+export interface AiTicket {
+  url: string
+  expiresAt: string
+  ttlSeconds: number
+}
+
 export function mapExchange(exchange: BackendExchange): Exchange {
   const status = exchange.status ?? exchange.response.status ?? 0
   return {
@@ -214,6 +220,26 @@ export async function judgeFinding(
     finding: mapFinding(projectId, result.finding),
     defect: result.defect ? mapDefect(projectId, result.defect) : undefined,
   }
+}
+
+export async function createFindingTicket(
+  projectId: string,
+  findingId: string,
+): Promise<AiTicket> {
+  return fetchJson<AiTicket>(
+    `/projects/${projectId}/findings/${findingId}/ai-ticket`,
+    { method: 'POST' },
+  )
+}
+
+export async function createDefectTicket(
+  projectId: string,
+  defectId: string,
+): Promise<AiTicket> {
+  return fetchJson<AiTicket>(
+    `/projects/${projectId}/defects/${defectId}/ai-ticket`,
+    { method: 'POST' },
+  )
 }
 
 export async function updateDefectStatus(

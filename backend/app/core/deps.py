@@ -3,13 +3,13 @@ from dataclasses import dataclass
 from uuid import UUID
 
 import jwt
-from fastapi import Depends, Request
+from fastapi import Depends, Query, Request
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError
-from app.core.security import decode_access_token, hash_api_token
+from app.core.security import decode_access_token, decode_ai_ticket, hash_api_token
 from app.core.time import utcnow
 from app.db.models.identity import AppUser, ProjectMember
 from app.db.models.project import ApiToken, Project
@@ -171,14 +171,8 @@ def require_role(*roles: str, message: str = "当前角色无权执行该操作"
     return dependency
 
 
-def get_token_context(
-    request: Request,
-    x_project_token: str | None = Depends(_project_token),
-    db: Session = Depends(get_db),
-) -> TokenContext:
-    if not x_project_token:
-        raise ApiError(401, "missing_project_token", "缺少 X-Project-Token")
-    token = db.scalar(select(ApiToken).where(ApiToken.token_hash == hash_api_token(x_project_token)))
+def _load_token_context(db: Session, raw: str, request: Request) -> TokenContext:
+    token = db.scalar(select(ApiToken).where(ApiToken.token_hash == hash_api_token(raw)))
     now = utcnow()
     if token is None or token.revoked_at is not None:
         raise ApiError(401, "invalid_project_token", "项目 Token 无效")
@@ -195,6 +189,16 @@ def get_token_context(
         scopes=expand_token_scopes(token.scopes or []),
         token_id=token.id,
     )
+
+
+def get_token_context(
+    request: Request,
+    x_project_token: str | None = Depends(_project_token),
+    db: Session = Depends(get_db),
+) -> TokenContext:
+    if not x_project_token:
+        raise ApiError(401, "missing_project_token", "缺少 X-Project-Token")
+    return _load_token_context(db, x_project_token, request)
 
 
 def get_project_by_token(context: TokenContext = Depends(get_token_context)) -> Project:
@@ -228,6 +232,61 @@ def require_token_context(*required: str):
             403,
             "insufficient_scope",
             "项目 Token 缺少所需权限",
+            details={"required": sorted(required), "granted": sorted(context.scopes)},
+        )
+
+    return dependency
+
+
+@dataclass(frozen=True)
+class ReadContext:
+    project: Project
+    scopes: frozenset[str]
+    ticket_resource: str | None = None
+    ticket_run: str | None = None
+    ticket_nodeid: str | None = None
+
+
+def get_read_context(
+    request: Request,
+    x_project_token: str | None = Depends(_project_token),
+    ticket: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> ReadContext:
+    """只读查询同时接受项目 Token 与短时效票据；票据权限固定为只读。"""
+    if x_project_token:
+        context = _load_token_context(db, x_project_token, request)
+        return ReadContext(project=context.project, scopes=context.scopes)
+    if ticket:
+        try:
+            payload = decode_ai_ticket(ticket)
+            project_id = UUID(str(payload.get("pid")))
+        except (jwt.PyJWTError, TypeError, ValueError):
+            raise ApiError(
+                401, "invalid_ticket", "AI 查询票据无效或已过期"
+            ) from None
+        project = db.get(Project, project_id)
+        if project is None:
+            raise ApiError(401, "invalid_ticket", "AI 查询票据对应的项目不存在")
+        request.state.project_id = str(project.id)
+        return ReadContext(
+            project=project,
+            scopes=frozenset({SCOPE_RUNS_READ, SCOPE_ASSETS_READ}),
+            ticket_resource=str(payload.get("res") or ""),
+            ticket_run=str(payload["run"]) if payload.get("run") else None,
+            ticket_nodeid=str(payload["node"]) if payload.get("node") else None,
+        )
+    raise ApiError(401, "missing_credentials", "缺少 X-Project-Token 或 ticket")
+
+
+def require_read_context(*required: str):
+    def dependency(context: ReadContext = Depends(get_read_context)) -> ReadContext:
+        if context.scopes.intersection(required):
+            return context
+        raise ApiError(
+            403,
+            "insufficient_scope",
+            "当前凭证缺少所需只读权限",
             details={"required": sorted(required), "granted": sorted(context.scopes)},
         )
 

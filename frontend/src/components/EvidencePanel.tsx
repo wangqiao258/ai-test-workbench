@@ -23,7 +23,9 @@ import {
   MethodTag,
   RunStatusBadge,
   SeverityBadge,
+  TicketCopyButton,
 } from './ui'
+import { api } from '../services/api'
 
 interface Props {
   data: AppData
@@ -156,9 +158,6 @@ export function EvidencePanel({
   const requestRaw = exchange ? rawRequest(exchange) : ''
   const responseRaw = exchange ? rawResponse(exchange) : ''
   const findingRef = activeFinding?.id ?? nav.findingId
-  const aiQueryCommand = findingRef
-    ? `请分析工作台发现 ${findingRef}：\ncurl -s -H "X-Project-Token: $WORKBENCH_TOKEN" ${window.location.origin}/ingest/v1/findings/${findingRef}`
-    : ''
 
   const requirement = data.requirements.find((item) =>
     testCase?.requirementIds.includes(item.id),
@@ -195,13 +194,32 @@ export function EvidencePanel({
           </h2>
           <span className="time-chip">{formatDuration(runCase.durationMs)}</span>
           <div className="toolbar-spacer" />
-          {aiQueryCommand && (
-            <CopyButton
-              text={aiQueryCommand}
+          {findingRef && (
+            <TicketCopyButton
+              build={async () => {
+                const ticket = await api.createFindingTicket(
+                  nav.projectId,
+                  findingRef,
+                )
+                const expires = new Date(ticket.expiresAt).toLocaleTimeString(
+                  'zh-CN',
+                  { hour12: false },
+                )
+                return [
+                  `请分析工作台发现 ${findingRef}：`,
+                  `curl -s '${window.location.origin}${ticket.url}'`,
+                  `# 票据有效至 ${expires}`,
+                ].join('\n')
+              }}
               onCopied={() =>
                 onToast(`已复制 ${findingRef} 查询指令`, 'success')
               }
-              label="复制给 AI"
+              onError={(error) =>
+                onToast(
+                  error instanceof Error ? error.message : '票据生成失败',
+                  'danger',
+                )
+              }
             />
           )}
           <button

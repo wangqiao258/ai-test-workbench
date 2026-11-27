@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     jwt_secret: str = "dev-only-change-me"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 720
+    ai_ticket_ttl_minutes: int = 60
     secrets_key: str = ""
     cors_origins: str = "http://127.0.0.1:5173,http://localhost:5173"
     storage_dir: str = "storage"

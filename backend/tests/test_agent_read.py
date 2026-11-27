@@ -1,5 +1,15 @@
+from uuid import uuid4
+
+import jwt
+import pytest
 from fastapi.testclient import TestClient
 
+from app.core.access_log import redact_query
+from app.core.security import (
+    create_ai_ticket,
+    decode_access_token,
+    decode_ai_ticket,
+)
 from app.main import app
 from app.services.agent_views import _safe_headers, _truncate
 
@@ -31,3 +41,58 @@ def test_agent_body_truncation_and_header_redaction() -> None:
     )
     assert headers[0] == {"name": "Authorization", "value": "***"}
     assert headers[1] == {"name": "Accept", "value": "application/json"}
+
+
+def test_ai_ticket_roundtrip_and_scope() -> None:
+    project_id = uuid4()
+    ticket, expires_at = create_ai_ticket(
+        project_id=project_id,
+        resource="finding:FND-006",
+        run_ref="RUN-MCODE-01",
+        nodeid="tests/test_x.py::test_y",
+        ttl_minutes=60,
+    )
+    payload = decode_ai_ticket(ticket)
+    assert payload["pid"] == str(project_id)
+    assert payload["res"] == "finding:FND-006"
+    assert payload["run"] == "RUN-MCODE-01"
+    assert payload["node"] == "tests/test_x.py::test_y"
+    assert payload["exp"] == int(expires_at.timestamp())
+
+
+def test_ai_ticket_is_not_a_user_access_token() -> None:
+    ticket, _ = create_ai_ticket(
+        project_id=uuid4(),
+        resource="finding:FND-006",
+        run_ref=None,
+        nodeid=None,
+        ttl_minutes=60,
+    )
+    with pytest.raises((jwt.PyJWTError, ValueError)):
+        decode_access_token(ticket)
+
+
+def test_ai_ticket_expires() -> None:
+    ticket, _ = create_ai_ticket(
+        project_id=uuid4(),
+        resource="finding:FND-006",
+        run_ref=None,
+        nodeid=None,
+        ttl_minutes=-1,
+    )
+    with pytest.raises(jwt.ExpiredSignatureError):
+        decode_ai_ticket(ticket)
+
+
+def test_ticket_query_is_redacted() -> None:
+    assert redact_query([("ticket", "secret-ticket")]) == {
+        "ticket": ["***"]
+    }
+
+
+def test_ai_ticket_requires_login() -> None:
+    with TestClient(app) as client:
+        response = client.post(
+            f"/api/v1/projects/{uuid4()}/findings/FND-006/ai-ticket"
+        )
+    assert response.status_code == 401

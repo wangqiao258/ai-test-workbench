@@ -1,9 +1,11 @@
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.deps import get_membership
 from app.core.errors import ApiError
 from app.core.pagination import paginate
@@ -13,6 +15,8 @@ from app.db.models.identity import AppUser, ProjectMember
 from app.db.models.review import Defect, Judgment
 from app.db.models.run import Run
 from app.db.session import get_db
+from app.core.security import create_ai_ticket
+from app.schemas.agent import AiTicketOut
 from app.schemas.review import (
     FindingDetailOut,
     FindingListOut,
@@ -146,6 +150,33 @@ def get_finding(
         for judgment, display_name, email in rows
     ]
     return FindingDetailOut(**base.model_dump(), judgments=judgments)
+
+
+@router.post("/{finding_id}/ai-ticket", response_model=AiTicketOut)
+def create_finding_ai_ticket(
+    project_id: UUID,
+    finding_id: str,
+    _: ProjectMember = Depends(get_membership),
+    db: Session = Depends(get_db),
+) -> AiTicketOut:
+    finding = _load_finding(db, project_id, finding_id)
+    run = db.get(Run, finding.run_id)
+    ttl = get_settings().ai_ticket_ttl_minutes
+    ticket, expires_at = create_ai_ticket(
+        project_id=project_id,
+        resource=f"finding:{finding.external_id}",
+        run_ref=run.external_id if run is not None else None,
+        nodeid=finding.nodeid,
+        ttl_minutes=ttl,
+    )
+    return AiTicketOut(
+        url=(
+            f"/ingest/v1/findings/{quote(finding.external_id, safe='')}"
+            f"?ticket={quote(ticket, safe='')}"
+        ),
+        expires_at=expires_at,
+        ttl_seconds=ttl * 60,
+    )
 
 
 @router.post("/{finding_id}/judge", response_model=JudgeOut)
