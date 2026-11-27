@@ -18,7 +18,8 @@ AI 机负责读取需求与接口、生成并执行测试用例、回写分析�
 - 需求文档与 OpenAPI 契约的导入、编辑、删除与追溯
 - 可选的 pytest / Tavern YAML 规格上传、在线编辑与用例归档
 - 运行结果、日志、请求响应与 HAR 证据的接入和查询
-- 外部 AI 分析结果落库，finding 人工审判
+- 外部 AI 分析结果落库，finding 人工审判；确认后生成 `DEF-1001` 这类缺陷编号
+- 发现 / 缺陷支持按编号只读查询分析上下文：批次、用例、日志、完整 HAR、需求与接口契约
 - 缺陷流转（`new → confirmed → fixing → fixed → closed`）与审计日志
 - 项目资料、测试仓库、AI 规则、接入令牌、测试凭据与项目删除
 
@@ -26,11 +27,11 @@ AI 机负责读取需求与接口、生成并执行测试用例、回写分析�
 
 | 机器 | 职责 | 说明 |
 | --- | --- | --- |
-| AI 机 | 读取需求 / 契约 / 历史运行，生成用例并提交到测试仓库，执行测试，上传运行结果、证据与分析 | 需要被测系统凭据；平台 Token 用于上传和读取测试凭据 |
+| AI 机 | 读取需求 / 契约 / 历史运行，生成用例并提交到测试仓库，执行测试，上传运行结果、证据与分析；可按 FND / DEF 编号读取发现与缺陷上下文 | 需要被测系统凭据；平台 Token 用于上传、读取测试凭据与只读分析查询 |
 | 平台机 | 运行本平台与 PostgreSQL，保存需求 / 接口 / 用例索引、运行结果与证据 | 不克隆测试仓库，不执行用例 |
 | 被测机 | 运行被测试系统（SUT） | 由 AI 机访问 |
 
-AI 机先调 `GET /ingest/v1/whoami`，读取 `project.entries`、`project.testRepo`、`rules`、`actions` 和 `secrets`。动作参数、请求体和示例从 `/ingest/v1/actions/{step}` 获取；批量写入需要 `Idempotency-Key`，以 `action.detail` 为准。
+AI 机先调 `GET /ingest/v1/whoami`，读取 `project.entries`、`project.testRepo`、`rules`、`actions` 和 `secrets`。动作参数、请求体和示例从 `/ingest/v1/actions/{step}` 获取；批量写入需要 `Idempotency-Key`，以 `action.detail` 为准。`actions` 中的 `list_pending_findings`、`read_finding`、`read_defect` 用于只读分析查询。
 
 `project.entries` 是测试入口信息（名称 / 地址 / 备注），可能包含页面或接口，不保证就是接口基准地址。AI 应以 OpenAPI 文档的 server、实际请求或 HAR 中出现的 host 判断接口地址，不要用入口地址直接拼接 `operation.path`。
 
@@ -48,6 +49,16 @@ AI 机先调 `GET /ingest/v1/whoami`，读取 `project.entries`、`project.testR
 ### 运行证据
 
 HAR 只接收有效证据：合法 JSON，`log.entries` 为数组，且至少包含一条 http(s) 的 XHR / Fetch 请求；标注为 document / script / stylesheet / image 等静态资源的条目会被跳过。解析后没有有效请求的 HAR 会判定为失败，不会覆盖该用例已有证据。
+
+### AI 分析查询
+
+发现和缺陷有稳定编号：`FND-003`（AI 发现）、`DEF-1001`（确认后生成，按项目递增）。外部 AI 可按编号读取分析上下文：
+
+- `GET /ingest/v1/findings/{FND}`、`GET /ingest/v1/defects/{DEF}`：一次返回发现 / 缺陷本体、批次、用例、错误与日志、完整 HAR、关联需求、接口契约、接口候选、审判记录和运行级分析。
+- `GET /ingest/v1/runs/{run}/cases/{nodeid}`、`.../exchanges/{index}`：按需读取单个用例或交换。
+- 认证可用 `X-Project-Token`（要求 `runs:read`，带 `assets:read` 时返回需求与契约），或在页面点「复制给 AI」获取只读签名票据（`?ticket=`）。票据默认 60 分钟有效，只绑定当前发现 / 缺陷及其用例，不能列表、不能读其他资源、不能写；`AI_TICKET_TTL_MINUTES` 可调整有效期。
+- 请求 / 响应 body 默认每段截断 4KB，`?body_limit=0` 可取全文。
+- 访问日志会脱敏 `ticket` 参数。
 
 ### 测试凭据
 
@@ -72,7 +83,7 @@ python -m venv .venv
 # Windows: .venv\Scripts\activate
 # macOS/Linux: source .venv/bin/activate
 pip install -e ".[dev]"
-cp .env.example .env   # 修改 DATABASE_URL、JWT_SECRET；生产环境同时配置 SECRETS_KEY
+cp .env.example .env   # Windows 用 copy；修改 DATABASE_URL、JWT_SECRET；生产环境同时配置 SECRETS_KEY
 alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
@@ -81,11 +92,15 @@ uvicorn app.main:app --reload --port 8000
 
 ```bash
 python -m scripts.manage create-user --email you@example.com --name 你的名字
-python -m scripts.manage create-project --name 商城接口 --base-url http://127.0.0.1:8080
+# --entry 可重复，用于多个测试入口
+python -m scripts.manage create-project --name 商城接口 \
+  --entry 商城前端=http://127.0.0.1:8080
 python -m scripts.manage add-member --project 商城接口 --email you@example.com --role admin
+# 也可在项目设置页创建 Token
+python -m scripts.manage create-token --project 商城接口 --name local-pytest
 ```
 
-登录后在「项目设置 → 接入令牌」创建 Token。scope 与预设由 `GET /api/v1/meta/token-scopes` 提供，写/执行权限包含对应读权限；平台成员用 JWT，Token 只用于 `/ingest/v1/*`。
+登录后在「项目设置 → 接入令牌」创建 Token（需项目管理员）。当前提供两个预设：**测试权限**（读资产、报用例目录、传规格、读凭据、上传运行与写分析）和 **资产管理**（读写需求与 OpenAPI）。scope 与预设由 `GET /api/v1/meta/token-scopes` 提供，写 / 执行权限包含对应读权限；平台成员用 JWT，项目 Token 用于 `/ingest/v1/*`（含发现 / 缺陷只读查询）。
 
 ### 前端
 
@@ -101,13 +116,13 @@ npm run dev
 
 ## 接口分区
 
-- `/api/v1/*`：登录、项目、运行与证据、资产、finding / defect 查询与审判
-- `/ingest/v1/*`：AI 机与 pytest 插件的读写通道，使用项目 Token
+- `/api/v1/*`：登录、项目 / 成员 / 令牌 / 凭据、资产、运行与证据、finding / defect 查询与审判、AI 查询票据签发
+- `/ingest/v1/*`：AI 机与 pytest 插件的读写通道；使用项目 Token 或短时效票据，支持发现 / 缺陷 / 证据只读查询
 - `/healthz`：健康检查
 
 ## 访问日志
 
-请求以 JSONL 写入 `logs/access.log`，按天切分，默认保留 90 天。记录包含 `ts`、`requestId`、`method`、`path`、`route`、`projectId`、`query`、`status`、`durationMs`、`auth` 等字段；响应头带 `X-Request-ID`。默认不记录请求体。
+请求以 JSONL 写入 `logs/access.log`，按天切分，默认保留 90 天。记录包含 `ts`、`requestId`、`method`、`path`、`route`、`projectId`、`query`、`status`、`durationMs`、`auth` 等字段；响应头带 `X-Request-ID`。默认不记录请求体。`token`、`ticket` 等敏感 query 参数会脱敏，票据请求的 `auth` 标记为 `ticket`。
 
 配置见 `.env.example`：
 
@@ -143,6 +158,7 @@ GitHub Actions 会在 push 和 PR 时执行以上检查，并在 Postgres 15 上
 ## 数据与配置
 
 - PostgreSQL 存结构化数据；`backend/storage/` 存请求响应 body、HAR 和截图等证据
+- 「复制给 AI」签名票据默认 60 分钟有效，可通过 `AI_TICKET_TTL_MINUTES` 调整
 - `.env`、`storage/`、`.venv/`、`node_modules/` 不会进入仓库
 
 ## 环境要求
