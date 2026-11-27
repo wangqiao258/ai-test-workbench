@@ -49,6 +49,16 @@
   .project-btn {
     max-width: 180px;
   }
+
+  .view-head > div:first-child {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  .view-desc {
+    flex-basis: 100%;
+    white-space: normal;
+  }
 }
 
 /* ---------- Responsive: tablet ---------- */

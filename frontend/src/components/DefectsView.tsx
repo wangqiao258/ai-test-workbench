@@ -107,11 +107,9 @@ export function DefectsView({
     <div className="view">
       <header className="view-head">
         <div>
-          <div className="view-kicker">VERDICT ARCHIVE / 05</div>
           <h1 className="view-title">缺陷库</h1>
           <p className="view-desc">
-            只收录经过人工确认的缺陷。每条缺陷保留运行证据与审判记录，AI
-            判断仅作为历史依据，不再直接展示分析结论。
+            仅收录人工确认的缺陷，保留证据与审判记录。
           </p>
         </div>
       </header>

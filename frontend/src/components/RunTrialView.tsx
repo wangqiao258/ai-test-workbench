@@ -40,12 +40,8 @@ function RunHeader() {
   return (
     <header className="view-head">
       <div>
-        <div className="view-kicker">RUN EVIDENCE / 04</div>
         <h1 className="view-title">运行证据</h1>
-        <p className="view-desc">
-          按批次查看 pytest 结果与 HAR 证据；待裁决的 AI
-          发现已集中到「待审判」收件箱。
-        </p>
+        <p className="view-desc">按批次查看 pytest 结果与 HAR 证据。</p>
       </div>
     </header>
   )

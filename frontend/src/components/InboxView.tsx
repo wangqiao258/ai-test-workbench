@@ -94,10 +94,9 @@ export function InboxView({ data, navigate }: Props) {
     <div className="view">
       <header className="view-head">
         <div>
-          <div className="view-kicker">TRIAL INBOX / 03</div>
           <h1 className="view-title">待审判</h1>
           <p className="view-desc">
-            跨批次汇总 AI 发现。点击任意一条进入证据与裁决，裁决后按严重程度自动跳到下一条。
+            跨批次汇总 AI 发现，裁决后自动跳到下一条。
           </p>
         </div>
         <div className="head-tags">

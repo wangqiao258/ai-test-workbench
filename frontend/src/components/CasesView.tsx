@@ -181,10 +181,9 @@ export function CasesView({ data, nav, navigate, onToast, onRefresh }: Props) {
     <div className="view">
       <header className="view-head">
         <div>
-          <div className="view-kicker">COVERAGE / 02</div>
           <h1 className="view-title">用例覆盖</h1>
           <p className="view-desc">
-            用例定义来自 Git 与项目规格文件；运行结果、需求与接口关联自动回填。
+            Git 与规格文件中的用例，自动关联需求、接口与运行。
           </p>
         </div>
       </header>

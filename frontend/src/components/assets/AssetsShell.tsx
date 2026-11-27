@@ -28,11 +28,9 @@ export function AssetsHeader({
   return (
     <header className="view-head">
       <div>
-        <div className="view-kicker">ASSET LIBRARY / 01</div>
         <h1 className="view-title">需求与接口</h1>
         <p className="view-desc">
-          需求以 Markdown 入库，接口按 OpenAPI 结构化展示；两者与 pytest
-          用例、运行结果建立追溯关系，作为 AI 判断契约偏差的依据。
+          需求 Markdown 与 OpenAPI 契约，关联用例、接口与运行。
         </p>
       </div>
       <div className="view-head-actions">
@@ -105,11 +103,9 @@ export function AssetsEmptyView({
     <div className="view">
       <header className="view-head">
         <div>
-          <div className="view-kicker">ASSET LIBRARY / 01</div>
           <h1 className="view-title">需求与接口</h1>
           <p className="view-desc">
-            需求以 Markdown 入库，接口按 OpenAPI 结构化展示；两者与 pytest
-            用例、运行结果建立追溯关系，作为 AI 判断契约偏差的依据。
+            需求 Markdown 与 OpenAPI 契约，关联用例、接口与运行。
           </p>
         </div>
         {(canEdit || hasRequirements || hasDocs) && (

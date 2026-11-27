@@ -421,35 +421,44 @@
 .view-head {
   flex: 0 0 auto;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 16px 18px 12px;
+  gap: 16px;
+  padding: 8px 18px 6px;
 }
 
-.view-kicker {
-  margin-bottom: 5px;
-  font-family: var(--mono);
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  color: var(--ink-4);
+.view-head > div:first-child {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.view-head-actions,
+.head-tags {
+  flex-shrink: 0;
 }
 
 .view-title {
+  flex: 0 0 auto;
   margin: 0;
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 600;
   line-height: 1.25;
   letter-spacing: -0.01em;
 }
 
 .view-desc {
-  max-width: 820px;
-  min-height: 3.2em;
-  margin: 5px 0 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
   color: var(--ink-3);
-  font-size: 13.5px;
-  line-height: 1.6;
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .head-tags {
