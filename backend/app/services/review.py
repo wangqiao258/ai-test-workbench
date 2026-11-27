@@ -37,6 +37,19 @@ def can_transition(from_status: str, to_status: str) -> bool:
     return to_status in DEFECT_TRANSITIONS.get(from_status, set())
 
 
+def match_operation_id(
+    operations: list[Operation], method: str, path_norm: str
+) -> str | None:
+    """按请求方法 + 归一化路径匹配接口契约。"""
+    for operation in operations:
+        if (
+            operation.method.upper() == method.upper()
+            and compile_path(operation.path).fullmatch(path_norm)
+        ):
+            return operation.external_id
+    return None
+
+
 def resolve_finding_operation_id(
     db: Session, finding: Finding, operations: list[Operation] | None = None
 ) -> str | None:
@@ -62,12 +75,11 @@ def resolve_finding_operation_id(
             )
         )
         if exchange is not None:
-            for operation in operations:
-                if (
-                    operation.method.upper() == exchange.method.upper()
-                    and compile_path(operation.path).fullmatch(exchange.path_norm)
-                ):
-                    return operation.external_id
+            matched = match_operation_id(
+                operations, exchange.method, exchange.path_norm
+            )
+            if matched is not None:
+                return matched
 
     if run_case is not None and run_case.case_id is not None:
         markers = list(

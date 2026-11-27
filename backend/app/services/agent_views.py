@@ -7,12 +7,21 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError
 from app.db.models.analysis import Analysis, Finding
-from app.db.models.asset import OpenApiDoc, Operation, Requirement
+from app.db.models.asset import (
+    CaseOperationMarker,
+    OpenApiDoc,
+    Operation,
+    Requirement,
+)
 from app.db.models.case import TestCase
 from app.db.models.identity import AppUser
 from app.db.models.review import Defect, DefectEvent, Judgment
 from app.db.models.run import Artifact, Exchange, Run, RunCase
-from app.schemas.agent import DefectBundleOut, FindingBundleOut
+from app.schemas.agent import (
+    DefectBundleOut,
+    FindingBundleOut,
+    RelatedOperationOut,
+)
 from app.schemas.query import (
     AnalysisQueryOut,
     ExchangeDetailOut,
@@ -32,6 +41,7 @@ from app.services.review import (
     actor_name,
     build_defect_out,
     build_finding_out,
+    match_operation_id,
     resolve_finding_operation_id,
 )
 from app.services.runs import run_out
@@ -192,11 +202,17 @@ def pick_exchange(
     )
 
 
-def _finding_detail(db: Session, project_id: UUID, finding: Finding) -> FindingDetailOut:
+def _finding_detail(
+    db: Session,
+    project_id: UUID,
+    finding: Finding,
+    operations: list[Operation] | None = None,
+) -> FindingDetailOut:
     run = db.get(Run, finding.run_id)
-    operations = list(
-        db.scalars(select(Operation).where(Operation.project_id == project_id))
-    )
+    if operations is None:
+        operations = list(
+            db.scalars(select(Operation).where(Operation.project_id == project_id))
+        )
     operation_id = resolve_finding_operation_id(db, finding, operations)
     defect = db.scalar(select(Defect).where(Defect.finding_id == finding.id))
     base = build_finding_out(
@@ -324,6 +340,49 @@ def _assets(
     return requirement, operation
 
 
+def _case_har(
+    db: Session, run_case: RunCase, body_limit: int
+) -> list[ExchangeDetailOut]:
+    exchanges = db.scalars(
+        select(Exchange)
+        .where(Exchange.run_case_id == run_case.id)
+        .order_by(Exchange.exchange_index)
+    ).all()
+    return [exchange_detail(db, item, body_limit) for item in exchanges]
+
+
+def _case_operations(
+    db: Session,
+    run_case: RunCase,
+    operations: list[Operation],
+    include_assets: bool,
+) -> list[RelatedOperationOut]:
+    if not include_assets or run_case.case_id is None:
+        return []
+    markers = db.scalars(
+        select(CaseOperationMarker).where(
+            CaseOperationMarker.case_id == run_case.case_id
+        )
+    ).all()
+    by_id = {item.external_id: item for item in operations}
+    seen: set[str] = set()
+    items: list[RelatedOperationOut] = []
+    for marker in markers:
+        operation = by_id.get(marker.operation_external_id)
+        if operation is None or operation.external_id in seen:
+            continue
+        seen.add(operation.external_id)
+        items.append(
+            RelatedOperationOut(
+                id=operation.external_id,
+                method=operation.method,
+                path=operation.path,
+                summary=operation.summary,
+            )
+        )
+    return items
+
+
 def finding_bundle(
     db: Session,
     project_id: UUID,
@@ -332,10 +391,16 @@ def finding_bundle(
     body_limit: int,
     include_assets: bool,
 ) -> FindingBundleOut:
-    detail = _finding_detail(db, project_id, finding)
+    operations = list(
+        db.scalars(select(Operation).where(Operation.project_id == project_id))
+    )
+    detail = _finding_detail(db, project_id, finding, operations)
     run = db.get(Run, finding.run_id)
     case_detail = None
     exchange = None
+    har: list[ExchangeDetailOut] = []
+    related: list[RelatedOperationOut] = []
+    picked: Exchange | None = None
     if run is not None:
         run_case = db.scalar(
             select(RunCase).where(
@@ -344,14 +409,23 @@ def finding_bundle(
         )
         if run_case is not None:
             case_detail = run_case_detail(db, run_case, body_limit)
+            har = _case_har(db, run_case, body_limit)
             picked = pick_exchange(db, run_case, finding.exchange_index)
             if picked is not None:
                 exchange = exchange_detail(db, picked, body_limit)
+            related = _case_operations(db, run_case, operations, include_assets)
+    operation_id = detail.operation_id
+    if operation_id is None and picked is not None:
+        operation_id = match_operation_id(
+            operations, picked.method, picked.path_norm
+        )
+        if operation_id is not None:
+            detail.operation_id = operation_id
     requirement, operation = _assets(
         db,
         project_id,
         finding.requirement_external_id,
-        detail.operation_id,
+        operation_id,
         include_assets,
     )
     defect = db.scalar(select(Defect).where(Defect.finding_id == finding.id))
@@ -369,6 +443,8 @@ def finding_bundle(
         run=run_out(run) if run is not None else None,
         case=case_detail,
         exchange=exchange,
+        har=har,
+        related_operations=related,
         requirement=requirement,
         operation=operation,
         defect=defect_out,
@@ -384,10 +460,16 @@ def defect_bundle(
     body_limit: int,
     include_assets: bool,
 ) -> DefectBundleOut:
+    operations = list(
+        db.scalars(select(Operation).where(Operation.project_id == project_id))
+    )
     detail = _defect_detail(db, defect)
     run = db.get(Run, defect.run_id) if defect.run_id is not None else None
     case_detail = None
     exchange = None
+    har: list[ExchangeDetailOut] = []
+    related: list[RelatedOperationOut] = []
+    picked: Exchange | None = None
     if run is not None and defect.nodeid:
         run_case = db.scalar(
             select(RunCase).where(
@@ -396,27 +478,40 @@ def defect_bundle(
         )
         if run_case is not None:
             case_detail = run_case_detail(db, run_case, body_limit)
+            har = _case_har(db, run_case, body_limit)
             picked = pick_exchange(db, run_case, defect.exchange_index)
             if picked is not None:
                 exchange = exchange_detail(db, picked, body_limit)
+            related = _case_operations(db, run_case, operations, include_assets)
+    operation_id = detail.operation_id
+    if operation_id is None and picked is not None:
+        operation_id = match_operation_id(
+            operations, picked.method, picked.path_norm
+        )
+        if operation_id is not None:
+            detail.operation_id = operation_id
     requirement, operation = _assets(
         db,
         project_id,
         defect.requirement_external_id,
-        defect.operation_external_id,
+        operation_id,
         include_assets,
     )
     finding_detail = None
     if defect.finding_id is not None:
         finding = db.get(Finding, defect.finding_id)
         if finding is not None:
-            finding_detail = _finding_detail(db, project_id, finding)
+            finding_detail = _finding_detail(
+                db, project_id, finding, operations
+            )
     return DefectBundleOut(
         defect=detail,
         finding=finding_detail,
         run=run_out(run) if run is not None else None,
         case=case_detail,
         exchange=exchange,
+        har=har,
+        related_operations=related,
         requirement=requirement,
         operation=operation,
         analysis=_analysis(db, project_id, defect.run_id),

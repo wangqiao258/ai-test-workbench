@@ -10,8 +10,10 @@ from app.core.security import (
     decode_access_token,
     decode_ai_ticket,
 )
+from app.db.models.asset import Operation
 from app.main import app
 from app.services.agent_views import _safe_headers, _truncate
+from app.services.review import match_operation_id
 
 
 def test_agent_review_paths_are_read_only_and_token_protected() -> None:
@@ -41,6 +43,40 @@ def test_agent_body_truncation_and_header_redaction() -> None:
     )
     assert headers[0] == {"name": "Authorization", "value": "***"}
     assert headers[1] == {"name": "Accept", "value": "application/json"}
+
+
+def test_match_operation_id_uses_method_and_path() -> None:
+    operations = [
+        Operation(
+            external_id="create_meeting_agenda_item",
+            method="POST",
+            path="/api/v3/meeting_agenda_items",
+        ),
+        Operation(
+            external_id="get_meeting",
+            method="GET",
+            path="/api/v3/meetings/{id}",
+        ),
+    ]
+    assert (
+        match_operation_id(
+            operations, "POST", "/api/v3/meeting_agenda_items"
+        )
+        == "create_meeting_agenda_item"
+    )
+    assert (
+        match_operation_id(operations, "GET", "/api/v3/meetings/42")
+        == "get_meeting"
+    )
+    assert match_operation_id(operations, "GET", "/api/v3/unknown") is None
+
+
+def test_bundle_schema_exposes_har_and_related_operations() -> None:
+    with TestClient(app) as client:
+        spec = client.get("/ingest/openapi.json").json()
+    properties = spec["components"]["schemas"]["FindingBundleOut"]["properties"]
+    assert "har" in properties
+    assert "relatedOperations" in properties
 
 
 def test_ai_ticket_roundtrip_and_scope() -> None:
