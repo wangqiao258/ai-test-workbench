@@ -73,31 +73,239 @@
   text-transform: uppercase;
 }
 
-.run-select-wrap {
+.run-batch-picker {
   position: relative;
 }
 
-.run-select {
+.run-batch-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
   height: 32px;
-  padding: 0 26px 0 8px;
+  padding: 0 8px;
   border: 1px solid var(--line);
   border-radius: 2px;
   background: var(--surface);
   color: var(--ink);
-  font-family: var(--mono);
-  font-size: 12.5px;
-  font-weight: 500;
-  appearance: none;
   cursor: pointer;
 }
 
-.run-select-wrap svg {
-  position: absolute;
-  top: 9px;
-  right: 8px;
+.run-batch-trigger:hover {
+  border-color: var(--line-strong);
+}
+
+.run-batch-trigger svg {
+  flex: 0 0 auto;
   color: var(--ink-4);
-  pointer-events: none;
+  transition: transform 0.15s ease;
+}
+
+.run-batch-trigger svg.is-open {
+  transform: rotate(180deg);
+}
+
+.run-batch-trigger-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.run-batch-trigger-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.run-batch-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--ink-4);
+}
+
+.run-batch-dot.is-success {
+  background: var(--success);
+}
+
+.run-batch-dot.is-warning {
+  background: var(--warning);
+}
+
+.run-batch-dot.is-danger {
+  background: var(--danger);
+}
+
+.run-batch-pending {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  border-radius: 2px;
+  background: var(--warning-weak);
+  color: var(--warning);
+  font-size: 10.5px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.run-batch-popover {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 360px;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.run-batch-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-4);
+}
+
+.run-batch-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12.5px;
+}
+
+.run-batch-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 0 6px;
+}
+
+.run-batch-group-label {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 10px 3px;
+  background: var(--surface);
+  color: var(--ink-4);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+}
+
+.run-batch-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.run-batch-row:hover {
+  background: var(--surface-3);
+}
+
+.run-batch-row.is-active {
+  border-left-color: var(--primary);
+  background: var(--primary-weak);
+}
+
+.run-batch-row-top,
+.run-batch-row-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.run-batch-row-id {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.run-batch-row-time {
+  color: var(--ink-3);
+}
+
+.run-batch-row-hash {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.run-batch-check {
+  color: var(--primary);
+}
+
+.run-batch-row-bottom {
+  color: var(--ink-4);
+  font-size: 11px;
+}
+
+.run-batch-row-ref {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+}
+
+.run-batch-row-stats {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.run-batch-row-stats em {
+  font-style: normal;
+}
+
+.run-batch-row-stats .is-danger {
+  color: var(--danger);
+}
+
+.run-batch-row-stats .is-success {
+  color: var(--success);
+}
+
+.run-batch-empty {
+  padding: 18px 10px;
+  color: var(--ink-4);
+  font-size: 12px;
+  text-align: center;
+}
+
+.run-batch-foot {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-4);
+  font-size: 11px;
 }
 
 .run-meta-line {

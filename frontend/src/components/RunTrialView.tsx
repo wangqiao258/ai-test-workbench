@@ -15,6 +15,7 @@ import { api } from '../services/api'
 import { formatDateTime, formatDuration, severityRank } from '../utils/format'
 import { EvidencePanel } from './EvidencePanel'
 import { FindingsPanel } from './FindingsPanel'
+import { RunBatchPicker } from './runs/RunBatchPicker'
 import { EmptyState, Icon } from './ui'
 
 interface Props {
@@ -277,28 +278,13 @@ export function RunTrialView({
         <div className="workspace">
         <aside className="pane pane-left">
           <div className="run-switcher">
-            <label className="run-select-label" htmlFor="run-select">
-              RUN BATCH
-            </label>
-            <div className="run-select-wrap">
-              <select
-                id="run-select"
-                className="run-select"
-                value={run.id}
-                onChange={(event) => selectRun(event.target.value)}
-              >
-                {data.runs.map((item) => {
-                  const pending = pendingByRun.get(item.id) ?? 0
-                  return (
-                    <option key={item.id} value={item.id}>
-                      {item.id} · {formatDateTime(item.startedAt)}
-                      {pending > 0 ? ` · ${pending} 待审判` : ''}
-                    </option>
-                  )
-                })}
-              </select>
-              <Icon name="chevronDown" size={14} />
-            </div>
+            <span className="run-select-label">RUN BATCH</span>
+            <RunBatchPicker
+              runs={data.runs}
+              activeRunId={run.id}
+              pendingByRun={pendingByRun}
+              onSelect={selectRun}
+            />
             <div className="run-meta-line">
               <span>
                 <Icon name="clock" size={12} />
