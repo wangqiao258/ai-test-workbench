@@ -9,12 +9,12 @@ from app.core.config import get_settings
 from app.core.deps import get_membership
 from app.core.errors import ApiError
 from app.core.pagination import paginate
+from app.core.security import create_ai_ticket
 from app.db.models.analysis import Finding
 from app.db.models.identity import AppUser, ProjectMember
 from app.db.models.review import Defect, DefectEvent
 from app.db.models.run import Run
 from app.db.session import get_db
-from app.core.security import create_ai_ticket
 from app.schemas.agent import AiTicketOut
 from app.schemas.review import (
     DefectDetailOut,

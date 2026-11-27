@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.services.runs import run_out
 from app.core.deps import (
     SCOPE_ASSETS_READ,
     SCOPE_RUNS_READ,
@@ -18,6 +17,7 @@ from app.db.models.run import Run
 from app.db.session import get_db
 from app.schemas.query import OpenApiDocOut, RequirementOut, RunOut
 from app.services.asset_views import openapi_doc_outs, requirement_outs
+from app.services.runs import run_out
 
 router = APIRouter(prefix="/assets", tags=["ingest"])
 
