@@ -260,6 +260,7 @@ export function FindingsPanel({
                   <div className="finding-top">
                     <FindingTypeBadge type={finding.type} />
                     <SeverityBadge severity={finding.suggestedSeverity} />
+                    <span className="mono-id">{finding.id}</span>
                     <div className="toolbar-spacer" />
                     <Confidence value={finding.confidence} />
                   </div>

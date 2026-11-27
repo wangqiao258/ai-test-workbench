@@ -155,6 +155,10 @@ export function EvidencePanel({
 
   const requestRaw = exchange ? rawRequest(exchange) : ''
   const responseRaw = exchange ? rawResponse(exchange) : ''
+  const findingRef = activeFinding?.id ?? nav.findingId
+  const aiQueryCommand = findingRef
+    ? `请分析工作台发现 ${findingRef}：\ncurl -s -H "X-Project-Token: $WORKBENCH_TOKEN" ${window.location.origin}/ingest/v1/findings/${findingRef}`
+    : ''
 
   const requirement = data.requirements.find((item) =>
     testCase?.requirementIds.includes(item.id),
@@ -170,15 +174,16 @@ export function EvidencePanel({
           <span className="crumb-run">{runId}</span>
           <Icon name="chevronRight" size={11} />
           <span className="crumb-case">{runCase.nodeid}</span>
-          {nav.findingId && (
+          {findingRef && (
             <>
               <Icon name="chevronRight" size={11} />
               <span className="crumb-finding" title={activeFinding?.title}>
+                <span className="mono-id">{findingRef}</span>
                 {activeFinding
-                  ? `${severityLabel[activeFinding.suggestedSeverity]} · ${
+                  ? ` · ${severityLabel[activeFinding.suggestedSeverity]} · ${
                       activeFinding.title
                     }`
-                  : nav.findingId}
+                  : ''}
               </span>
             </>
           )}
@@ -190,6 +195,15 @@ export function EvidencePanel({
           </h2>
           <span className="time-chip">{formatDuration(runCase.durationMs)}</span>
           <div className="toolbar-spacer" />
+          {aiQueryCommand && (
+            <CopyButton
+              text={aiQueryCommand}
+              onCopied={() =>
+                onToast(`已复制 ${findingRef} 查询指令`, 'success')
+              }
+              label="复制给 AI"
+            />
+          )}
           <button
             type="button"
             className="btn btn-soft trial-trigger"

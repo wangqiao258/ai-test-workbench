@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.v1.runs import run_out
+from app.services.runs import run_out
 from app.core.deps import (
     SCOPE_ASSETS_READ,
     SCOPE_RUNS_READ,

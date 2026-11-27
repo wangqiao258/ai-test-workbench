@@ -216,3 +216,19 @@ def require_token_scope(*required: str):
         )
 
     return dependency
+
+
+def require_token_context(*required: str):
+    """要求 Token 具备任一指定 scope，并返回完整上下文（项目与生效权限）。"""
+
+    def dependency(context: TokenContext = Depends(get_token_context)) -> TokenContext:
+        if context.scopes.intersection(required):
+            return context
+        raise ApiError(
+            403,
+            "insufficient_scope",
+            "项目 Token 缺少所需权限",
+            details={"required": sorted(required), "granted": sorted(context.scopes)},
+        )
+
+    return dependency

@@ -3,7 +3,18 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.api.ingest import actions as ingest_actions
-from app.api.ingest import artifacts, assets, assets_read, catalog, docs, jobs, runs, specs, whoami
+from app.api.ingest import (
+    artifacts,
+    assets,
+    assets_read,
+    catalog,
+    docs,
+    jobs,
+    review_read,
+    runs,
+    specs,
+    whoami,
+)
 from app.api.ingest import operations as ingest_operations
 from app.api.ingest import requirements as ingest_requirements
 from app.api.ingest import secrets as ingest_secrets
@@ -44,6 +55,7 @@ app.include_router(findings.router, prefix="/api/v1")
 app.include_router(defects.router, prefix="/api/v1")
 app.include_router(audit.router, prefix="/api/v1")
 app.include_router(whoami.router, prefix="/ingest/v1")
+app.include_router(review_read.router, prefix="/ingest/v1")
 app.include_router(ingest_actions.router, prefix="/ingest/v1")
 app.include_router(catalog.router, prefix="/ingest/v1")
 app.include_router(runs.router, prefix="/ingest/v1")

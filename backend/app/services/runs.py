@@ -5,6 +5,20 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError
 from app.db.models.run import Run
+from app.schemas.query import RunOut
+
+
+def run_out(run: Run) -> RunOut:
+    return RunOut(
+        id=run.id,
+        external_id=run.external_id,
+        started_at=run.started_at,
+        duration_ms=run.duration_ms,
+        branch=run.branch,
+        commit=run.commit_sha,
+        environment=run.environment,
+        stats=run.stats,
+    )
 
 
 def resolve_run(db: Session, project_id: uuid.UUID, run_ref: str) -> Run:

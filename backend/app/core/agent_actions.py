@@ -88,6 +88,28 @@ ACTIONS: tuple[dict[str, Any], ...] = (
         "description": "回写分析结果，需 Idempotency-Key",
     },
     {
+        "step": "list_pending_findings",
+        "method": "GET",
+        "path": "/ingest/v1/findings",
+        "query": {"status": "pending", "limit": 20},
+        "scope": SCOPE_RUNS_READ,
+        "description": "列出待审判发现，可按 status / run 过滤",
+    },
+    {
+        "step": "read_finding",
+        "method": "GET",
+        "path": "/ingest/v1/findings/{finding_id}",
+        "scope": SCOPE_RUNS_READ,
+        "description": "按 FND 编号读取发现、用例、日志、请求响应与关联契约",
+    },
+    {
+        "step": "read_defect",
+        "method": "GET",
+        "path": "/ingest/v1/defects/{defect_id}",
+        "scope": SCOPE_RUNS_READ,
+        "description": "按 DEF 编号读取缺陷、来源发现与运行证据",
+    },
+    {
         "step": "read_requirements_full",
         "method": "GET",
         "path": "/ingest/v1/assets/requirements",

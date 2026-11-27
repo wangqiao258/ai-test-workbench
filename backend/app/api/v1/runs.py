@@ -23,23 +23,10 @@ from app.schemas.query import (
     RunListOut,
     RunOut,
 )
-from app.services.runs import resolve_run
+from app.services.runs import resolve_run, run_out
 from app.services.storage import get_storage
 
 router = APIRouter(prefix="/projects/{project_id}/runs", tags=["query"])
-
-
-def run_out(run: Run) -> RunOut:
-    return RunOut(
-        id=run.id,
-        external_id=run.external_id,
-        started_at=run.started_at,
-        duration_ms=run.duration_ms,
-        branch=run.branch,
-        commit=run.commit_sha,
-        environment=run.environment,
-        stats=run.stats,
-    )
 
 
 def _resolve_run_case(db: Session, run: Run, nodeid: str) -> RunCase:
