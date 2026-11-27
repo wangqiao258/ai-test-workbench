@@ -11,6 +11,7 @@ import type {
 import {
   api,
   type CreateProjectInput,
+  type ProjectBundle,
   type Session,
   type UpdateProjectInput,
 } from './services/api'
@@ -136,6 +137,36 @@ function defaultNav(data: AppData): NavState {
   }
 }
 
+function replaceProjectItems<T extends { projectId: string }>(
+  items: T[],
+  projectId: string,
+  fresh: T[],
+): T[] {
+  return [...items.filter((item) => item.projectId !== projectId), ...fresh]
+}
+
+function mergeProjectBundle(prev: AppData, bundle: ProjectBundle): AppData {
+  const projectId = bundle.project.id
+  return {
+    projects: prev.projects.some((item) => item.id === projectId)
+      ? prev.projects.map((item) =>
+          item.id === projectId ? bundle.project : item,
+        )
+      : [...prev.projects, bundle.project],
+    requirements: replaceProjectItems(
+      prev.requirements,
+      projectId,
+      bundle.requirements,
+    ),
+    openapi: replaceProjectItems(prev.openapi, projectId, bundle.openapi),
+    cases: replaceProjectItems(prev.cases, projectId, bundle.cases),
+    runs: replaceProjectItems(prev.runs, projectId, bundle.runs),
+    findings: replaceProjectItems(prev.findings, projectId, bundle.findings),
+    defects: replaceProjectItems(prev.defects, projectId, bundle.defects),
+    summaries: { ...prev.summaries, ...bundle.summaries },
+  }
+}
+
 export default function App() {
   const [data, setData] = useState<AppData | null>(null)
   const [nav, setNav] = useState<NavState>(INITIAL_NAV)
@@ -148,6 +179,8 @@ export default function App() {
   const [loginLoading, setLoginLoading] = useState(false)
   const [loginError, setLoginError] = useState('')
   const toastTimer = useRef<number | null>(null)
+  const lastRefreshKey = useRef('')
+  const refreshSeq = useRef(0)
 
   const notify = useCallback((text: string, tone: ToastTone = 'info') => {
     if (toastTimer.current) window.clearTimeout(toastTimer.current)
@@ -168,8 +201,10 @@ export default function App() {
         setSession(current)
         const result = await api.bootstrap()
         if (!alive) return
+        const nextNav = defaultNav(result)
+        lastRefreshKey.current = `${nextNav.projectId}:${nextNav.module}`
         setData(result)
-        setNav(defaultNav(result))
+        setNav(nextNav)
       } catch {
         if (!alive) return
         api.logout()
@@ -191,6 +226,7 @@ export default function App() {
       setSession(null)
       setData(null)
       setNav(INITIAL_NAV)
+      lastRefreshKey.current = ''
       setLoginError('登录已过期，请重新登录')
     }
     window.addEventListener('workbench:unauthorized', handler)
@@ -205,8 +241,10 @@ export default function App() {
         const current = await api.login(email, password)
         setSession(current)
         const result = await api.bootstrap()
+        const nextNav = defaultNav(result)
+        lastRefreshKey.current = `${nextNav.projectId}:${nextNav.module}`
         setData(result)
-        setNav(defaultNav(result))
+        setNav(nextNav)
       } catch (error) {
         setSession(null)
         setLoginError(error instanceof Error ? error.message : '登录失败')
@@ -222,6 +260,7 @@ export default function App() {
     setSession(null)
     setData(null)
     setNav(INITIAL_NAV)
+    lastRefreshKey.current = ''
     setLoginError('')
     notify('已退出登录', 'info')
   }, [notify])
@@ -229,6 +268,29 @@ export default function App() {
   const navigate = useCallback((patch: Partial<NavState>) => {
     setNav((prev) => ({ ...prev, ...patch }))
   }, [])
+
+  const refreshProjectData = useCallback(async (projectId: string) => {
+    const seq = refreshSeq.current + 1
+    refreshSeq.current = seq
+    try {
+      const bundle = await api.refreshProject(projectId)
+      if (refreshSeq.current !== seq) return
+      setData((prev) => (prev ? mergeProjectBundle(prev, bundle) : prev))
+    } catch {
+      // 后台刷新失败时保留现有数据，不打断当前页面。
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!nav.projectId) return
+    const key = `${nav.projectId}:${nav.module}`
+    if (lastRefreshKey.current === key) return
+    const timer = window.setTimeout(() => {
+      lastRefreshKey.current = key
+      void refreshProjectData(nav.projectId)
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [nav.module, nav.projectId, refreshProjectData])
 
   const projectData = useMemo<AppData | null>(() => {
     if (!data) return null
@@ -299,6 +361,7 @@ export default function App() {
       setSession(null)
       setData(null)
       setNav(INITIAL_NAV)
+      lastRefreshKey.current = ''
       setLoginError('密码已修改，请使用新密码重新登录')
     },
     [],
@@ -308,8 +371,10 @@ export default function App() {
     async (input: CreateProjectInput) => {
       const created = await api.createProject(input)
       const fresh = await api.bootstrap()
+      const nextNav = { ...INITIAL_NAV, ...projectNavPatch(fresh, created.id) }
+      lastRefreshKey.current = `${nextNav.projectId}:${nextNav.module}`
       setData(fresh)
-      setNav({ ...INITIAL_NAV, ...projectNavPatch(fresh, created.id) })
+      setNav(nextNav)
       setCreateOpen(false)
       notify(`已创建项目 ${created.name}`, 'success')
     },
@@ -341,8 +406,10 @@ export default function App() {
     async (projectId: string) => {
       await api.deleteProject(projectId)
       const fresh = await api.bootstrap()
+      const nextNav = defaultNav(fresh)
+      lastRefreshKey.current = `${nextNav.projectId}:${nextNav.module}`
       setData(fresh)
-      setNav(defaultNav(fresh))
+      setNav(nextNav)
       setSettingsOpen(false)
       notify('项目已删除', 'info')
     },

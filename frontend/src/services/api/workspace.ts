@@ -33,7 +33,7 @@ import {
  * 工作区初始化：拉取全部项目及其需求、契约、用例、运行、finding 与 defect。
  */
 
-async function loadProject(project: BackendProject): Promise<{
+export interface ProjectBundle {
   project: Project
   requirements: Requirement[]
   openapi: OpenApiDoc[]
@@ -42,7 +42,9 @@ async function loadProject(project: BackendProject): Promise<{
   findings: Finding[]
   defects: Defect[]
   summaries: Record<string, AiSummary>
-}> {
+}
+
+async function loadProject(project: BackendProject): Promise<ProjectBundle> {
   const projectId = project.id
   const [requirements, docs, cases, runs, findings, defects] = await Promise.all(
     [
@@ -112,4 +114,14 @@ async function bootstrapHttp(): Promise<AppData> {
 
 export async function bootstrap(): Promise<AppData> {
   return bootstrapHttp()
+}
+
+/** 切页时只刷新当前项目，避免重新拉取全部项目。 */
+export async function refreshProject(projectId: string): Promise<ProjectBundle> {
+  const projects = await fetchJson<BackendProject[]>('/projects')
+  const project = projects.find((item) => item.id === projectId)
+  if (!project) {
+    throw new Error('项目不存在或无权访问')
+  }
+  return loadProject(project)
 }

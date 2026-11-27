@@ -44,7 +44,7 @@ import {
   setCaseArchived,
   updateDefectStatus,
 } from './api/runs'
-import { bootstrap } from './api/workspace'
+import { bootstrap, refreshProject } from './api/workspace'
 
 /**
  * 数据出入口门面：只对接真实后端。
@@ -112,10 +112,12 @@ export {
   updateDefectStatus,
 } from './api/runs'
 
-export { bootstrap }
+export { bootstrap, refreshProject }
+export type { ProjectBundle } from './api/workspace'
 
 export const api = {
   bootstrap,
+  refreshProject,
   fetchRunCaseDetail,
   fetchRunAnalysis,
   login,
