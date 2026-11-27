@@ -68,6 +68,7 @@ npm run dev
 ```
 
 打开 http://127.0.0.1:5173，`/api` 与 `/ingest` 已代理到 `http://127.0.0.1:8000`。
+<img width="1920" height="919" alt="image" src="https://github.com/user-attachments/assets/cecb9d79-417c-4810-bd26-9f4637b8c009" />
 
 ## AI 接入
 
