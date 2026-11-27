@@ -12,6 +12,7 @@ from app.core.security import generate_api_token, hash_password
 from app.db.models.identity import AppUser, ProjectMember
 from app.db.models.project import ApiToken, Project
 from app.db.session import SessionLocal
+from app.schemas.project import ProjectEntry
 
 ROLES = ("viewer", "tester", "reviewer", "admin")
 
@@ -49,9 +50,27 @@ def cmd_create_user(args: argparse.Namespace) -> None:
         print(f"已创建用户 {user.email}，id={user.id}")
 
 
+def _parse_entries(raw_entries: list[str]) -> list[dict]:
+    entries: list[dict] = []
+    seen_urls: set[str] = set()
+    for raw in raw_entries:
+        name, separator, url = raw.partition("=")
+        if not separator:
+            _fail(f"入口格式应为 NAME=URL：{raw}")
+        try:
+            entry = ProjectEntry(name=name, url=url)
+        except ValueError as exc:
+            _fail(f"入口不合法：{raw}（{exc}）")
+        if entry.url in seen_urls:
+            _fail(f"入口地址重复：{entry.url}")
+        seen_urls.add(entry.url)
+        entries.append(entry.model_dump())
+    return entries
+
+
 def cmd_create_project(args: argparse.Namespace) -> None:
     with SessionLocal() as db:
-        project = Project(name=args.name, base_url=args.base_url.strip().rstrip("/"))
+        project = Project(name=args.name, entries=_parse_entries(args.entry))
         db.add(project)
         db.commit()
         print(f"已创建项目 {project.name}，id={project.id}")
@@ -114,7 +133,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("create-project", help="创建项目")
     p.add_argument("--name", required=True)
-    p.add_argument("--base-url", default="", help="被测服务地址，如 http://127.0.0.1:8080")
+    p.add_argument(
+        "--entry",
+        action="append",
+        default=[],
+        metavar="NAME=URL",
+        help="测试入口，可重复，如 --entry 小程序=https://m.example.com",
+    )
     p.set_defaults(func=cmd_create_project)
 
     p = sub.add_parser("add-member", help="把用户加入项目")

@@ -3,7 +3,8 @@
 from app.core.frameworks import AD_HOC_FRAMEWORK, KNOWN_FRAMEWORKS
 
 DEFAULT_RULES: tuple[str, ...] = (
-    "被测请求 URL = project.baseUrl + operation.path；为空先填项目设置，actions.path 用平台地址",
+    "测试入口见 project.entries（名称、地址、备注，可能是页面或接口）；"
+    "接口地址以 OpenAPI 文档 server、实际请求或有效 HAR 为准，不要用入口地址直接拼接 operation.path",
     "动作需要参数或请求体时先读 action.detail，不要猜",
     "按 actions 顺序执行；需求与接口关联由测试请求自动建立",
     "已测接口优先复用，未覆盖的再按 tag / q 检索",
@@ -23,6 +24,8 @@ DEFAULT_RULES: tuple[str, ...] = (
     "type 只收 regression、spec-mismatch、contract、duplicate、flaky",
     "证据优先上传原始 HAR（浏览器、Playwright、代理工具导出的均可）；"
     "无法抓包时随 run 内联 cases[].exchanges",
+    "有效 HAR：合法 JSON，至少一条 http(s) 的 XHR/Fetch 请求，能按 path 关联到被测接口；"
+    "静态资源、埋点、第三方请求不计入",
     "HAR 需在运行上传后按 nodeid 上传，解析结果会替换该用例已有交换记录",
     "测试凭据只引用名称：pytest/Playwright 读环境变量（os.environ / process.env），"
     "Tavern 用 {tavern.env_vars.KEY}，值由插件注入，不要写死",

@@ -70,3 +70,42 @@ def test_parse_har_rejects_invalid_document() -> None:
         assert "JSON" in str(exc)
     else:
         raise AssertionError("应当抛出 ValueError")
+
+
+def test_parse_har_rejects_document_without_api_entries() -> None:
+    entries = [
+        {
+            "_resourceType": "script",
+            "request": {"method": "GET", "url": "https://example.com/app.js"},
+            "response": {"status": 200},
+        },
+        {
+            "request": {"method": "GET", "url": "data:text/plain,hi"},
+            "response": {"status": 200},
+        },
+    ]
+
+    try:
+        parse_har(_har(entries))
+    except ValueError as exc:
+        assert "没有可用的接口请求" in str(exc)
+    else:
+        raise AssertionError("应当抛出 ValueError")
+
+
+def test_parse_har_skips_non_http_urls() -> None:
+    entries = [
+        {
+            "request": {"method": "GET", "url": "data:text/plain,hi"},
+            "response": {"status": 200},
+        },
+        {
+            "request": {"method": "GET", "url": "https://example.com/api/ping"},
+            "response": {"status": 200},
+        },
+    ]
+
+    exchanges = parse_har(_har(entries))
+
+    assert len(exchanges) == 1
+    assert exchanges[0].url == "https://example.com/api/ping"

@@ -26,7 +26,7 @@ def _project_out(project: Project, role: str) -> ProjectOut:
     return ProjectOut(
         id=project.id,
         name=project.name,
-        base_url=project.base_url,
+        entries=project.entries or [],
         test_repo_url=project.test_repo_url,
         test_repo_ref=project.test_repo_ref,
         updated_at=project.updated_at,
@@ -68,7 +68,7 @@ def create_project(
 
     project = Project(
         name=payload.name,
-        base_url=payload.base_url,
+        entries=[entry.model_dump() for entry in payload.entries],
     )
     db.add(project)
     db.flush()
@@ -80,7 +80,7 @@ def create_project(
         "project",
         str(project.id),
         "create",
-        after={"name": project.name, "base_url": project.base_url},
+        after={"name": project.name, "entries": project.entries},
     )
     db.commit()
     db.refresh(project)

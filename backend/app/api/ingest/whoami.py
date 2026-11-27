@@ -1,4 +1,4 @@
-"""AI 机发现项目、目标地址、规则与动作清单。"""
+"""AI 机发现项目、测试入口、规则与动作清单。"""
 
 from typing import Any
 
@@ -59,7 +59,15 @@ def whoami(
         "project": {
             "id": str(context.project.id),
             "name": context.project.name,
-            "baseUrl": context.project.base_url or None,
+            "entries": [
+                {
+                    "name": str(item.get("name") or ""),
+                    "url": str(item.get("url") or ""),
+                    "note": str(item.get("note") or ""),
+                }
+                for item in (context.project.entries or [])
+                if isinstance(item, dict)
+            ],
             "testRepo": (
                 {
                     "url": context.project.test_repo_url,

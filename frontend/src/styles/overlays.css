@@ -280,6 +280,42 @@
   grid-column: 1 / -1;
 }
 
+.entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.entry-row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr) 180px auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.entry-row input {
+  min-width: 0;
+}
+
+.entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.entry-actions em {
+  color: var(--ink-4);
+  font-size: 11px;
+  font-style: normal;
+}
+
+@media (max-width: 720px) {
+  .entry-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .dialog-error {
   margin: 10px 0 0;
   padding: 8px 10px;

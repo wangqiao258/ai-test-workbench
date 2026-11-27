@@ -24,10 +24,16 @@ export interface LoginResponse {
   projects: BackendProject[]
 }
 
+export interface BackendProjectEntry {
+  name: string
+  url: string
+  note: string
+}
+
 export interface BackendProject {
   id: string
   name: string
-  baseUrl: string
+  entries: BackendProjectEntry[]
   testRepoUrl: string
   testRepoRef: string
   updatedAt: string

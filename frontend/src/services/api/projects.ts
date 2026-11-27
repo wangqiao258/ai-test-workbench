@@ -1,4 +1,4 @@
-import type { Project, ProjectSecret, ProjectToken } from '../../types'
+import type { Project, ProjectEntry, ProjectSecret, ProjectToken } from '../../types'
 import { fetchJson, request } from './client'
 import type {
   BackendProject,
@@ -12,12 +12,12 @@ import type {
 
 export interface CreateProjectInput {
   name: string
-  baseUrl?: string
+  entries?: ProjectEntry[]
 }
 
 export interface UpdateProjectInput {
   name?: string
-  baseUrl?: string
+  entries?: ProjectEntry[]
   testRepoUrl?: string
   testRepoRef?: string
 }
@@ -61,7 +61,7 @@ export function mapProject(project: BackendProject): Project {
   return {
     id: project.id,
     name: project.name,
-    baseUrl: project.baseUrl,
+    entries: project.entries ?? [],
     testRepoUrl: project.testRepoUrl ?? '',
     testRepoRef: project.testRepoRef ?? '',
     updatedAt: project.updatedAt,

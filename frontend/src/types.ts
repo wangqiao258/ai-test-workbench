@@ -22,10 +22,16 @@ export type HttpMethod =
   | 'TRACE'
 export type ToastTone = 'success' | 'info' | 'danger'
 
+export interface ProjectEntry {
+  name: string
+  url: string
+  note: string
+}
+
 export interface Project {
   id: string
   name: string
-  baseUrl: string
+  entries: ProjectEntry[]
   testRepoUrl: string
   testRepoRef: string
   updatedAt: string

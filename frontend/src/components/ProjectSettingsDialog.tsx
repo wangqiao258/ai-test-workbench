@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import type { Project } from '../types'
+import type { Project, ProjectEntry } from '../types'
 import type { UpdateProjectInput } from '../services/api'
+import { ProjectEntriesEditor, emptyEntry, validateEntries } from './ProjectEntriesEditor'
 import { ProjectTokensSection } from './ProjectTokensSection'
 import { ProjectSecretsSection } from './ProjectSecretsSection'
 import { ProjectAgentRulesSection } from './ProjectAgentRulesSection'
@@ -33,7 +34,7 @@ export function ProjectSettingsDialog({
 }: Props) {
   const [tab, setTab] = useState<SettingsTab>('basic')
   const [name, setName] = useState('')
-  const [baseUrl, setBaseUrl] = useState('')
+  const [entries, setEntries] = useState<ProjectEntry[]>([emptyEntry()])
   const [testRepoUrl, setTestRepoUrl] = useState('')
   const [testRepoRef, setTestRepoRef] = useState('')
   const [error, setError] = useState('')
@@ -44,7 +45,11 @@ export function ProjectSettingsDialog({
     if (!open) return
     setTab('basic')
     setName(project.name)
-    setBaseUrl(project.baseUrl)
+    setEntries(
+      project.entries.length
+        ? project.entries.map((entry) => ({ ...entry }))
+        : [emptyEntry()],
+    )
     setTestRepoUrl(project.testRepoUrl ?? '')
     setTestRepoRef(project.testRepoRef ?? '')
     setError('')
@@ -64,12 +69,17 @@ export function ProjectSettingsDialog({
       setError('项目名称不能为空')
       return
     }
+    const checked = validateEntries(entries)
+    if (checked.error) {
+      setError(checked.error)
+      return
+    }
     setBusy(true)
     setError('')
     try {
       await onSubmit(project.id, {
         name: name.trim(),
-        baseUrl: baseUrl.trim(),
+        entries: checked.entries,
         testRepoUrl: testRepoUrl.trim(),
         testRepoRef: testRepoRef.trim(),
       })
@@ -172,15 +182,7 @@ export function ProjectSettingsDialog({
                 onChange={(event) => setName(event.target.value)}
               />
             </label>
-            <label className="form-field form-field-wide">
-              <span>被测服务地址</span>
-              <input
-                value={baseUrl}
-                placeholder="http://127.0.0.1:8080"
-                spellCheck={false}
-                onChange={(event) => setBaseUrl(event.target.value)}
-              />
-            </label>
+            <ProjectEntriesEditor entries={entries} onChange={setEntries} />
             <label className="form-field form-field-wide">
               <span>测试仓库地址</span>
               <input

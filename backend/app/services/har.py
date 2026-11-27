@@ -1,3 +1,11 @@
+"""HAR 解析与有效性判定。
+
+有效 HAR 需满足：
+- 合法 JSON，且 ``log.entries`` 为数组；
+- 至少有一条 http(s) 且带 host 的 XHR / Fetch 请求（未标注 ``_resourceType`` 的也接受）；
+- 标注为 document / script / stylesheet / image 等静态资源的条目不计入证据。
+"""
+
 import base64
 import json
 from typing import Any
@@ -12,7 +20,8 @@ def parse_har(data: bytes) -> list[ExchangeIn]:
     except json.JSONDecodeError as exc:
         raise ValueError(f"HAR 不是合法 JSON：{exc.msg}") from exc
 
-    entries = document.get("log", {}).get("entries")
+    log = document.get("log")
+    entries = log.get("entries") if isinstance(log, dict) else None
     if not isinstance(entries, list):
         raise ValueError("HAR 缺少 log.entries 数组")
 
@@ -21,12 +30,19 @@ def parse_har(data: bytes) -> list[ExchangeIn]:
         if not isinstance(entry, dict) or not _is_api_entry(entry):
             continue
         exchanges.append(_to_exchange(entry, index=len(exchanges)))
+    if not exchanges:
+        raise ValueError("HAR 中没有可用的接口请求：需要包含 http(s) 的 XHR/Fetch 记录")
     return exchanges
 
 
 def _is_api_entry(entry: dict[str, Any]) -> bool:
     resource_type = entry.get("_resourceType")
-    return resource_type in (None, "xhr", "fetch")
+    if resource_type not in (None, "xhr", "fetch"):
+        return False
+    request = entry.get("request")
+    url = str(request.get("url") or "") if isinstance(request, dict) else ""
+    parsed = urlparse(url)
+    return parsed.scheme in ("http", "https") and bool(parsed.netloc)
 
 
 def _to_exchange(entry: dict[str, Any], index: int) -> ExchangeIn:

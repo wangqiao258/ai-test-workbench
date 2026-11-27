@@ -30,7 +30,9 @@ AI 机负责读取需求与接口、生成并执行测试用例、回写分析�
 | 平台机 | 运行本平台与 PostgreSQL，保存需求 / 接口 / 用例索引、运行结果与证据 | 不克隆测试仓库，不执行用例 |
 | 被测机 | 运行被测试系统（SUT） | 由 AI 机访问 |
 
-AI 机先调 `GET /ingest/v1/whoami`，读取 `project.baseUrl`、`project.testRepo`、`rules`、`actions` 和 `secrets`。动作参数、请求体和示例从 `/ingest/v1/actions/{step}` 获取；批量写入需要 `Idempotency-Key`，以 `action.detail` 为准。
+AI 机先调 `GET /ingest/v1/whoami`，读取 `project.entries`、`project.testRepo`、`rules`、`actions` 和 `secrets`。动作参数、请求体和示例从 `/ingest/v1/actions/{step}` 获取；批量写入需要 `Idempotency-Key`，以 `action.detail` 为准。
+
+`project.entries` 是测试入口信息（名称 / 地址 / 备注），可能包含页面或接口，不保证就是接口基准地址。AI 应以 OpenAPI 文档的 server、实际请求或 HAR 中出现的 host 判断接口地址，不要用入口地址直接拼接 `operation.path`。
 
 用例正文先 commit 并 push 到 `project.testRepo`，再调 `POST /ingest/v1/catalog` 上报索引与 `source(repo/ref/commit)`。`catalog` 只写索引，不要只上报不落仓库；临时脚本用 `framework=script`，只保留运行与证据。
 
@@ -42,6 +44,10 @@ AI 机先调 `GET /ingest/v1/whoami`，读取 `project.baseUrl`、`project.testR
 - 接口关联在运行上传后，按最近一次运行的真实 `method + path` 匹配 OpenAPI operation；`associations` 返回已测接口与置信度，置信度按关联用例数分级。
 
 按需读取：摘要用于选接口，生成用例前再取 `/operations/{id}` 详情；不要全量拉取 OpenAPI 或需求。
+
+### 运行证据
+
+HAR 只接收有效证据：合法 JSON，`log.entries` 为数组，且至少包含一条 http(s) 的 XHR / Fetch 请求；标注为 document / script / stylesheet / image 等静态资源的条目会被跳过。解析后没有有效请求的 HAR 会判定为失败，不会覆盖该用例已有证据。
 
 ### 测试凭据
 
@@ -91,7 +97,7 @@ npm run dev
 
 打开 http://127.0.0.1:5173，`/api` 与 `/ingest` 已代理到 `http://127.0.0.1:8000`。
 
-「01 需求与接口」支持直接导入需求 Markdown 与 OpenAPI 文档（JSON / YAML），导入后可在页面内编辑、删除。项目名称、被测服务地址、测试仓库、AI 规则、接入令牌、测试凭据与项目删除在「项目设置」中维护。
+「01 需求与接口」支持直接导入需求 Markdown 与 OpenAPI 文档（JSON / YAML），导入后可在页面内编辑、删除。项目名称、测试入口、测试仓库、AI 规则、接入令牌、测试凭据与项目删除在「项目设置」中维护。
 
 ## 接口分区
 

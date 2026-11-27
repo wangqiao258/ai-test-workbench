@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { CreateProjectInput } from '../services/api'
+import type { ProjectEntry } from '../types'
+import {
+  ProjectEntriesEditor,
+  emptyEntry,
+  validateEntries,
+} from './ProjectEntriesEditor'
 import { DialogShell } from './ui'
 
 interface Props {
@@ -10,14 +16,14 @@ interface Props {
 
 export function CreateProjectDialog({ open, onCancel, onSubmit }: Props) {
   const [name, setName] = useState('')
-  const [baseUrl, setBaseUrl] = useState('')
+  const [entries, setEntries] = useState<ProjectEntry[]>([emptyEntry()])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!open) return
     setName('')
-    setBaseUrl('')
+    setEntries([emptyEntry()])
     setError('')
     setLoading(false)
   }, [open])
@@ -31,10 +37,16 @@ export function CreateProjectDialog({ open, onCancel, onSubmit }: Props) {
       return
     }
 
+    const checked = validateEntries(entries)
+    if (checked.error) {
+      setError(checked.error)
+      return
+    }
+
     setLoading(true)
     setError('')
     try {
-      await onSubmit({ name: trimmedName, baseUrl: baseUrl.trim() })
+      await onSubmit({ name: trimmedName, entries: checked.entries })
     } catch (err) {
       setError(err instanceof Error ? err.message : '创建项目失败')
       setLoading(false)
@@ -66,15 +78,7 @@ export function CreateProjectDialog({ open, onCancel, onSubmit }: Props) {
             onChange={(event) => setName(event.target.value)}
           />
         </label>
-        <label className="form-field form-field-wide">
-          <span>被测服务地址</span>
-          <input
-            value={baseUrl}
-            placeholder="http://127.0.0.1:8080"
-            spellCheck={false}
-            onChange={(event) => setBaseUrl(event.target.value)}
-          />
-        </label>
+        <ProjectEntriesEditor entries={entries} onChange={setEntries} />
       </div>
     </DialogShell>
   )

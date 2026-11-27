@@ -14,7 +14,7 @@ class Project(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
-    base_url: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    entries: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
     test_repo_url: Mapped[str] = mapped_column(String(512), nullable=False, default="")
     test_repo_ref: Mapped[str] = mapped_column(String(128), nullable=False, default="")
     agent_rules: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)

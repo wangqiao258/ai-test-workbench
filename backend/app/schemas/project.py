@@ -5,6 +5,8 @@ from pydantic import Field, field_validator
 
 from app.schemas.common import ApiModel
 
+MAX_PROJECT_ENTRIES = 20
+
 
 def _normalize_name(value: str) -> str:
     value = value.strip()
@@ -15,15 +17,61 @@ def _normalize_name(value: str) -> str:
     return value
 
 
-def _normalize_base_url(value: str) -> str:
+def _normalize_entry_name(value: str) -> str:
+    value = value.strip()
+    if not value:
+        raise ValueError("入口名称不能为空")
+    if len(value) > 120:
+        raise ValueError("入口名称不能超过 120 个字符")
+    return value
+
+
+def _normalize_entry_url(value: str) -> str:
     value = value.strip().rstrip("/")
     if not value:
-        return ""
-    if len(value) > 255:
-        raise ValueError("被测服务地址不能超过 255 个字符")
+        raise ValueError("入口地址不能为空")
+    if len(value) > 512:
+        raise ValueError("入口地址不能超过 512 个字符")
     if not value.startswith(("http://", "https://")):
-        raise ValueError("被测服务地址需以 http:// 或 https:// 开头")
+        raise ValueError("入口地址需以 http:// 或 https:// 开头")
     return value
+
+
+def _normalize_entry_note(value: str) -> str:
+    value = value.strip()
+    if len(value) > 255:
+        raise ValueError("入口备注不能超过 255 个字符")
+    return value
+
+
+class ProjectEntry(ApiModel):
+    name: str
+    url: str
+    note: str = ""
+
+    @field_validator("name")
+    @classmethod
+    def _validate_name(cls, value: str) -> str:
+        return _normalize_entry_name(value)
+
+    @field_validator("url")
+    @classmethod
+    def _validate_url(cls, value: str) -> str:
+        return _normalize_entry_url(value)
+
+    @field_validator("note")
+    @classmethod
+    def _validate_note(cls, value: str) -> str:
+        return _normalize_entry_note(value)
+
+
+def _ensure_unique_entry_urls(entries: list[ProjectEntry]) -> list[ProjectEntry]:
+    seen: set[str] = set()
+    for entry in entries:
+        if entry.url in seen:
+            raise ValueError(f"入口地址重复：{entry.url}")
+        seen.add(entry.url)
+    return entries
 
 
 def _normalize_repo_url(value: str) -> str:
@@ -42,23 +90,25 @@ def _normalize_repo_ref(value: str) -> str:
 
 class ProjectCreateIn(ApiModel):
     name: str
-    base_url: str = ""
+    entries: list[ProjectEntry] = Field(
+        default_factory=list, max_length=MAX_PROJECT_ENTRIES
+    )
 
     @field_validator("name")
     @classmethod
     def _validate_name(cls, value: str) -> str:
         return _normalize_name(value)
 
-    @field_validator("base_url")
+    @field_validator("entries")
     @classmethod
-    def _validate_base_url(cls, value: str) -> str:
-        return _normalize_base_url(value)
+    def _validate_entries(cls, values: list[ProjectEntry]) -> list[ProjectEntry]:
+        return _ensure_unique_entry_urls(values)
 
 
 class ProjectOut(ApiModel):
     id: UUID
     name: str
-    base_url: str
+    entries: list[ProjectEntry]
     test_repo_url: str
     test_repo_ref: str
     updated_at: datetime
@@ -69,7 +119,9 @@ class ProjectUpdateIn(ApiModel):
     """项目资料局部更新。"""
 
     name: str | None = None
-    base_url: str | None = None
+    entries: list[ProjectEntry] | None = Field(
+        default=None, max_length=MAX_PROJECT_ENTRIES
+    )
     test_repo_url: str | None = None
     test_repo_ref: str | None = None
 
@@ -78,10 +130,12 @@ class ProjectUpdateIn(ApiModel):
     def _validate_name(cls, value: str | None) -> str | None:
         return None if value is None else _normalize_name(value)
 
-    @field_validator("base_url")
+    @field_validator("entries")
     @classmethod
-    def _validate_base_url(cls, value: str | None) -> str | None:
-        return None if value is None else _normalize_base_url(value)
+    def _validate_entries(
+        cls, values: list[ProjectEntry] | None
+    ) -> list[ProjectEntry] | None:
+        return None if values is None else _ensure_unique_entry_urls(values)
 
     @field_validator("test_repo_url")
     @classmethod
