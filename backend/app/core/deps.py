@@ -26,6 +26,7 @@ _project_token = APIKeyHeader(
 SCOPE_LEGACY = "ingest"
 SCOPE_ASSETS_READ = "assets:read"
 SCOPE_ASSETS_WRITE = "assets:write"
+SCOPE_CATALOG_WRITE = "catalog:write"
 SCOPE_RUNS_READ = "runs:read"
 SCOPE_RUNS_WRITE = "runs:write"
 SCOPE_ANALYSIS_WRITE = "analysis:write"
@@ -36,6 +37,7 @@ KNOWN_TOKEN_SCOPES = (
     SCOPE_LEGACY,
     SCOPE_ASSETS_READ,
     SCOPE_ASSETS_WRITE,
+    SCOPE_CATALOG_WRITE,
     SCOPE_RUNS_READ,
     SCOPE_RUNS_WRITE,
     SCOPE_ANALYSIS_WRITE,
@@ -60,7 +62,12 @@ SCOPE_CATALOG: tuple[dict[str, str], ...] = (
     {
         "id": SCOPE_ASSETS_WRITE,
         "label": "资产读写",
-        "description": "写入需求、契约、用例目录，含读取",
+        "description": "写入需求、契约，含读取",
+    },
+    {
+        "id": SCOPE_CATALOG_WRITE,
+        "label": "写用例目录",
+        "description": "上报用例索引与 Git 来源",
     },
     {"id": SCOPE_RUNS_READ, "label": "读运行", "description": "读取运行批次与任务"},
     {
@@ -84,40 +91,23 @@ SCOPE_CATALOG: tuple[dict[str, str], ...] = (
 
 TOKEN_PRESETS: tuple[dict, ...] = (
     {
-        "id": "read",
-        "label": "只读发现",
-        "hint": "读需求、契约与运行",
-        "scopes": [SCOPE_ASSETS_READ, SCOPE_RUNS_READ],
-    },
-    {
-        "id": "assets",
-        "label": "资产入库",
-        "hint": "写资产与规格",
-        "scopes": [SCOPE_ASSETS_WRITE, SCOPE_SPECS_WRITE],
-    },
-    {
-        "id": "run",
-        "label": "运行分析",
-        "hint": "上传运行与分析",
-        "scopes": [SCOPE_RUNS_WRITE, SCOPE_ANALYSIS_WRITE],
-    },
-    {
-        "id": "auto",
-        "label": "全自动测试",
-        "hint": "读资产、传规格、读凭据、上传运行与写分析",
+        "id": "test",
+        "label": "测试权限",
+        "hint": "读资产、报用例目录、传规格、读凭据、上传运行与写分析",
         "scopes": [
             SCOPE_ASSETS_READ,
+            SCOPE_CATALOG_WRITE,
             SCOPE_SPECS_WRITE,
-            SCOPE_SECRETS_READ,
             SCOPE_RUNS_WRITE,
             SCOPE_ANALYSIS_WRITE,
+            SCOPE_SECRETS_READ,
         ],
     },
     {
-        "id": "all",
-        "label": "全量接入",
-        "hint": "全部权限",
-        "scopes": list(ISSUABLE_TOKEN_SCOPES),
+        "id": "assets",
+        "label": "资产管理",
+        "hint": "读写需求与 OpenAPI，不读取测试凭据、不能上传运行",
+        "scopes": [SCOPE_ASSETS_WRITE],
     },
 )
 

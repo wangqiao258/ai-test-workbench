@@ -8,9 +8,12 @@ from app.core.deps import (
     SCOPE_ANALYSIS_WRITE,
     SCOPE_ASSETS_READ,
     SCOPE_ASSETS_WRITE,
+    SCOPE_CATALOG_WRITE,
     SCOPE_LEGACY,
     SCOPE_RUNS_READ,
     SCOPE_RUNS_WRITE,
+    SCOPE_SECRETS_READ,
+    SCOPE_SPECS_WRITE,
     TOKEN_PRESETS,
     expand_token_scopes,
 )
@@ -67,6 +70,11 @@ def test_read_scope_does_not_imply_write() -> None:
     assert SCOPE_RUNS_WRITE not in expand_token_scopes({SCOPE_ANALYSIS_WRITE})
 
 
+def test_catalog_scope_is_independent() -> None:
+    assert SCOPE_CATALOG_WRITE in ISSUABLE_TOKEN_SCOPES
+    assert SCOPE_CATALOG_WRITE not in expand_token_scopes({SCOPE_ASSETS_WRITE})
+
+
 def test_legacy_scope_expands_to_all_issuable_scopes() -> None:
     scopes = expand_token_scopes({SCOPE_LEGACY})
     assert SCOPE_ASSETS_READ in scopes
@@ -76,11 +84,25 @@ def test_legacy_scope_expands_to_all_issuable_scopes() -> None:
 
 def test_token_presets_use_issuable_scopes() -> None:
     allowed = set(ISSUABLE_TOKEN_SCOPES)
-    assert TOKEN_PRESETS
+    assert [preset["id"] for preset in TOKEN_PRESETS] == ["test", "assets"]
     for preset in TOKEN_PRESETS:
         assert set(preset["scopes"]) <= allowed
 
 
-def test_auto_preset_can_upload_runs() -> None:
-    auto = next(preset for preset in TOKEN_PRESETS if preset["id"] == "auto")
-    assert SCOPE_RUNS_WRITE in auto["scopes"]
+def test_test_preset_covers_full_testing_flow() -> None:
+    preset = next(preset for preset in TOKEN_PRESETS if preset["id"] == "test")
+    scopes = set(preset["scopes"])
+    assert {
+        SCOPE_ASSETS_READ,
+        SCOPE_CATALOG_WRITE,
+        SCOPE_SPECS_WRITE,
+        SCOPE_RUNS_WRITE,
+        SCOPE_ANALYSIS_WRITE,
+        SCOPE_SECRETS_READ,
+    } <= scopes
+    assert SCOPE_ASSETS_WRITE not in scopes
+
+
+def test_assets_preset_has_only_asset_write() -> None:
+    preset = next(preset for preset in TOKEN_PRESETS if preset["id"] == "assets")
+    assert preset["scopes"] == [SCOPE_ASSETS_WRITE]

@@ -7,6 +7,7 @@ from app.core.deps import (
     SCOPE_ANALYSIS_WRITE,
     SCOPE_ASSETS_READ,
     SCOPE_ASSETS_WRITE,
+    SCOPE_CATALOG_WRITE,
     SCOPE_RUNS_READ,
     SCOPE_RUNS_WRITE,
     SCOPE_SPECS_WRITE,
@@ -118,7 +119,7 @@ ACTIONS: tuple[dict[str, Any], ...] = (
         "step": "write_catalog",
         "method": "POST",
         "path": "/ingest/v1/catalog",
-        "scope": SCOPE_ASSETS_WRITE,
+        "scope": SCOPE_CATALOG_WRITE,
         "description": "写入用例索引；正文先 commit 并 push 到项目测试仓库，再上报实际 "
         "source(repo/ref/commit) 与 framework",
     },
