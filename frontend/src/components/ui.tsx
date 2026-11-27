@@ -127,6 +127,12 @@ const iconPaths = {
       <path d="m9 12 2 2 4-4" />
     </>
   ),
+  panelLeft: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16" />
+    </>
+  ),
   filter: <path d="M4 6h16M7 12h10M10 18h4" />,
   arrowRight: <path d="M5 12h14M13 6l6 6-6 6" />,
 }

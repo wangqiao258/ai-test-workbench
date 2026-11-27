@@ -1,11 +1,22 @@
 /* ---------- App shell ---------- */
 
 .app {
+  /* 224 = 展开导航；36 = 2×18 页边距；800 为运行证据区保底宽度 */
+  --sidenav-width: 224px;
+  --rail-trial: clamp(
+    392px,
+    calc(100vw - var(--sidenav-width) - 36px - var(--rail-left) - 800px),
+    680px
+  );
   height: 100vh;
   width: 100vw;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.app.is-nav-collapsed {
+  --sidenav-width: 56px;
 }
 
 .topbar {
@@ -263,13 +274,55 @@
 }
 
 .sidenav {
-  width: 224px;
-  flex: 0 0 224px;
+  width: var(--sidenav-width);
+  flex: 0 0 var(--sidenav-width);
   display: flex;
   flex-direction: column;
   padding: 10px 8px 10px;
   background: var(--surface-2);
   border-right: 1px solid var(--line);
+  transition:
+    width 0.16s ease,
+    flex-basis 0.16s ease;
+}
+
+.sidenav.is-collapsed {
+  padding: 10px 6px 10px;
+}
+
+.nav-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.nav-head .nav-label {
+  margin-bottom: 0;
+}
+
+.nav-collapse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink-4);
+  cursor: pointer;
+}
+
+.nav-collapse:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.sidenav.is-collapsed .nav-head {
+  justify-content: center;
 }
 
 .nav-label {
@@ -373,6 +426,30 @@
   font-size: 12px;
   letter-spacing: 0.04em;
   color: var(--ink-4);
+}
+
+.sidenav.is-collapsed .nav-list {
+  gap: 2px;
+}
+
+.sidenav.is-collapsed .nav-item {
+  justify-content: center;
+  padding: 0;
+}
+
+.sidenav.is-collapsed .nav-badge {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.sidenav.is-collapsed .nav-version {
+  display: none;
 }
 
 .content {

@@ -15,7 +15,7 @@ import {
   type Session,
   type UpdateProjectInput,
 } from './services/api'
-import { SkeletonRows, Toast } from './components/ui'
+import { Icon, SkeletonRows, Toast, type IconName } from './components/ui'
 import { AssetsView } from './components/AssetsView'
 import { CasesView } from './components/CasesView'
 import { InboxView } from './components/InboxView'
@@ -34,31 +34,37 @@ const MODULES: Array<{
   key: ModuleKey
   label: string
   index: string
+  icon: IconName
 }> = [
   {
     key: 'assets',
     label: '需求与接口',
     index: '01',
+    icon: 'book',
   },
   {
     key: 'cases',
     label: '用例覆盖',
     index: '02',
+    icon: 'layers',
   },
   {
     key: 'inbox',
     label: '待审判',
     index: '03',
+    icon: 'shield',
   },
   {
     key: 'runs',
     label: '运行证据',
     index: '04',
+    icon: 'play',
   },
   {
     key: 'defects',
     label: '缺陷库',
     index: '05',
+    icon: 'bug',
   },
 ]
 
@@ -75,6 +81,16 @@ const INITIAL_NAV: NavState = {
   exchangeIndex: 0,
   findingId: '',
   defectId: '',
+}
+
+const NAV_COLLAPSED_KEY = 'ai-test-workbench:nav-collapsed'
+
+function readNavCollapsed(): boolean {
+  try {
+    return localStorage.getItem(NAV_COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
 }
 
 interface ToastState {
@@ -175,6 +191,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [session, setSession] = useState<Session | null>(null)
+  const [navCollapsed, setNavCollapsed] = useState(readNavCollapsed)
   const [authChecking, setAuthChecking] = useState(true)
   const [loginLoading, setLoginLoading] = useState(false)
   const [loginError, setLoginError] = useState('')
@@ -267,6 +284,18 @@ export default function App() {
 
   const navigate = useCallback((patch: Partial<NavState>) => {
     setNav((prev) => ({ ...prev, ...patch }))
+  }, [])
+
+  const toggleNavCollapsed = useCallback(() => {
+    setNavCollapsed((value) => {
+      const next = !value
+      try {
+        localStorage.setItem(NAV_COLLAPSED_KEY, next ? '1' : '0')
+      } catch {
+        // 存储不可用时只保留本次会话状态。
+      }
+      return next
+    })
   }, [])
 
   const refreshProjectData = useCallback(async (projectId: string) => {
@@ -521,7 +550,7 @@ export default function App() {
   const canManageProject = activeProject?.role === 'admin'
 
   return (
-    <div className="app">
+    <div className={`app ${navCollapsed ? 'is-nav-collapsed' : ''}`}>
       <header className="topbar">
         <div className="brand">
           <div className="brand-copy">
@@ -574,8 +603,19 @@ export default function App() {
       </header>
 
       <div className="app-body">
-        <aside className="sidenav">
-          <div className="nav-label">工作台</div>
+        <aside className={`sidenav ${navCollapsed ? 'is-collapsed' : ''}`}>
+          <div className="nav-head">
+            {!navCollapsed && <span className="nav-label">工作台</span>}
+            <button
+              type="button"
+              className="nav-collapse"
+              aria-label={navCollapsed ? '展开工作台导航' : '收起工作台导航'}
+              title={navCollapsed ? '展开工作台导航' : '收起工作台导航'}
+              onClick={toggleNavCollapsed}
+            >
+              <Icon name="panelLeft" size={15} />
+            </button>
+          </div>
           <nav className="nav-list">
             {MODULES.map((item) => {
               const badge =
@@ -589,10 +629,20 @@ export default function App() {
                   key={item.key}
                   type="button"
                   className={`nav-item ${nav.module === item.key ? 'is-active' : ''}`}
+                  aria-label={item.label}
+                  title={navCollapsed ? item.label : undefined}
                   onClick={() => navigate({ module: item.key })}
                 >
-                  <span className="nav-index">{item.index}</span>
-                  <span className="nav-text">{item.label}</span>
+                  {navCollapsed ? (
+                    <span className="nav-icon">
+                      <Icon name={item.icon} size={17} />
+                    </span>
+                  ) : (
+                    <>
+                      <span className="nav-index">{item.index}</span>
+                      <span className="nav-text">{item.label}</span>
+                    </>
+                  )}
                   {badge > 0 && <span className="nav-badge">{badge}</span>}
                 </button>
               )
