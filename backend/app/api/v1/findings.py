@@ -45,7 +45,7 @@ def list_findings(
     )
 
 
-@router.get("/{finding_id}", response_model=FindingDetailOut)
+@router.get("/{finding_id}", response_model=FindingDetailOut, deprecated=True)
 def get_finding(
     project_id: UUID,
     finding_id: str,

@@ -12,7 +12,7 @@ from app.services.audit import audit_logs_page
 router = APIRouter(prefix="/projects/{project_id}/audit", tags=["review"])
 
 
-@router.get("", response_model=AuditListOut)
+@router.get("", response_model=AuditListOut, deprecated=True)
 def list_audit_logs(
     project_id: UUID,
     entity_type: str | None = Query(default=None, alias="entityType"),

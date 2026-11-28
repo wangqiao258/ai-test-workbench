@@ -1,11 +1,15 @@
 import argparse
 import getpass
+import json
 import sys
+from collections import Counter
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from uuid import UUID
 
 from sqlalchemy import select
 
+from app.core.config import get_settings
 from app.core.deps import ISSUABLE_TOKEN_SCOPES
 from app.core.secrets import encrypt_secret
 from app.core.security import generate_api_token, hash_password
@@ -15,6 +19,17 @@ from app.db.session import SessionLocal
 from app.schemas.project import ProjectEntry
 
 ROLES = ("viewer", "tester", "reviewer", "admin")
+
+# 待下线端点：只做标记与统计，不改变业务行为。
+DEPRECATED_ROUTES: dict[tuple[str, str], str] = {
+    ("GET", "/projects/{project_id}/summary"): "前端未调用，待真实访问数据确认",
+    ("GET", "/projects/{project_id}/audit"): "前端未调用，待确认是否保留全局审计查询",
+    ("GET", "/projects/{project_id}/runs/{run_ref}"): "前端未调用，列表接口已包含同等字段",
+    (
+        "GET",
+        "/projects/{project_id}/findings/{finding_id}",
+    ): "前端未调用，列表与 ingest bundle 已覆盖",
+}
 
 
 def _fail(message: str) -> None:
@@ -121,6 +136,66 @@ def cmd_create_token(args: argparse.Namespace) -> None:
             print(f"过期时间：{expires_at.isoformat()}")
 
 
+def _iter_access_records(paths: list[Path]):
+    for path in paths:
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(record, dict):
+                yield record
+
+
+def cmd_usage_report(args: argparse.Namespace) -> None:
+    log_path = Path(get_settings().access_log_path).expanduser()
+    files = sorted(log_path.parent.glob(log_path.name + "*"))
+    if not files:
+        _fail(f"访问日志不存在：{log_path}")
+
+    since = datetime.now(timezone.utc) - timedelta(days=args.days)
+    counts: Counter[tuple[str, str]] = Counter()
+    last_seen: dict[tuple[str, str], str] = {}
+    route_totals: Counter[str] = Counter()
+    total = 0
+    for record in _iter_access_records(files):
+        if not args.include_testclient and record.get("client") == "testclient":
+            continue
+        raw_ts = str(record.get("ts") or "")
+        try:
+            when = datetime.fromisoformat(raw_ts)
+        except ValueError:
+            continue
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        if when < since:
+            continue
+        total += 1
+        key = (str(record.get("method") or ""), str(record.get("route") or ""))
+        counts[key] += 1
+        last_seen[key] = max(last_seen.get(key, ""), raw_ts)
+        route_totals[key[1]] += 1
+
+    scope_note = "（含 testclient）" if args.include_testclient else "（已排除 testclient）"
+    print(f"统计窗口：最近 {args.days} 天{scope_note}")
+    print(f"总请求：{total}")
+    print("\n待下线端点：")
+    for (method, route), reason in DEPRECATED_ROUTES.items():
+        hits = counts.get((method, route), 0)
+        last = last_seen.get((method, route), "-")
+        print(f"  {method:6s} {route:55s} {hits:5d} 次  最近 {last}  {reason}")
+    if args.top:
+        print(f"\n访问量 Top {args.top}：")
+        for route, hits in route_totals.most_common(args.top):
+            print(f"  {hits:5d}  {route}")
+    if total == 0:
+        print("\n没有可用的真实访问记录。部署后收集 2–4 周再重跑本报告。")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="manage", description="AI 协同测试工作台后端管理命令")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -160,6 +235,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="可重复指定；默认全部细分权限。写权限自动包含对应读权限",
     )
     p.set_defaults(func=cmd_create_token)
+
+    p = sub.add_parser("usage-report", help="统计访问日志，评估待下线端点的真实使用量")
+    p.add_argument("--days", type=int, default=30, help="统计最近多少天，默认 30")
+    p.add_argument("--top", type=int, default=10, help="额外输出访问量前 N 的路由，0 表示不输出")
+    p.add_argument(
+        "--include-testclient",
+        action="store_true",
+        help="包含自动化测试流量（默认排除 client=testclient）",
+    )
+    p.set_defaults(func=cmd_usage_report)
 
     return parser
 

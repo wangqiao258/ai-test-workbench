@@ -42,7 +42,7 @@ def list_runs(
     return runs_page(db, project_id, page, page_size)
 
 
-@router.get("/{run_ref}", response_model=RunOut)
+@router.get("/{run_ref}", response_model=RunOut, deprecated=True)
 def get_run(
     project_id: UUID,
     run_ref: str,

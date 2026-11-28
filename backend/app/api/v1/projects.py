@@ -78,7 +78,7 @@ def delete_project(
     db.commit()
 
 
-@router.get("/{project_id}/summary", response_model=SummaryOut)
+@router.get("/{project_id}/summary", response_model=SummaryOut, deprecated=True)
 def project_summary(
     project_id: UUID,
     _: ProjectMember = Depends(get_membership),
