@@ -10,9 +10,10 @@ const STATUS_LABELS: Record<ProjectToken['status'], string> = {
   expired: '已过期',
 }
 
-const buildAiPrompt = (secret: string) =>
-  `你正在接入 AI Test Workbench。\n先读取能力：curl -s -H "X-Project-Token: ${secret}" ${window.location.origin}/ingest/v1/whoami\n` +
-  `然后按返回的 project、rules、actions 执行；接口与需求走 /ingest/v1/*。\n文档：${window.location.origin}/ingest/docs\n注意：这是长期令牌，请勿粘贴到不可信的 AI 对话或公开日志。`
+const buildAiPrompt = (secret: string, scopes: string[]) =>
+  `你正在接入 AI Test Workbench。\n先读取能力：curl -s -H "X-Project-Token: ${secret}" ${window.location.origin}/ingest/v1/whoami\n本令牌权限：${scopes.join('、') || '未知'}。` +
+  `${scopes.length > 0 && scopes.every((s) => s.startsWith('assets:')) ? '这是资产令牌：只做需求/OpenAPI/接口检索，不要读取运行、发现、缺陷，不要上传运行或分析，不要读取测试凭据。' : '只执行 scopes 覆盖的动作，无权限的直接跳过。'}` +
+  `以 whoami 返回的 scopes 为准。\n然后按返回的 project、rules、actions 执行；接口与需求走 /ingest/v1/*。\n文档：${window.location.origin}/ingest/docs\n注意：这是长期令牌，请勿粘贴到不可信的 AI 对话或公开日志。`
 
 interface Props {
   projectId: string
@@ -246,7 +247,6 @@ export function ProjectTokensSection({ projectId }: Props) {
         </button>
       </div>
       {preset && <p className="token-hint">{preset.hint}</p>}
-
       {created && (
         <div className="token-secret">
           <div className="token-secret-head">
@@ -315,7 +315,7 @@ export function ProjectTokensSection({ projectId }: Props) {
                       type="button"
                       className="btn btn-ghost btn-xs"
                       title="复制内容包含长期令牌，请勿粘贴到不可信的 AI 对话或公开日志"
-                      onClick={() => void copy('ai-row', buildAiPrompt(token.token ?? ''), token.id)}
+                      onClick={() => void copy('ai-row', buildAiPrompt(token.token ?? '', token.scopes), token.id)}
                     >
                       <Icon name={copiedRow === `${token.id}:ai` ? 'check' : 'copy'} size={13} />
                       {copiedRow === `${token.id}:ai` ? '已复制' : '复制给 AI'}
