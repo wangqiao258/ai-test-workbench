@@ -603,7 +603,10 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         payload = {
             "version": 2,
-            "note": "零容忍基线：任何架构违规都会导致 CI 失败。修复后无需改动此文件；禁止使用 --update-baseline 重新放宽。",
+            "note": (
+                "零容忍基线：任何架构违规都会导致 CI 失败。"
+                "修复后无需改动此文件；禁止用 --update-baseline 重新放宽。"
+            ),
             "counts": report.metrics,
             "suppressions": report.suppressions,
         }
