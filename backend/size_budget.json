@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "note": "体量预算只能下调。删除代码后执行 --update-budget 收紧；禁止调大。",
+  "budget": {
+    "backend_app_loc": 8981,
+    "backend_app_files": 90,
+    "frontend_src_loc": 9837,
+    "frontend_styles_loc": 5279,
+    "v1_endpoints": 53,
+    "ingest_endpoints": 28,
+    "public_functions": 206,
+    "test_files": 14,
+    "test_functions": 64
+  },
+  "unused_endpoints": [
+    "/projects/*/audit",
+    "/projects/*/findings/*",
+    "/projects/*/runs/*",
+    "/projects/*/summary"
+  ]
+}
