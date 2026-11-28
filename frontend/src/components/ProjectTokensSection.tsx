@@ -10,6 +10,10 @@ const STATUS_LABELS: Record<ProjectToken['status'], string> = {
   expired: '已过期',
 }
 
+const buildAiPrompt = (secret: string) =>
+  `你正在接入 AI Test Workbench。\n先读取能力：curl -s -H "X-Project-Token: ${secret}" ${window.location.origin}/ingest/v1/whoami\n` +
+  `然后按返回的 project、rules、actions 执行；接口与需求走 /ingest/v1/*。\n文档：${window.location.origin}/ingest/docs\n注意：这是长期令牌，请勿粘贴到不可信的 AI 对话或公开日志。`
+
 interface Props {
   projectId: string
 }
@@ -26,7 +30,7 @@ export function ProjectTokensSection({ projectId }: Props) {
     token: ProjectToken
     secret: string
   } | null>(null)
-  const [copied, setCopied] = useState<'token' | 'curl' | ''>('')
+  const [copied, setCopied] = useState<'token' | ''>('')
   const [copiedRow, setCopiedRow] = useState('')
   const [revokeId, setRevokeId] = useState<string | null>(null)
   const [revoking, setRevoking] = useState(false)
@@ -69,9 +73,6 @@ export function ProjectTokensSection({ projectId }: Props) {
   )
   const activeCount = tokens.filter((token) => token.status === 'active').length
   const inactiveCount = tokens.length - activeCount
-  const curl = created
-    ? `curl -H "X-Project-Token: ${created.secret}" ${window.location.origin}/ingest/v1/whoami`
-    : ''
 
   const create = async () => {
     if (creating) return
@@ -102,24 +103,21 @@ export function ProjectTokensSection({ projectId }: Props) {
     }
   }
 
-  const copy = async (kind: 'token' | 'curl', text: string) => {
+  const copy = async (
+    kind: 'token' | 'row' | 'ai-row',
+    text: string,
+    rowId = '',
+  ) => {
     const ok = await copyText(text)
-    if (ok) {
-      setCopied(kind)
-      setError('')
-    } else {
+    if (!ok) {
       setError('复制失败，请手动选择令牌明文')
+      return
     }
-  }
-
-  const copyRow = async (token: ProjectToken) => {
-    if (!token.token) return
-    const ok = await copyText(token.token)
-    if (ok) {
-      setCopiedRow(token.id)
-      setError('')
+    setError('')
+    if (kind === 'row' || kind === 'ai-row') {
+      setCopiedRow(`${rowId}${kind === 'ai-row' ? ':ai' : ''}`)
     } else {
-      setError('复制失败，请手动选择令牌明文')
+      setCopied('token')
     }
   }
 
@@ -195,7 +193,7 @@ export function ProjectTokensSection({ projectId }: Props) {
           <p>
             调用 <code>/ingest/v1</code> 时放入{' '}
             <code>X-Project-Token</code> 请求头，每个客户端单独一枚；
-            令牌明文保存在设置页，可随时查看复制。
+            令牌明文保存在设置页，可随时复制；复制给 AI 会带入长期令牌，请勿粘贴到不可信对话。
           </p>
         </div>
         <div className="token-head-actions">
@@ -265,16 +263,7 @@ export function ProjectTokensSection({ projectId }: Props) {
               <Icon name={copied === 'token' ? 'check' : 'copy'} size={13} />
               {copied === 'token' ? '已复制' : '复制令牌'}
             </button>
-            <button
-              type="button"
-              className="btn btn-ghost btn-xs"
-              onClick={() => void copy('curl', curl)}
-            >
-              <Icon name={copied === 'curl' ? 'check' : 'copy'} size={13} />
-              {copied === 'curl' ? '已复制' : '复制 curl'}
-            </button>
           </div>
-          <pre className="token-curl">{curl}</pre>
         </div>
       )}
 
@@ -313,14 +302,25 @@ export function ProjectTokensSection({ projectId }: Props) {
               </div>
               <div className="token-row-actions">
                 {token.token && (
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-xs"
-                    onClick={() => void copyRow(token)}
-                  >
-                    <Icon name={copiedRow === token.id ? 'check' : 'copy'} size={13} />
-                    {copiedRow === token.id ? '已复制' : '复制'}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs"
+                      onClick={() => void copy('row', token.token ?? '')}
+                    >
+                      <Icon name={copiedRow === token.id ? 'check' : 'copy'} size={13} />
+                      {copiedRow === token.id ? '已复制' : '复制令牌'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs"
+                      title="复制内容包含长期令牌，请勿粘贴到不可信的 AI 对话或公开日志"
+                      onClick={() => void copy('ai-row', buildAiPrompt(token.token ?? ''), token.id)}
+                    >
+                      <Icon name={copiedRow === `${token.id}:ai` ? 'check' : 'copy'} size={13} />
+                      {copiedRow === `${token.id}:ai` ? '已复制' : '复制给 AI'}
+                    </button>
+                  </>
                 )}
                 <span className={`token-status token-status-${token.status}`}>
                   {STATUS_LABELS[token.status]}
