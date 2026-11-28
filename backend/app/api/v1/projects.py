@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_membership, require_role
@@ -8,6 +8,8 @@ from app.db.models.identity import AppUser, ProjectMember
 from app.db.session import get_db
 from app.schemas.project import ProjectCreateIn, ProjectOut, ProjectUpdateIn
 from app.schemas.query import SummaryOut
+from app.schemas.review import AuditListOut
+from app.services.audit import audit_logs_page
 from app.services.projects import (
     create_project as create_project_service,
 )
@@ -85,3 +87,23 @@ def project_summary(
     db: Session = Depends(get_db),
 ) -> SummaryOut:
     return project_summary_service(db, project_id)
+
+
+@router.get("/{project_id}/audit", response_model=AuditListOut, deprecated=True)
+def list_audit_logs(
+    project_id: UUID,
+    entity_type: str | None = Query(default=None, alias="entityType"),
+    entity_id: str | None = Query(default=None, alias="entityId"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    _: ProjectMember = Depends(get_membership),
+    db: Session = Depends(get_db),
+) -> AuditListOut:
+    return audit_logs_page(
+        db,
+        project_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        page=page,
+        page_size=page_size,
+    )

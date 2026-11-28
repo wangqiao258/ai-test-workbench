@@ -4,6 +4,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError
+from app.core.secrets import decrypt_secret
+from app.core.time import utcnow
 from app.db.models.analysis import Finding
 from app.db.models.case import TestCase
 from app.db.models.identity import ProjectMember
@@ -12,6 +14,7 @@ from app.db.models.review import Defect
 from app.db.models.run import Run
 from app.schemas.project import ProjectCreateIn, ProjectOut, ProjectUpdateIn
 from app.schemas.query import SummaryOut
+from app.schemas.secret import SecretOut
 from app.services.audit import record_audit
 from app.services.runs import run_out
 
@@ -111,14 +114,29 @@ def delete_project(db: Session, project: Project, actor_user_id: uuid.UUID) -> N
     db.delete(project)
 
 
-def list_project_secrets(db: Session, project_id: uuid.UUID) -> list[ProjectSecret]:
-    return list(
+def list_project_secret_outs(
+    db: Session, project_id: uuid.UUID, *, include_value: bool = False
+) -> list[SecretOut]:
+    items = list(
         db.scalars(
             select(ProjectSecret)
             .where(ProjectSecret.project_id == project_id)
             .order_by(ProjectSecret.key)
         )
     )
+    now = utcnow()
+    return [
+        SecretOut(
+            key=item.key,
+            description=item.description,
+            expires_at=item.expires_at,
+            last_used_at=item.last_used_at,
+            updated_at=item.updated_at,
+            expired=item.expires_at is not None and item.expires_at <= now,
+            value=decrypt_secret(item.value_ciphertext) if include_value else None,
+        )
+        for item in items
+    ]
 
 
 def project_summary(db: Session, project_id: uuid.UUID) -> SummaryOut:

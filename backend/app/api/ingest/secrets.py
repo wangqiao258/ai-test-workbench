@@ -9,7 +9,7 @@ from app.db.models.project import Project, ProjectSecret
 from app.db.session import get_db
 from app.schemas.secret import SecretOut, SecretResolveIn, SecretResolveOut
 from app.services.audit import record_audit
-from app.services.projects import list_project_secrets
+from app.services.projects import list_project_secret_outs
 
 router = APIRouter(prefix="/secrets", tags=["ingest"])
 
@@ -19,19 +19,7 @@ def list_secrets(
     project: Project = Depends(require_token_scope(SCOPE_SECRETS_READ)),
     db: Session = Depends(get_db),
 ) -> list[SecretOut]:
-    items = list_project_secrets(db, project.id)
-    now = utcnow()
-    return [
-        SecretOut(
-            key=item.key,
-            description=item.description,
-            expires_at=item.expires_at,
-            last_used_at=item.last_used_at,
-            updated_at=item.updated_at,
-            expired=item.expires_at is not None and item.expires_at <= now,
-        )
-        for item in items
-    ]
+    return list_project_secret_outs(db, project.id)
 
 
 @router.post("/resolve", response_model=SecretResolveOut)

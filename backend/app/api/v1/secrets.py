@@ -7,14 +7,14 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_membership, require_role
 from app.core.errors import ApiError
-from app.core.secrets import decrypt_secret, encrypt_secret
+from app.core.secrets import encrypt_secret
 from app.core.time import utcnow
 from app.db.models.identity import ProjectMember
 from app.db.models.project import ProjectSecret
 from app.db.session import get_db
 from app.schemas.secret import SecretOut, SecretUpsertIn, normalize_secret_key
 from app.services.audit import record_audit
-from app.services.projects import list_project_secrets
+from app.services.projects import list_project_secret_outs
 
 router = APIRouter(prefix="/projects/{project_id}/secrets", tags=["secrets"])
 
@@ -39,9 +39,7 @@ def list_secrets(
     _: ProjectMember = Depends(get_membership),
     db: Session = Depends(get_db),
 ) -> list[SecretOut]:
-    items = list_project_secrets(db, project_id)
-    now = utcnow()
-    return [_out(item, now, decrypt_secret(item.value_ciphertext)) for item in items]
+    return list_project_secret_outs(db, project_id, include_value=True)
 
 
 @router.put("/{key}", response_model=SecretOut)

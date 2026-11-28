@@ -57,6 +57,17 @@ def _token_out(token: ApiToken, now: datetime) -> TokenOut:
     )
 
 
+def _load_token(db: Session, project_id: UUID, token_id: UUID) -> ApiToken:
+    token = db.scalar(
+        select(ApiToken).where(
+            ApiToken.id == token_id, ApiToken.project_id == project_id
+        )
+    )
+    if token is None:
+        raise ApiError(404, "token_not_found", "令牌不存在")
+    return token
+
+
 @router.get("", response_model=list[TokenOut])
 def list_tokens(
     project_id: UUID,
@@ -158,13 +169,7 @@ def revoke_token(
     member: ProjectMember = Depends(ADMIN_ONLY),
     db: Session = Depends(get_db),
 ) -> None:
-    token = db.scalar(
-        select(ApiToken).where(
-            ApiToken.id == token_id, ApiToken.project_id == project_id
-        )
-    )
-    if token is None:
-        raise ApiError(404, "token_not_found", "令牌不存在")
+    token = _load_token(db, project_id, token_id)
     if token.revoked_at is not None:
         return
 
@@ -188,13 +193,7 @@ def purge_token(
     member: ProjectMember = Depends(ADMIN_ONLY),
     db: Session = Depends(get_db),
 ) -> None:
-    token = db.scalar(
-        select(ApiToken).where(
-            ApiToken.id == token_id, ApiToken.project_id == project_id
-        )
-    )
-    if token is None:
-        raise ApiError(404, "token_not_found", "令牌不存在")
+    token = _load_token(db, project_id, token_id)
     if _status(token, utcnow()) == "active":
         raise ApiError(409, "token_active", "有效令牌需先吊销后再删除")
 

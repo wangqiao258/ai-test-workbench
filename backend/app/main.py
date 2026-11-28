@@ -20,7 +20,7 @@ from app.api.ingest import requirements as ingest_requirements
 from app.api.ingest import secrets as ingest_secrets
 from app.api.v1 import agent_rules as project_agent_rules
 from app.api.v1 import assets as asset_queries
-from app.api.v1 import audit, auth, cases, defects, findings, meta, projects, tokens
+from app.api.v1 import auth, cases, defects, findings, meta, projects, tokens
 from app.api.v1 import runs as run_queries
 from app.api.v1 import secrets as project_secrets
 from app.api.v1 import specs as spec_management
@@ -53,7 +53,6 @@ app.include_router(spec_management.router, prefix="/api/v1")
 app.include_router(asset_queries.router, prefix="/api/v1")
 app.include_router(findings.router, prefix="/api/v1")
 app.include_router(defects.router, prefix="/api/v1")
-app.include_router(audit.router, prefix="/api/v1")
 app.include_router(whoami.router, prefix="/ingest/v1")
 app.include_router(review_read.router, prefix="/ingest/v1")
 app.include_router(ingest_actions.router, prefix="/ingest/v1")
