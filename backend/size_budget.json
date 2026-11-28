@@ -9,8 +9,10 @@
     "v1_endpoints": 53,
     "ingest_endpoints": 28,
     "public_functions": 206,
+    "backend_scripts_loc": 258,
+    "backend_plugin_loc": 491,
     "test_files": 14,
-    "test_functions": 64
+    "test_functions": 65
   },
   "unused_endpoints": [
     "/projects/*/audit",
