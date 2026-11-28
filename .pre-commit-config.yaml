@@ -1,0 +1,10 @@
+# 架构门禁：提交前本地拦截，避免把违规推到 CI
+repos:
+  - repo: local
+    hooks:
+      - id: arch-gate
+        name: arch-gate
+        entry: python backend/tests/architecture/arch_rules.py --root backend --baseline backend/arch_baseline.json
+        language: system
+        pass_filenames: false
+        always_run: true

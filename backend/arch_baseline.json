@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "note": "基线只能下调。--update-baseline 仅在修复后收紧使用。",
+  "counts": {
+    "ARCH005": 10,
+    "ARCH006": 7,
+    "ARCH001": 2,
+    "ARCH002": 0,
+    "ARCH003": 0,
+    "ARCH004": 0,
+    "ARCH007": 11,
+    "ARCH008": 4,
+    "ARCH009": 0,
+    "ARCH900": 0,
+    "ARCH901": 0,
+    "suppressions": 0
+  },
+  "suppressions": []
+}

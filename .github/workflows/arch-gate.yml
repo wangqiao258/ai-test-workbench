@@ -1,0 +1,36 @@
+name: Architecture Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: arch-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  arch-gate:
+    name: 架构约束
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 检查器是纯 AST 分析，不需要安装项目依赖
+      - name: 检查器自检
+        run: python tests/architecture/selftest.py
+
+      - name: 架构约束校验（棘轮）
+        run: python tests/architecture/arch_rules.py --root . --baseline arch_baseline.json

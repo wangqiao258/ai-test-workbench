@@ -5,3 +5,6 @@ Thumbs.db
 # runtime logs
 logs/
 backend/logs/
+
+# 架构门禁自检夹具（用完即删，不应提交）
+.arch_selftest_work/
