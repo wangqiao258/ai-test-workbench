@@ -3,12 +3,18 @@
 from collections import defaultdict
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.db.models.asset import CaseOperationMarker, OpenApiDoc, Operation, Requirement
 from app.db.models.case import CaseRequirementMarker, TestCase
-from app.schemas.query import OpenApiDocOut, OperationOut, RequirementOut
+from app.schemas.query import (
+    OpenApiDocOut,
+    OperationOut,
+    OperationSummaryListOut,
+    OperationSummaryOut,
+    RequirementOut,
+)
 
 
 def _requirement_case_map(db: Session, project_id: UUID) -> dict[str, list[str]]:
@@ -209,4 +215,93 @@ def openapi_doc_out_one(db: Session, project_id: UUID, doc: OpenApiDoc) -> OpenA
             operation_out(item, doc, case_map, tested_requirement_map)
             for item in operations
         ],
+    )
+
+
+def _operation_summary(item: Operation, doc_id: str) -> OperationSummaryOut:
+    params = item.params or []
+    body = item.request_body or []
+    statuses = sorted(
+        {
+            response.get("status")
+            for response in (item.responses or [])
+            if isinstance(response.get("status"), int)
+        }
+    )
+    return OperationSummaryOut(
+        id=item.external_id,
+        doc_id=doc_id,
+        method=item.method,
+        path=item.path,
+        summary=item.summary,
+        tag=item.tag,
+        description_preview=" ".join((item.description or "").split())[:200],
+        required_params=[
+            {
+                "name": param.get("name", ""),
+                "in": param.get("in", ""),
+                "type": param.get("type", ""),
+            }
+            for param in params
+            if param.get("required")
+        ],
+        optional_param_count=sum(1 for param in params if not param.get("required")),
+        request_body_fields=[
+            {
+                "name": field.get("name", ""),
+                "type": field.get("type", ""),
+                "required": bool(field.get("required")),
+            }
+            for field in body[:10]
+        ],
+        request_body_field_count=len(body),
+        response_statuses=statuses,
+    )
+
+
+def operations_page(
+    db: Session,
+    project_id: UUID,
+    *,
+    tag: str | None = None,
+    q: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> OperationSummaryListOut:
+    conditions = [Operation.project_id == project_id]
+    if tag:
+        conditions.append(Operation.tag == tag)
+    if q:
+        like = f"%{q}%"
+        conditions.append(
+            or_(
+                Operation.path.ilike(like),
+                Operation.summary.ilike(like),
+                Operation.external_id.ilike(like),
+            )
+        )
+
+    total = db.scalar(select(func.count(Operation.id)).where(*conditions)) or 0
+    doc_ids = dict(
+        db.execute(
+            select(OpenApiDoc.id, OpenApiDoc.external_id).where(
+                OpenApiDoc.project_id == project_id
+            )
+        ).all()
+    )
+    rows = db.scalars(
+        select(Operation)
+        .where(*conditions)
+        .order_by(Operation.tag, Operation.path, Operation.external_id)
+        .offset(offset)
+        .limit(limit)
+    ).all()
+    next_offset = offset + limit if offset + limit < total else None
+    return OperationSummaryListOut(
+        items=[
+            _operation_summary(item, doc_ids.get(item.doc_id, str(item.doc_id)))
+            for item in rows
+        ],
+        total=total,
+        next_offset=next_offset,
     )

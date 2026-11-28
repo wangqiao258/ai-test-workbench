@@ -15,7 +15,7 @@ from app.core.config import get_settings
 from app.core.errors import ApiError
 from app.core.time import utcnow
 from app.db.models.case import TestCase
-from app.services.case_markers import replace_requirement_markers
+from app.services.operations import replace_requirement_markers
 from pytest_workbench.metadata import extract_marker_metadata
 
 _ALLOWED_SUFFIXES = {".yaml", ".yml"}

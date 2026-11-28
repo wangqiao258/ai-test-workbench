@@ -1,17 +1,22 @@
 import uuid
+from urllib.parse import quote
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.errors import ApiError
+from app.core.security import create_ai_ticket
 from app.core.time import utcnow
 from app.db.models.analysis import Finding
 from app.db.models.asset import CaseOperationMarker, Operation
 from app.db.models.project import Project
 from app.db.models.review import Defect, DefectEvent, Judgment
 from app.db.models.run import Exchange, Run, RunCase
+from app.schemas.agent import AiTicketOut
 from app.schemas.review import DefectDecisionOut, DefectOut, FindingOut, JudgeOut
 from app.services.audit import record_audit
+from app.services.lookups import load_by_external_id, load_by_number
 from app.services.operations import compile_path
 
 DEFECT_TRANSITIONS: dict[str, set[str]] = {
@@ -31,6 +36,76 @@ VERDICT_STATUS = {
 
 def actor_name(display_name: str | None, email: str | None) -> str:
     return display_name or email or "系统"
+
+
+def load_finding(db: Session, project_id: uuid.UUID, finding_id: str) -> Finding:
+    return load_by_external_id(
+        db,
+        Finding,
+        project_id,
+        finding_id,
+        error_code="finding_not_found",
+        message="AI finding 不存在",
+    )
+
+
+def load_defect(db: Session, project_id: uuid.UUID, defect_id: str) -> Defect:
+    return load_by_number(
+        db,
+        Defect,
+        project_id,
+        defect_id,
+        error_code="defect_not_found",
+        message="缺陷不存在",
+    )
+
+
+def _ai_ticket(
+    project_id: uuid.UUID,
+    *,
+    kind: str,
+    resource_id: str,
+    run_ref: str | None,
+    nodeid: str | None,
+) -> AiTicketOut:
+    ttl = get_settings().ai_ticket_ttl_minutes
+    ticket, expires_at = create_ai_ticket(
+        project_id=project_id,
+        resource=f"{kind}:{resource_id}",
+        run_ref=run_ref,
+        nodeid=nodeid,
+        ttl_minutes=ttl,
+    )
+    return AiTicketOut(
+        url=(
+            f"/ingest/v1/{kind}/{quote(resource_id, safe='')}"
+            f"?ticket={quote(ticket, safe='')}"
+        ),
+        expires_at=expires_at,
+        ttl_seconds=ttl * 60,
+    )
+
+
+def finding_ai_ticket(db: Session, finding: Finding) -> AiTicketOut:
+    run = db.get(Run, finding.run_id)
+    return _ai_ticket(
+        finding.project_id,
+        kind="findings",
+        resource_id=finding.external_id,
+        run_ref=run.external_id if run is not None else None,
+        nodeid=finding.nodeid,
+    )
+
+
+def defect_ai_ticket(db: Session, defect: Defect) -> AiTicketOut:
+    run = db.get(Run, defect.run_id) if defect.run_id is not None else None
+    return _ai_ticket(
+        defect.project_id,
+        kind="defects",
+        resource_id=defect.number,
+        run_ref=run.external_id if run is not None else None,
+        nodeid=defect.nodeid or None,
+    )
 
 
 def can_transition(from_status: str, to_status: str) -> bool:

@@ -29,6 +29,7 @@ from app.services.asset_views import (
 )
 from app.services.assets import (
     get_operation,
+    load_openapi_doc,
     load_requirement,
     upsert_openapi,
     upsert_requirements,
@@ -37,17 +38,6 @@ from app.services.audit import record_audit
 from app.services.openapi_import import OpenApiParseError, parse_openapi_document
 
 router = APIRouter(prefix="/projects/{project_id}", tags=["assets"])
-
-
-def _get_doc(db: Session, project_id: UUID, doc_id: str) -> OpenApiDoc:
-    doc = db.scalar(
-        select(OpenApiDoc).where(
-            OpenApiDoc.project_id == project_id, OpenApiDoc.external_id == doc_id
-        )
-    )
-    if doc is None:
-        raise ApiError(404, "openapi_doc_not_found", "OpenAPI 文档不存在")
-    return doc
 
 
 # ---------- 查询 ----------
@@ -88,7 +78,7 @@ def get_openapi_doc(
     _: ProjectMember = Depends(get_membership),
     db: Session = Depends(get_db),
 ) -> OpenApiDocOut:
-    return openapi_doc_out_one(db, project_id, _get_doc(db, project_id, doc_id))
+    return openapi_doc_out_one(db, project_id, load_openapi_doc(db, project_id, doc_id))
 
 
 # ---------- 需求写入 ----------
@@ -197,7 +187,7 @@ def upsert_openapi_doc(
         raise ApiError(422, "empty_docs", "至少导入一份 OpenAPI 文档")
     result = upsert_openapi(db, project_id, payload)
     last = payload.docs[-1].external_id
-    doc = _get_doc(db, project_id, last)
+    doc = load_openapi_doc(db, project_id, last)
     record_audit(
         db,
         project_id,
@@ -232,7 +222,7 @@ def import_openapi_doc(
         raise ApiError(422, "openapi_parse_failed", str(exc)) from exc
 
     result = upsert_openapi(db, project_id, OpenApiBatchIn(docs=[doc_in]))
-    doc = _get_doc(db, project_id, doc_in.external_id)
+    doc = load_openapi_doc(db, project_id, doc_in.external_id)
     record_audit(
         db,
         project_id,
@@ -296,7 +286,7 @@ def update_openapi_doc(
     ),
     db: Session = Depends(get_db),
 ) -> OpenApiDocOut:
-    doc = _get_doc(db, project_id, doc_id)
+    doc = load_openapi_doc(db, project_id, doc_id)
     updates = payload.model_dump(exclude_unset=True, exclude_none=True)
     if "title" in updates and not str(updates["title"]).strip():
         raise ApiError(422, "invalid_title", "文档标题不能为空")
@@ -328,7 +318,7 @@ def delete_openapi_doc(
     ),
     db: Session = Depends(get_db),
 ) -> None:
-    doc = _get_doc(db, project_id, doc_id)
+    doc = load_openapi_doc(db, project_id, doc_id)
     operation_ids = list(
         db.scalars(select(Operation.external_id).where(Operation.doc_id == doc.id))
     )

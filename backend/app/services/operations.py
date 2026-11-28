@@ -6,7 +6,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.db.models.asset import CaseOperationMarker, Operation
-from app.db.models.case import TestCase
+from app.db.models.case import CaseRequirementMarker, TestCase
 from app.db.models.run import Exchange, RunCase
 
 _PLACEHOLDER = re.compile(r"(\{[^}]+\})")
@@ -77,3 +77,34 @@ def rebuild_case_operation_markers(
             marker_count += 1
     db.flush()
     return marker_count
+
+
+def replace_requirement_markers(
+    db: Session,
+    project_id: uuid.UUID,
+    case_id: uuid.UUID,
+    requirements: list[str],
+) -> int:
+    """用用例上的 requirement marks 覆盖 marker 来源的关联，保留人工关联。"""
+    wanted = [item.strip() for item in requirements if item.strip()]
+    wanted_set = set(wanted)
+    existing = {
+        marker.requirement_external_id: marker
+        for marker in db.scalars(
+            select(CaseRequirementMarker).where(CaseRequirementMarker.case_id == case_id)
+        )
+    }
+    for requirement_id in dict.fromkeys(wanted):
+        if requirement_id not in existing:
+            db.add(
+                CaseRequirementMarker(
+                    project_id=project_id,
+                    case_id=case_id,
+                    requirement_external_id=requirement_id,
+                    source="marker",
+                )
+            )
+    for requirement_id, marker in existing.items():
+        if marker.source == "marker" and requirement_id not in wanted_set:
+            db.delete(marker)
+    return len(wanted_set)

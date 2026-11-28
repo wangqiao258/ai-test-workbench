@@ -21,9 +21,11 @@ from app.schemas.ingest import (
     RunIngestIn,
     RunIngestOut,
 )
-from app.services.case_markers import replace_requirement_markers
 from app.services.har import normalized_path
-from app.services.operations import rebuild_case_operation_markers
+from app.services.operations import (
+    rebuild_case_operation_markers,
+    replace_requirement_markers,
+)
 from app.services.storage import LocalStorage
 
 BODY_INLINE_LIMIT = 64 * 1024

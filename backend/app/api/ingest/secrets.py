@@ -9,7 +9,7 @@ from app.db.models.project import Project, ProjectSecret
 from app.db.session import get_db
 from app.schemas.secret import SecretOut, SecretResolveIn, SecretResolveOut
 from app.services.audit import record_audit
-from app.services.project_secrets import list_project_secrets
+from app.services.projects import list_project_secrets
 
 router = APIRouter(prefix="/secrets", tags=["ingest"])
 

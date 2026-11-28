@@ -3,34 +3,44 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.errors import ApiError
 from app.core.time import utcnow
 from app.db.models.asset import OpenApiDoc, Operation, Requirement
 from app.schemas.asset import OpenApiBatchIn, OpenApiIngestOut, RequirementBatchIn
+from app.services.lookups import load_by_external_id
 from app.services.operations import rebuild_case_operation_markers
 
 
 def get_operation(db: Session, project_id: uuid.UUID, external_id: str) -> Operation:
-    operation = db.scalar(
-        select(Operation).where(
-            Operation.project_id == project_id, Operation.external_id == external_id
-        )
+    return load_by_external_id(
+        db,
+        Operation,
+        project_id,
+        external_id,
+        error_code="operation_not_found",
+        message="接口不存在",
     )
-    if operation is None:
-        raise ApiError(404, "operation_not_found", "接口不存在")
-    return operation
 
 
 def load_requirement(db: Session, project_id: uuid.UUID, external_id: str) -> Requirement:
-    requirement = db.scalar(
-        select(Requirement).where(
-            Requirement.project_id == project_id,
-            Requirement.external_id == external_id,
-        )
+    return load_by_external_id(
+        db,
+        Requirement,
+        project_id,
+        external_id,
+        error_code="requirement_not_found",
+        message="需求不存在",
     )
-    if requirement is None:
-        raise ApiError(404, "requirement_not_found", "需求不存在")
-    return requirement
+
+
+def load_openapi_doc(db: Session, project_id: uuid.UUID, external_id: str) -> OpenApiDoc:
+    return load_by_external_id(
+        db,
+        OpenApiDoc,
+        project_id,
+        external_id,
+        error_code="openapi_doc_not_found",
+        message="OpenAPI 文档不存在",
+    )
 
 
 def upsert_requirements(

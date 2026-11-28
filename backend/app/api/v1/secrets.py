@@ -14,7 +14,7 @@ from app.db.models.project import ProjectSecret
 from app.db.session import get_db
 from app.schemas.secret import SecretOut, SecretUpsertIn, normalize_secret_key
 from app.services.audit import record_audit
-from app.services.project_secrets import list_project_secrets
+from app.services.projects import list_project_secrets
 
 router = APIRouter(prefix="/projects/{project_id}/secrets", tags=["secrets"])
 

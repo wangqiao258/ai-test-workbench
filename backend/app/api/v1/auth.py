@@ -2,13 +2,13 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.v1.projects import list_project_outs
 from app.core.deps import get_current_user
 from app.core.errors import ApiError
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.models.identity import AppUser
 from app.db.session import get_db
 from app.schemas.auth import ChangePasswordIn, LoginIn, LoginOut, MeOut, UserOut
+from app.services.projects import list_project_outs
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

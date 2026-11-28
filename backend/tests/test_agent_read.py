@@ -12,8 +12,8 @@ from app.core.security import (
 )
 from app.db.models.asset import Operation
 from app.main import app
-from app.services.agent_views import _safe_headers, _truncate
 from app.services.review import match_operation_id
+from app.services.runs import redact_sensitive_headers, truncate_text
 
 
 def test_agent_review_paths_are_read_only_and_token_protected() -> None:
@@ -34,8 +34,8 @@ def test_agent_review_paths_are_read_only_and_token_protected() -> None:
 
 
 def test_agent_body_truncation_and_header_redaction() -> None:
-    assert _truncate("abcdef", 3) == "abc\n…（已截断，原文 6 字符）"
-    headers = _safe_headers(
+    assert truncate_text("abcdef", 3) == "abc\n…（已截断，原文 6 字符）"
+    headers = redact_sensitive_headers(
         [
             {"name": "Authorization", "value": "Bearer secret"},
             {"name": "Accept", "value": "application/json"},
