@@ -18,7 +18,7 @@
 | 改局部变量名 | 同上 → 计数不降 |
 | 把重复代码挪到第三个文件 | 参与重复的函数数**增加** → 更糟 |
 | `# arch: ignore` 批量消音 | 缺 `reason=` / `until=` 直接报错；有到期日，过期即失败 |
-| 调大 `arch_baseline.json` | 基线只允许下调；`--update-baseline` 会打印警告 |
+| 调大 `arch_baseline.json` | `--update-baseline` 直接拒绝写入并返回 1 |
 
 ## 规则表
 
@@ -36,17 +36,27 @@
 | ARCH900 | 基线被调大 |
 | ARCH901 | 抑制注释无理由 / 无到期日 / 已过期 |
 
-## 棘轮怎么用
+## 零容忍模式（当前配置）
 
-`arch_baseline.json` 记录**当前违规数**。CI 要求实际数 `<=` 基线数。
+`arch_baseline.json` 全部为 **0**。含义：
 
-- 新违规 → CI 失败
-- 修掉违规 → 必须跑 `--update-baseline` 把基线收紧，否则基线虚高、后面可以偷偷加回来
+- **任何一条架构违规都会让 CI 立即失败**，没有存量豁免
+- 修好之后无需改基线（它已经是 0，没有下调空间）
+- `--update-baseline` 已禁用调大：只要检测到任何规则数量上升，直接拒绝写入并返回 1
 
-```bash
-cd backend
-python tests/architecture/arch_rules.py --root . --baseline arch_baseline.json --update-baseline
-```
+也就是说，想让 CI 变绿，**只能真的把代码改对**，不存在"改个数字"的捷径。
+
+当前待修（34 处，全部为存量）：
+
+| 规则 | 数量 | 主要位置 |
+|---|---|---|
+| ARCH001 | 2 | `api/v1/auth.py` → `projects`；`api/v1/projects.py` → `runs` |
+| ARCH005 | 10 | `_load_finding`/`_load_defect` 跨 API 面重复；`runs.py` 与 `agent_views.py` 三个函数重复 |
+| ARCH006 | 7 | 7 个函数同一结构（`_load_*` / `get_*` 模板） |
+| ARCH007 | 11 | 最重为 `projects.py:150 project_summary`（14 次查询调用） |
+| ARCH008 | 4 | `services/projects.py`(13行)、`project_secrets.py`(16行) 等薄壳 |
+
+修完一类后跑一次校验确认数量下降即可，不需要动基线文件。
 
 ## 临时抑制
 
@@ -56,3 +66,5 @@ def legacy_thing():  # arch: ignore rule=ARCH001 reason=等 v0.3 合并路由 un
 ```
 
 三个字段缺一不可，且 `until` 过期后 CI 会失败。
+
+注意：抑制注释会让 ARCH901 计数上升，零容忍模式下同样会导致 CI 失败。零容忍模式与抑制机制互斥 —— 如需抑制，必须同时调整基线，这相当于一次显式的、可审计的决策。

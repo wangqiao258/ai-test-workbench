@@ -593,9 +593,17 @@ def main(argv: list[str] | None = None) -> int:
             for rule, value in report.metrics.items()
             if value > old_counts.get(rule, 0)
         }
+        if grew:
+            # 基线只允许下调。调大基线等于给违规开后门，
+            # 会让"必须修好"退化成"改个数字就好"，因此直接拒绝。
+            print("拒绝写入：以下规则基线被调大。基线只允许下调。")
+            for rule, (before, after) in grew.items():
+                print(f"  {rule}: {before} -> {after}")
+            print("\n请先把这些违规真正修掉，再重新执行 --update-baseline。")
+            return 1
         payload = {
-            "version": 1,
-            "note": "基线只能下调。--update-baseline 仅在修复后收紧使用。",
+            "version": 2,
+            "note": "零容忍基线：任何架构违规都会导致 CI 失败。修复后无需改动此文件；禁止使用 --update-baseline 重新放宽。",
             "counts": report.metrics,
             "suppressions": report.suppressions,
         }
@@ -603,10 +611,6 @@ def main(argv: list[str] | None = None) -> int:
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
         print(f"baseline written -> {baseline_path}")
-        if grew:
-            print("警告：以下规则基线被调大，请在 PR 说明理由：")
-            for rule, (before, after) in grew.items():
-                print(f"  {rule}: {before} -> {after}")
         return 0
 
     baseline = load_baseline(baseline_path)
