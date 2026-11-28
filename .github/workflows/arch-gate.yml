@@ -16,9 +16,8 @@ jobs:
   arch-gate:
     name: 架构约束
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
+    # 关键：从仓库根执行。ARCH009 需要同时看到 frontend/ 和 backend/，
+    # 若 working-directory 设为 backend，root/frontend 不存在 -> 静默 return -> 恒为 0。
     steps:
       - uses: actions/checkout@v7
         with:
@@ -30,7 +29,7 @@ jobs:
 
       # 检查器是纯 AST 分析，不需要安装项目依赖
       - name: 检查器自检
-        run: python tests/architecture/selftest.py
+        run: python backend/tests/architecture/selftest.py
 
       - name: 架构约束校验（棘轮）
-        run: python tests/architecture/arch_rules.py --root . --baseline arch_baseline.json
+        run: python backend/tests/architecture/arch_rules.py --root . --baseline backend/arch_baseline.json

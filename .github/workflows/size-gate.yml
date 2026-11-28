@@ -11,43 +11,43 @@ on:
 permissions:
   contents: read
 
-defaults:
-  run:
-    working-directory: backend
-
 jobs:
   size-gate:
     name: 体量门禁
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       # 先验门禁本身没坏。门禁静默失效比没有门禁更危险。
       - name: 门禁自检
-        run: python tests/architecture/size_selftest.py
+        run: python backend/tests/architecture/size_selftest.py
 
       - name: 体量预算检查
-        run: python tests/architecture/size_rules.py --root . --budget size_budget.json
+        run: python backend/tests/architecture/size_rules.py --root . --budget backend/size_budget.json
 
       # 体量下降时提示收紧预算，避免预算长期虚高失去约束力。
       - name: 提示收紧预算
         if: success()
         run: |
-          python tests/architecture/size_rules.py --root . --budget size_budget.json --json > /tmp/size.json || true
+          python backend/tests/architecture/size_rules.py --root . --budget backend/size_budget.json --json > /tmp/size.json || true
           python - <<'PY'
           import json, pathlib
           data = json.loads(pathlib.Path("/tmp/size.json").read_text())
           m, b = data["metrics"], data["budget"]
-          slack = {k: b[k] - m[k] for k in b if k in m and b[k] > m[k] and k not in ("test_files", "test_functions")}
+          slack = {
+              k: b[k] - m[k]
+              for k in b
+              if k in m and b[k] > m[k] and k not in ("test_files", "test_functions")
+          }
           if slack:
               print("以下预算项已偏松，可在本次提交中收紧：")
               for k, v in sorted(slack.items(), key=lambda x: -x[1]):
                   print(f"  {k}: 实测 {m[k]}，预算 {b[k]}（余量 {v}）")
-              print("\n收紧方式：python tests/architecture/size_rules.py --root . --budget size_budget.json --update-budget")
+              print("\n收紧方式：python backend/tests/architecture/size_rules.py --root . --budget backend/size_budget.json --update-budget")
           else:
               print("预算与实测一致。")
           PY

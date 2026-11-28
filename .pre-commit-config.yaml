@@ -4,7 +4,21 @@ repos:
     hooks:
       - id: arch-gate
         name: arch-gate
-        entry: python backend/tests/architecture/arch_rules.py --root backend --baseline backend/arch_baseline.json
+        # 从仓库根执行：ARCH009 需要同时看到 frontend/ 与 backend/
+        entry: python backend/tests/architecture/arch_rules.py --root . --baseline backend/arch_baseline.json
         language: system
         pass_filenames: false
         always_run: true
+
+      - id: size-gate
+        name: size-gate
+        entry: python backend/tests/architecture/size_rules.py --root . --budget backend/size_budget.json
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: ruff
+        name: ruff
+        entry: ruff check backend
+        language: system
+        pass_filenames: false
