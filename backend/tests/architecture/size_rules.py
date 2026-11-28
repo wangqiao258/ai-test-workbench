@@ -33,6 +33,10 @@ BUDGET_KEYS: dict[str, tuple[str, str]] = {
     "v1_endpoints": ("SIZE005", "/api/v1 端点数量"),
     "ingest_endpoints": ("SIZE006", "/ingest/v1 端点数量"),
     "public_functions": ("SIZE007", "backend/app 模块级公开函数数量"),
+    # 生产代码不止 app/：scripts 与 pytest_workbench 同样是会被"顺手加功能"的地方。
+    # 只统计 app/ 会留下绕过口子（实测有人在此新增 258 行而未触发门禁）。
+    "backend_scripts_loc": ("SIZE012", "backend/scripts 代码行数"),
+    "backend_plugin_loc": ("SIZE013", "backend/pytest_workbench 代码行数"),
     # 反向保护：测试只允许增加。删测试不能算作"减量"，
     # 否则可以用删掉安全网的方式让体量指标变好看。
     "test_files": ("SIZE008", "测试文件数量（只允许增加）"),
@@ -215,6 +219,9 @@ def measure(root: Path) -> dict:
         text = path.read_text(encoding="utf-8", errors="replace")
         test_functions += len(re.findall(r"^\s*def test_", text, re.M))
 
+    script_files = list(_walk(backend / "scripts", (".py",)))
+    plugin_files = list(_walk(backend / "pytest_workbench", (".py",)))
+
     metrics = {
         "backend_app_loc": sum(_count_lines(p) for p in app_files),
         "backend_app_files": len(app_files),
@@ -223,6 +230,8 @@ def measure(root: Path) -> dict:
         "v1_endpoints": len(v1),
         "ingest_endpoints": len(ingest),
         "public_functions": public_functions,
+        "backend_scripts_loc": sum(_count_lines(p) for p in script_files),
+        "backend_plugin_loc": sum(_count_lines(p) for p in plugin_files),
         "test_files": len(test_files),
         "test_functions": test_functions,
     }
@@ -266,6 +275,25 @@ def compare_with_budget(data: dict, budget: dict) -> list[Problem]:
     problems: list[Problem] = []
     limits = budget.get("budget", {})
     metrics = data["metrics"]
+
+    # 预算文件缺项 -> 该项等于失去约束。必须报错，否则删掉一个键就能绕过门禁。
+    missing = [key for key in BUDGET_KEYS if key not in limits]
+    if not budget:
+        problems.append(
+            Problem(
+                "SIZE014",
+                "未找到 size_budget.json，体量门禁无约束",
+                "请先生成预算：python tests/architecture/size_rules.py --update-budget",
+            )
+        )
+    elif missing:
+        problems.append(
+            Problem(
+                "SIZE014",
+                f"预算文件缺少 {len(missing)} 个必需项：{', '.join(sorted(missing))}",
+                "删掉预算项等于放弃该项约束。请执行 --update-budget 补齐。",
+            )
+        )
 
     for key, (rule, label) in BUDGET_KEYS.items():
         limit = limits.get(key)
@@ -347,7 +375,10 @@ def main(argv: list[str] | None = None) -> int:
         grew = {}
         shrank_bad = {}
         for key, value in metrics.items():
-            before = old_limits.get(key, 0)
+            # 旧预算里没有这一项 -> 属于"新增预算项"（门禁升级），不算调大
+            if key not in old_limits:
+                continue
+            before = old_limits[key]
             if key in MUST_NOT_DECREASE:
                 if value < before:
                     shrank_bad[key] = (before, value)
