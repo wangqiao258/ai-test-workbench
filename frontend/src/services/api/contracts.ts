@@ -31,6 +31,7 @@ export interface BackendProjectEntry {
 }
 
 export interface BackendProject {
+  bogusFieldXyz: string;
   id: string
   name: string
   entries: BackendProjectEntry[]
