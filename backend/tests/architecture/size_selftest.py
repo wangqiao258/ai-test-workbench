@@ -96,6 +96,18 @@ def make_repo(root: Path) -> Path:
         "def test_two() -> None:\n"
         "    assert True\n",
     )
+    write(
+        root,
+        "backend/scripts/manage.py",
+        "def main() -> int:\n"
+        "    return 0\n",
+    )
+    write(
+        root,
+        "backend/pytest_workbench/plugin.py",
+        "def pytest_configure(config):\n"
+        "    return None\n",
+    )
     return root
 
 
@@ -224,6 +236,67 @@ def t_first_time_update_works() -> None:
     rc = size.main(["--root", str(root), "--budget", str(budget), "--update-budget"])
     assert rc == 0, f"首次生成预算应成功，实得 {rc}"
     assert budget.is_file(), "预算文件未生成"
+
+
+def t_scripts_and_plugin_counted() -> None:
+    """scripts/ 与 pytest_workbench/ 也属生产代码。
+
+    只统计 backend/app 会留下绕过口子：在 scripts/ 里加功能不会触发任何预算项。
+    实测在真实仓库中发生过（新增 258 行 manage.py 而门禁全绿）。
+    """
+    root = make_repo(_fresh())
+    m = size.measure(root)["metrics"]
+    # manage.py: "def main() -> int:" + "    return 0" = 2 行
+    assert m["backend_scripts_loc"] == 2, f"scripts 行数应为 2，实得 {m['backend_scripts_loc']}"
+    assert m["backend_plugin_loc"] == 2, f"plugin 行数应为 2，实得 {m['backend_plugin_loc']}"
+
+
+def t_scripts_growth_blocked() -> None:
+    root = make_repo(_fresh())
+    data = size.measure(root)
+    limits = dict(data["metrics"])
+    limits["backend_scripts_loc"] = 0
+    problems = size.compare_with_budget(data, {"budget": limits})
+    assert any(p.rule == "SIZE012" for p in problems), "scripts 增长未被拦截"
+
+
+def t_plugin_growth_blocked() -> None:
+    root = make_repo(_fresh())
+    data = size.measure(root)
+    limits = dict(data["metrics"])
+    limits["backend_plugin_loc"] = 0
+    problems = size.compare_with_budget(data, {"budget": limits})
+    assert any(p.rule == "SIZE013" for p in problems), "plugin 增长未被拦截"
+
+
+def t_missing_budget_key_blocked() -> None:
+    """删掉预算文件里的某个键 = 放弃该项约束，必须报错。"""
+    root = make_repo(_fresh())
+    data = size.measure(root)
+    limits = dict(data["metrics"])
+    limits.pop("backend_app_loc")
+    problems = size.compare_with_budget(data, {"budget": limits})
+    assert any(p.rule == "SIZE014" for p in problems), "缺失预算项未被拦截"
+
+
+def t_missing_budget_file_blocked() -> None:
+    root = make_repo(_fresh())
+    data = size.measure(root)
+    problems = size.compare_with_budget(data, {})
+    assert any(p.rule == "SIZE014" for p in problems), "预算文件缺失未被拦截"
+
+
+def t_new_budget_key_allowed() -> None:
+    """门禁升级新增预算项时，不应被"只许下调"挡住。"""
+    root = make_repo(_fresh())
+    budget = root / "size_budget.json"
+    metrics = size.measure(root)["metrics"]
+    old = {k: v for k, v in metrics.items() if k not in ("backend_scripts_loc", "backend_plugin_loc")}
+    budget.write_text(json.dumps({"budget": old}), encoding="utf-8")
+    rc = size.main(["--root", str(root), "--budget", str(budget), "--update-budget"])
+    assert rc == 0, f"补齐新增预算项应成功，实得 {rc}"
+    after = json.loads(budget.read_text(encoding="utf-8"))
+    assert "backend_scripts_loc" in after["budget"], "新增项未写入"
 
 
 def t_json_output_is_parseable() -> None:
