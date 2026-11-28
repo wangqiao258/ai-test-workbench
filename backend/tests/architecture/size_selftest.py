@@ -6,7 +6,10 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -19,6 +22,20 @@ import size_rules as size  # noqa: E402
 FAILED: list[str] = []
 PASSED: list[str] = []
 _CASE_SEQ = [0]
+
+
+@contextlib.contextmanager
+def local_env():
+    """临时清掉 CI 标记，模拟开发者本地环境。
+
+    size_rules 在 CI 环境下拒绝 --update-budget（防止洗预算）。但自检必须能
+    测到 --update-budget 本身的行为，否则在 CI 里自检会被自己的保护逻辑挡住。
+    """
+    saved = {k: os.environ.pop(k) for k in ("CI", "GITHUB_ACTIONS") if k in os.environ}
+    try:
+        yield
+    finally:
+        os.environ.update(saved)
 
 
 def write(root: Path, rel: str, content: str) -> None:
@@ -209,7 +226,8 @@ def t_update_budget_rejects_growth() -> None:
         json.dumps({"budget": {k: 0 for k in size.BUDGET_KEYS}}), encoding="utf-8"
     )
     before = budget.read_text(encoding="utf-8")
-    rc = size.main(["--root", str(root), "--budget", str(budget), "--update-budget"])
+    with local_env():
+        rc = size.main(["--root", str(root), "--budget", str(budget), "--update-budget"])
     assert rc == 1, f"调大预算应返回 1，实得 {rc}"
     assert budget.read_text(encoding="utf-8") == before, "被拒绝时不应改写预算文件"
 
@@ -222,7 +240,8 @@ def t_update_budget_allows_shrink() -> None:
     for k in size.BUDGET_KEYS:
         generous[k] = 1 if k in size.MUST_NOT_DECREASE else 9999
     budget.write_text(json.dumps({"budget": generous}), encoding="utf-8")
-    rc = size.main(["--root", str(root), "--budget", str(budget), "--update-budget"])
+    with local_env():
+        rc = size.main(["--root", str(root), "--budget", str(budget), "--update-budget"])
     assert rc == 0, f"收紧预算应成功，实得 {rc}"
     after = json.loads(budget.read_text(encoding="utf-8"))
     assert after["budget"]["v1_endpoints"] == 2, "预算未按实测收紧"
@@ -233,7 +252,8 @@ def t_first_time_update_works() -> None:
     root = make_repo(_fresh())
     budget = root / "size_budget.json"
     assert not budget.exists()
-    rc = size.main(["--root", str(root), "--budget", str(budget), "--update-budget"])
+    with local_env():
+        rc = size.main(["--root", str(root), "--budget", str(budget), "--update-budget"])
     assert rc == 0, f"首次生成预算应成功，实得 {rc}"
     assert budget.is_file(), "预算文件未生成"
 
@@ -293,7 +313,8 @@ def t_new_budget_key_allowed() -> None:
     metrics = size.measure(root)["metrics"]
     old = {k: v for k, v in metrics.items() if k not in ("backend_scripts_loc", "backend_plugin_loc")}
     budget.write_text(json.dumps({"budget": old}), encoding="utf-8")
-    rc = size.main(["--root", str(root), "--budget", str(budget), "--update-budget"])
+    with local_env():
+        rc = size.main(["--root", str(root), "--budget", str(budget), "--update-budget"])
     assert rc == 0, f"补齐新增预算项应成功，实得 {rc}"
     after = json.loads(budget.read_text(encoding="utf-8"))
     assert "backend_scripts_loc" in after["budget"], "新增项未写入"
@@ -302,9 +323,8 @@ def t_new_budget_key_allowed() -> None:
 def t_json_output_is_parseable() -> None:
     root = make_repo(_fresh())
     budget = root / "size_budget.json"
-    size.main(["--root", str(root), "--budget", str(budget), "--update-budget"])
-    import contextlib
-    import io
+    with local_env():
+        size.main(["--root", str(root), "--budget", str(budget), "--update-budget"])
 
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
