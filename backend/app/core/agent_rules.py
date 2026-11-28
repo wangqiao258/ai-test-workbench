@@ -5,7 +5,7 @@ from app.core.frameworks import AD_HOC_FRAMEWORK, KNOWN_FRAMEWORKS
 DEFAULT_RULES: tuple[str, ...] = (
     "测试入口见 project.entries（名称、地址、备注，可能是页面或接口）；"
     "接口地址以 OpenAPI 文档 server、实际请求或有效 HAR 为准，不要用入口地址直接拼接 operation.path",
-    "动作需要参数或请求体时先读 action.detail，不要猜",
+    "动作需要参数或请求体先读 action.detail，不要猜；requirements/next 默认处理返回条目，勿问总数或全量读取",
     "按 actions 顺序执行；需求与接口关联由测试请求自动建立",
     "已测接口优先复用，未覆盖的再按 tag / q 检索",
     "摘要只用于选接口，生成用例前必须读 /operations/{id} 详情",
