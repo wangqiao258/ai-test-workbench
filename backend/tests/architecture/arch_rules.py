@@ -22,7 +22,9 @@ import argparse
 import ast
 import copy
 import datetime
+import hashlib
 import json
+import os
 import re
 import sys
 from collections import defaultdict
@@ -551,17 +553,93 @@ def run_checks(root: Path) -> Report:
     return report
 
 
+# counts 里除规则外还记的度量项（不是规则，不参与棘轮）。
+_METRIC_KEYS = {"suppressions"}
+
+LOCK_SUFFIX = ".lock"
+
+
+class BaselineError(Exception):
+    """基线不可用。缺失/损坏/缺键/含未知键都必须失败，不能让棘轮静默失效。"""
+
+
 def load_baseline(path: Path) -> dict:
+    """加载基线，任何异常都抛 BaselineError 由 main() 转成 ARCH014。
+
+    历史实现缺失时返回 {}，compare_with_baseline 遍历空 dict，
+    棘轮彻底失效且退出码为 0 —— 这是最危险的失效模式，必须 fail-closed。
+    """
     if not path.is_file():
-        return {}
-    return json.loads(path.read_text(encoding="utf-8"))
+        raise BaselineError(f"基线文件不存在：{path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise BaselineError(f"基线文件不是合法 JSON：{path}（{exc}）") from exc
+    if not isinstance(payload, dict):
+        raise BaselineError(f"基线文件顶层必须是对象：{path}")
+    counts = payload.get("counts")
+    if not isinstance(counts, dict):
+        raise BaselineError(f"基线文件缺少 counts 对象：{path}")
+    missing = sorted(rule for rule in RULES if rule not in counts)
+    if missing:
+        raise BaselineError(
+            f"基线文件缺少 {len(missing)} 条规则：{', '.join(missing)}。"
+            "删掉一条规则的键等于放弃该规则的约束。"
+        )
+    extra = sorted(k for k in counts if k not in RULES and k not in _METRIC_KEYS)
+    if extra:
+        raise BaselineError(
+            f"基线文件含未知键：{', '.join(extra)}。"
+            "规则已重命名或删除，请执行 --update-baseline 重建。"
+        )
+    return payload
+
+
+def baseline_digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def check_lock(path: Path) -> None:
+    """校验基线未被手改。
+
+    只靠 compare_with_baseline 无法区分"基线本来就是 0"和"有人把 1 改成 99"。
+    lock 记录基线的 sha256，任何手改都会让哈希对不上。
+
+    CI 里 lock 缺失必须失败：否则"删 lock + 改基线数字"会让本函数自动重建
+    lock 并放行，指纹锁等于不存在。本地允许首次生成。
+    """
+    lock_path = path.with_name(path.name + LOCK_SUFFIX)
+    actual = baseline_digest(path)
+    in_ci = bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
+    if not lock_path.is_file():
+        if in_ci:
+            raise BaselineError(
+                f"基线指纹文件不存在：{lock_path.name}。"
+                "CI 中不允许自动生成——否则删掉指纹文件即可绕过基线校验。"
+            )
+        lock_path.write_text(actual + "\n", encoding="utf-8")
+        print(f"已生成基线指纹：{lock_path.name}（请一并提交）")
+        return
+    expected = lock_path.read_text(encoding="utf-8").strip()
+    if actual != expected:
+        raise BaselineError(
+            f"基线文件指纹不匹配：{path.name} 已被手工修改。"
+            "基线只能通过 --update-baseline 变更（该命令会同时刷新指纹）。"
+        )
 
 
 def compare_with_baseline(report: Report, baseline: dict) -> list[str]:
     """棘轮：实际数不得超过基线；基线也不得被调大。"""
     problems: list[str] = []
     base_counts = baseline.get("counts", {})
-    for rule, base in base_counts.items():
+    # 遍历 RULES 全集而非 base_counts：基线缺键也不能放行。
+    for rule in RULES:
+        base = base_counts.get(rule)
+        if base is None:
+            problems.append(
+                f"[{rule}] 基线缺少该规则，棘轮无约束。请执行 --update-baseline。"
+            )
+            continue
         actual = report.metrics.get(rule, 0)
         if actual > base:
             problems.append(
@@ -586,7 +664,10 @@ def main(argv: list[str] | None = None) -> int:
     report = run_checks(root)
 
     if args.update_baseline:
-        old = load_baseline(baseline_path)
+        try:
+            old = load_baseline(baseline_path)
+        except BaselineError:
+            old = {}  # 首次生成或基线损坏时允许重建
         old_counts = old.get("counts", {})
         grew = {
             rule: (old_counts.get(rule, 0), value)
@@ -613,10 +694,24 @@ def main(argv: list[str] | None = None) -> int:
         baseline_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
+        lock_path = baseline_path.with_name(baseline_path.name + LOCK_SUFFIX)
+        lock_path.write_text(baseline_digest(baseline_path) + "\n", encoding="utf-8")
         print(f"baseline written -> {baseline_path}")
+        print(f"fingerprint written -> {lock_path.name}")
         return 0
 
-    baseline = load_baseline(baseline_path)
+    try:
+        baseline = load_baseline(baseline_path)
+        check_lock(baseline_path)
+    except BaselineError as exc:
+        print("== 基线不可用（ARCH014）==")
+        print(f"  {exc}")
+        print("\n基线是棘轮的输入。输入不可信时门禁必须失败，不能默认放行。")
+        print(
+            "重建方式："
+            "python backend/tests/architecture/arch_rules.py --root . --update-baseline"
+        )
+        return 1
     problems = compare_with_baseline(report, baseline)
 
     if args.json:

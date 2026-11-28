@@ -348,6 +348,14 @@ def main() -> int:
 
     _cleanup()
 
+    # 自检用例数下限：把 t_ 改名或删掉用例会让自检"通过 0 / 0"并返回 0，
+    # 那等于门禁被静默解除。宁可失败也不要假绿。
+    MIN_CASES = 20
+    if len(tests) < MIN_CASES:
+        print(f"自检用例数 {len(tests)} < {MIN_CASES}，自检被削弱。")
+        print("可执行用例：" + ", ".join(name for name, _ in tests))
+        return 1
+
     print(f"通过 {len(PASSED)} / {len(tests)}")
     if FAILED:
         print("\n失败：")

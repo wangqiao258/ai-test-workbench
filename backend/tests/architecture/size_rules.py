@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -217,7 +218,7 @@ def measure(root: Path) -> dict:
     test_functions = 0
     for path in test_files:
         text = path.read_text(encoding="utf-8", errors="replace")
-        test_functions += len(re.findall(r"^\s*def test_", text, re.M))
+        test_functions += len(re.findall(r"^\s*(?:async\s+)?def test_", text, re.M))
 
     script_files = list(_walk(backend / "scripts", (".py",)))
     plugin_files = list(_walk(backend / "pytest_workbench", (".py",)))
@@ -369,6 +370,13 @@ def main(argv: list[str] | None = None) -> int:
     metrics = data["metrics"]
 
     if args.update_budget:
+        # CI 里不允许生成预算：否则"删掉 size_budget.json 再 --update-budget"
+        # 就能把任意体量洗白（旧预算为空 -> 无对比基准 -> 直接写入新数字）。
+        in_ci = bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
+        if in_ci:
+            print("拒绝写入：CI 环境不允许生成/刷新预算文件。")
+            print("预算变更必须在本地执行 --update-budget 并提交 diff 供 review。")
+            return 1
         first_time = not budget_path.is_file()
         old = load_budget(budget_path)
         old_limits = old.get("budget", {})
@@ -397,12 +405,16 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"  {rule} {label}: {before} -> {after}")
             print("\n请先把体量真正降下来，再执行 --update-budget。")
             return 1
-        unused, _ = unused_endpoints(data, set())
+        # allowlist 只允许收缩：沿用旧条目、仅剔除已失效的。
+        # 自动把当前所有未调用端点写进白名单，等于一次操作吞掉全部 SIZE010 告警。
+        old_allow = set(old.get("unused_endpoints", []))
+        _, stale_now = unused_endpoints(data, old_allow)
+        kept_allow = sorted(old_allow - set(stale_now))
         payload = {
             "version": 1,
             "note": "体量预算只能下调。删除代码后执行 --update-budget 收紧；禁止调大。",
             "budget": metrics,
-            "unused_endpoints": sorted(normalize_path(ep.path) for ep in unused),
+            "unused_endpoints": kept_allow,
         }
         budget_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
